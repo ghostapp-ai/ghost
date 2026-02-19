@@ -110,9 +110,12 @@ export default function App() {
       <header className="shrink-0 px-5 pb-3">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-ghost-accent/20 flex items-center justify-center">
-              <span className="text-ghost-accent text-sm font-bold">G</span>
-            </div>
+            <img
+              src="/ghost-logo.svg"
+              alt="Ghost"
+              className="w-7 h-7 rounded-lg"
+              draggable={false}
+            />
             <h1 className="text-sm font-semibold text-ghost-text tracking-tight">
               Ghost
             </h1>

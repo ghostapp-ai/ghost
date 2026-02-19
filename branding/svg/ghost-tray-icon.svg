@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- System tray icon - simplified for small sizes, monochrome -->
+  <path d="M16 3C10.5 3 6 7.5 6 13v10c0 .7.3 1.2.9 1.2s1-.5 1-.9V21c0-.7.5-1.2 1.1-1.2s1.1.5 1.1 1.2v2.1c0 .7.3 1.2.9 1.2s1-.5 1-.9V21c0-.7.5-1.2 1.1-1.2s1.1.5 1.1 1.2v2.1c0 .7.3 1.2.9 1.2s1-.5 1-.9V21c0-.7.5-1.2 1.1-1.2s1.1.5 1.1 1.2v2.1c0 .7.3 1.2.9 1.2s1-.5 1-.9V13c0-5.5-4.5-10-10-10z"
+    fill="white"
+    opacity="0.9"
+  />
+  <ellipse cx="13" cy="14.2" rx="1.8" ry="2" fill="#0a0a14"/>
+  <ellipse cx="13.3" cy="13.7" rx=".7" ry=".8" fill="white" opacity="0.8"/>
+  <ellipse cx="19" cy="14.2" rx="1.8" ry="2" fill="#0a0a14"/>
+  <ellipse cx="19.3" cy="13.7" rx=".7" ry=".8" fill="white" opacity="0.8"/>
+</svg>

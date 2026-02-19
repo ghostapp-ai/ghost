@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="ghostGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c6df0"/>
+      <stop offset="50%" stop-color="#6c5ce7"/>
+      <stop offset="100%" stop-color="#5a4bd6"/>
+    </linearGradient>
+    <linearGradient id="ghostGradLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#7c6df0"/>
+    </linearGradient>
+    <radialGradient id="bgGrad" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#161626"/>
+      <stop offset="100%" stop-color="#0a0a14"/>
+    </radialGradient>
+    <radialGradient id="eyeGlow" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#e0e7ff"/>
+      <stop offset="100%" stop-color="#c7d2fe"/>
+    </radialGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.424  0 0 0 0 0.361  0 0 0 0 0.906  0 0 0 0.3 0" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="252" fill="url(#bgGrad)"/>
+  <circle cx="256" cy="256" r="251" fill="none" stroke="url(#ghostGrad)" stroke-width="2" opacity="0.3"/>
+
+  <!-- Ghost body -->
+  <path d="M256 100c-68 0-124 56-124 124v112c0 8 4 14 11 14s13-6 13-14v-22c0-8 6-14 14-14s14 6 14 14v22c0 8 4 14 11 14s13-6 13-14v-22c0-8 6-14 14-14s14 6 14 14v22c0 8 4 14 11 14s13-6 13-14v-22c0-8 6-14 14-14s14 6 14 14v22c0 8 4 14 11 14s13-6 13-14V224c0-68-56-124-124-124z"
+    fill="url(#ghostGrad)"
+    filter="url(#softGlow)"
+  />
+
+  <!-- Ghost body highlight -->
+  <path d="M256 100c-68 0-124 56-124 124v14c6-62 58-110 124-110s118 48 124 110v-14c0-68-56-124-124-124z"
+    fill="url(#ghostGradLight)"
+    opacity="0.35"
+  />
+
+  <!-- Left eye -->
+  <ellipse cx="220" cy="238" rx="19" ry="22" fill="#0a0a14"/>
+  <ellipse cx="223" cy="233" rx="8" ry="9" fill="url(#eyeGlow)"/>
+  <ellipse cx="224" cy="230" rx="4" ry="4" fill="white" opacity="0.9"/>
+
+  <!-- Right eye -->
+  <ellipse cx="292" cy="238" rx="19" ry="22" fill="#0a0a14"/>
+  <ellipse cx="295" cy="233" rx="8" ry="9" fill="url(#eyeGlow)"/>
+  <ellipse cx="296" cy="230" rx="4" ry="4" fill="white" opacity="0.9"/>
+</svg>

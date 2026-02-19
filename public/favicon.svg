@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none">
+  <defs>
+    <linearGradient id="fg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c6df0"/>
+      <stop offset="100%" stop-color="#5a4bd6"/>
+    </linearGradient>
+  </defs>
+  <!-- Simplified ghost for small sizes -->
+  <path d="M8 1C4.7 1 2 3.7 2 7v5.5c0 .4.2.7.5.7s.6-.3.6-.7V11c0-.4.3-.7.6-.7s.6.3.6.7v1.5c0 .4.2.7.5.7s.6-.3.6-.7V11c0-.4.3-.7.6-.7s.6.3.6.7v1.5c0 .4.2.7.5.7s.6-.3.6-.7V11c0-.4.3-.7.6-.7s.6.3.6.7v1.5c0 .4.2.7.5.7s.6-.3.6-.7V7c0-3.3-2.7-6-6-6z"
+    fill="url(#fg)"
+  />
+  <!-- Eyes simplified -->
+  <ellipse cx="6.2" cy="7.2" rx="1" ry="1.1" fill="#0a0a14"/>
+  <ellipse cx="6.5" cy="7" rx=".4" ry=".45" fill="#e0e7ff"/>
+  <ellipse cx="9.8" cy="7.2" rx="1" ry="1.1" fill="#0a0a14"/>
+  <ellipse cx="10.1" cy="7" rx=".4" ry=".45" fill="#e0e7ff"/>
+</svg>

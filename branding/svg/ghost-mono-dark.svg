@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Monochrome dark version for light backgrounds -->
+  <path d="M256 72c-84 0-152 68-152 152v140c0 10 5 18 14 18s16-8 16-18v-28c0-10 8-18 18-18s18 8 18 18v28c0 10 5 18 14 18s16-8 16-18v-28c0-10 8-18 18-18s18 8 18 18v28c0 10 5 18 14 18s16-8 16-18v-28c0-10 8-18 18-18s18 8 18 18v28c0 10 5 18 14 18s16-8 16-18V224c0-84-68-152-152-152z"
+    fill="#1a1a2e"
+  />
+  <ellipse cx="212" cy="232" rx="24" ry="28" fill="white"/>
+  <ellipse cx="216" cy="226" rx="10" ry="12" fill="#1a1a2e" opacity="0.7"/>
+  <ellipse cx="300" cy="232" rx="24" ry="28" fill="white"/>
+  <ellipse cx="304" cy="226" rx="10" ry="12" fill="#1a1a2e" opacity="0.7"/>
+</svg>
