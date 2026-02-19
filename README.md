@@ -128,7 +128,23 @@ The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Lay
 
 ## Getting Started
 
-### Prerequisites
+### Download & Install
+
+Download the latest release for your platform from [**GitHub Releases**](https://github.com/AngelAlexQC/ghost/releases/latest):
+
+| Platform | File | Notes |
+|----------|------|-------|
+| **Windows** (64-bit) | `ghost_x.x.x_x64-setup.exe` | NSIS installer, no admin required |
+| **macOS** (Apple Silicon) | `ghost_x.x.x_aarch64.dmg` | M1/M2/M3/M4 Macs |
+| **macOS** (Intel) | `ghost_x.x.x_x64.dmg` | Intel-based Macs |
+| **Linux** (64-bit) | `ghost_x.x.x_amd64.deb` | Debian/Ubuntu |
+| **Linux** (64-bit) | `ghost_x.x.x_amd64.AppImage` | Universal Linux |
+
+> **No external dependencies required.** Ghost ships with native AI inference — no Ollama, no GPU, no internet needed after installation.
+
+### Build from Source
+
+#### Prerequisites
 
 - [Rust](https://rustup.rs/) (latest stable)
 - [Node.js](https://nodejs.org/) >= 18 or [Bun](https://bun.sh/) >= 1.0
@@ -139,7 +155,7 @@ The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Lay
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-username/ghost.git
+git clone https://github.com/AngelAlexQC/ghost.git
 cd ghost
 
 # Install frontend dependencies

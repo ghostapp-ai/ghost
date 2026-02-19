@@ -460,3 +460,5 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-18 | Candle over Burn/ONNX for embeddings | Same org as HF Hub/tokenizers, mature BERT support, pure Rust |
 | 2026-02-18 | all-MiniLM-L6-v2 over nomic-embed-text for native | 384D vs 768D, 23MB vs 274MB, faster, no external deps |
 | 2026-02-18 | Fallback chain over hard Ollama dep | Ghost works offline/without Ollama, graceful degradation |
+| 2026-02-18 | GitHub Actions + tauri-action for CI/CD | Cross-platform builds (Win/Mac/Linux), automated releases on tag push |
+| 2026-02-18 | softprops/action-gh-release for releases | Mature, supports draft/prerelease, auto-attaches artifacts |

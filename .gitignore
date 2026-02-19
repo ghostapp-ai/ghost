@@ -22,3 +22,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Rust / Cargo
+src-tauri/target/
+**/*.rs.bk
+
+# Tauri build output
+src-tauri/gen/schemas
+
+# OS files
+Thumbs.db
+Desktop.ini
+.Spotlight-V100
+.Trashes

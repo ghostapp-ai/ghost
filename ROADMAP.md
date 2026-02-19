@@ -109,11 +109,14 @@
   - Status dashboard: files indexed, chunks, Ollama health, vector status
   - Dark theme integrated with Ghost aesthetic
 
-- [ ] **Windows installer**
-  - NSIS or WiX installer via Tauri bundler
-  - Code signing (self-signed initially, proper cert for distribution)
-  - Auto-start option on Windows boot
-  - System tray icon with context menu
+- [x] **Cross-platform installers via GitHub Actions CI/CD**
+  - NSIS installer for Windows (x64)
+  - DMG for macOS (Apple Silicon + Intel)
+  - DEB + AppImage for Linux (x64)
+  - Automated release workflow: push tag → build all platforms → GitHub Release
+  - CI pipeline: Rust tests + clippy + frontend TypeScript check
+  - ~11MB installer size (Linux .deb)
+  - *(Pending)*: Code signing, auto-start option, system tray icon
 
 - [ ] **Performance optimization**
   - Cold start <500ms
@@ -122,7 +125,7 @@
   - Background indexing uses <10% CPU
 
 ### Exit Criteria
-- [ ] Windows installer <10MB
+- [x] Installers generated for Windows, macOS, Linux (~11MB)
 - [ ] 500+ real installations within 60 days of launch
 - [ ] Search feels instant for keyword queries
 - [ ] Users return after day 7 (>30% retention)

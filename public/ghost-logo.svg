@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <linearGradient id="ghostGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#8b5cf6"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="56" fill="#0f0f23" stroke="url(#ghostGrad)" stroke-width="2"/>
+  <!-- Ghost body -->
+  <path d="M60 20c-18 0-32 14-32 32v30c0 2 1 4 3 4s4-2 4-4v-6c0-2 2-4 4-4s4 2 4 4v6c0 2 1 4 3 4s4-2 4-4v-6c0-2 2-4 4-4s4 2 4 4v6c0 2 1 4 3 4s4-2 4-4v-6c0-2 2-4 4-4s4 2 4 4v6c0 2 1 4 3 4s4-2 4-4V52c0-18-14-32-32-32z" fill="url(#ghostGrad)" opacity="0.9" filter="url(#glow)"/>
+  <!-- Left eye -->
+  <ellipse cx="48" cy="52" rx="5" ry="6" fill="#0f0f23"/>
+  <ellipse cx="49" cy="51" rx="2" ry="2.5" fill="#e0e7ff"/>
+  <!-- Right eye -->
+  <ellipse cx="72" cy="52" rx="5" ry="6" fill="#0f0f23"/>
+  <ellipse cx="73" cy="51" rx="2" ry="2.5" fill="#e0e7ff"/>
+</svg>

@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-22.04
+    outputs:
+      release_id: ${{ steps.create_release.outputs.id }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Ghost v${{ steps.version.outputs.version }}
+          body: |
+            ## Ghost v${{ steps.version.outputs.version }}
+
+            ### Installation
+
+            | Platform | Download |
+            |----------|----------|
+            | **Windows** (64-bit) | `ghost_${{ steps.version.outputs.version }}_x64-setup.exe` |
+            | **macOS** (Apple Silicon) | `ghost_${{ steps.version.outputs.version }}_aarch64.dmg` |
+            | **macOS** (Intel) | `ghost_${{ steps.version.outputs.version }}_x64.dmg` |
+            | **Linux** (64-bit .deb) | `ghost_${{ steps.version.outputs.version }}_amd64.deb` |
+            | **Linux** (64-bit .AppImage) | `ghost_${{ steps.version.outputs.version }}_amd64.AppImage` |
+
+            ### What's New
+            - See [ROADMAP.md](https://github.com/${{ github.repository }}/blob/main/ROADMAP.md) for progress details
+
+            ### Requirements
+            - No external dependencies required — Ghost includes native AI inference
+            - Optional: [Ollama](https://ollama.com/) for higher-quality 768D embeddings
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+
+  build-tauri:
+    name: Build (${{ matrix.label }})
+    needs: create-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Windows x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+          - label: macOS ARM64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+            bundles: dmg
+          - label: macOS x64
+            runner: macos-13
+            target: x86_64-apple-darwin
+            bundles: dmg
+          - label: Linux x64
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb,appimage
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          tauriScript: bun run tauri
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}

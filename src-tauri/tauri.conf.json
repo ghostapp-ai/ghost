@@ -30,6 +30,27 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "category": "Utility",
+    "shortDescription": "Private Local AI Superpowers for Your OS",
+    "longDescription": "Ghost is a private, local-first AI assistant that indexes your files, provides hybrid semantic + keyword search, and runs entirely on your machine. Zero telemetry, zero cloud dependencies.",
+    "copyright": "Copyright © 2026 Ghost Contributors",
+    "license": "MIT",
+    "licenseFile": "../LICENSE",
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": true,
+        "installMode": "currentUser"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],
+        "section": "utils"
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
   }
 }
