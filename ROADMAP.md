@@ -150,6 +150,23 @@
   - `CONTRIBUTING.md` + `SECURITY.md`
   - VS Code recommended extensions
 
+- [x] **Native chat engine (local LLM inference)**
+  - Hardware-aware model auto-selection based on CPU, RAM, GPU
+  - Model registry: Qwen2.5-Instruct GGUF family (0.5B/1.5B/3B/7B, Q4_K_M)
+  - Candle GGUF inference engine with ChatML prompt format
+  - Device selection: CPU (default), CUDA (feature flag), Metal (feature flag)
+  - Auto-download models from HuggingFace Hub on first use
+  - Zero-config flow: detect hardware → recommend model → background download → ready
+  - Settings overrides: model, device, max_tokens, temperature (all with serde defaults)
+  - Fallback chain: Native Candle → Ollama HTTP → None
+  - Chat UI: message bubbles, model status, loading states, error handling
+  - Debug panel: collapsible log viewer with pause/resume, clear, color-coded levels
+  - Tab system in App.tsx: Search and Chat modes with keyboard shortcuts (Ctrl+1/2)
+  - StatusBar with chat/model status indicator alongside existing AI/Vec indicators
+  - RAM detection: Linux (/proc/meminfo), macOS (sysctl+vm_stat), Windows (PowerShell)
+  - Per-request model reload for clean KV cache (no public clear method in quantized_qwen2)
+  - Background model loading via `tokio::spawn` in `.setup()` — doesn't block app startup
+
 - [ ] **Performance optimization**
   - Cold start <500ms
   - Search results <100ms for keyword, <500ms for semantic

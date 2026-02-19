@@ -3,16 +3,22 @@ import { SearchBar } from "./components/SearchBar";
 import { ResultsList } from "./components/ResultsList";
 import { StatusBar } from "./components/StatusBar";
 import { Settings } from "./components/Settings";
+import { ChatPanel } from "./components/ChatPanel";
+import { DebugPanel } from "./components/DebugPanel";
 import { useSearch } from "./hooks/useSearch";
 import { useHotkey } from "./hooks/useHotkey";
 import { hideWindow, openFile, getSettings, startWatcher } from "./lib/tauri";
 import "./styles/globals.css";
+
+type AppMode = "search" | "chat";
 
 export default function App() {
   const { query, setQuery, results, isLoading, error } = useSearch(150);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [hasDirectories, setHasDirectories] = useState<boolean | null>(null);
+  const [mode, setMode] = useState<AppMode>("chat");
+  const [debugOpen, setDebugOpen] = useState(false);
 
   // Reset selection when results change
   const handleQueryChange = useCallback(
@@ -26,7 +32,6 @@ export default function App() {
   // Auto-hide window on blur (Spotlight-like behavior)
   useEffect(() => {
     const handleBlur = () => {
-      // Don't hide when settings are open (user is interacting)
       if (!showSettings) {
         hideWindow().catch(() => {});
       }
@@ -38,7 +43,6 @@ export default function App() {
   // Reset query when window becomes visible again
   useEffect(() => {
     const handleFocus = () => {
-      // Clear previous search when re-activated
       handleQueryChange("");
     };
     window.addEventListener("focus", handleFocus);
@@ -68,24 +72,29 @@ export default function App() {
 
   // Keyboard navigation
   useHotkey("ArrowDown", () => {
-    setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
+    if (mode === "search") {
+      setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
+    }
   });
 
   useHotkey("ArrowUp", () => {
-    setSelectedIndex((prev) => Math.max(prev - 1, 0));
+    if (mode === "search") {
+      setSelectedIndex((prev) => Math.max(prev - 1, 0));
+    }
   });
 
   useHotkey("Enter", () => {
-    openSelectedFile();
+    if (mode === "search") {
+      openSelectedFile();
+    }
   });
 
   useHotkey("Escape", () => {
     if (showSettings) {
       setShowSettings(false);
-    } else if (query) {
+    } else if (mode === "search" && query) {
       handleQueryChange("");
     } else {
-      // Hide window when pressing Escape with empty query
       hideWindow().catch(() => {});
     }
   });
@@ -95,6 +104,17 @@ export default function App() {
     () => {
       setShowSettings((prev) => !prev);
     },
+    { ctrl: true }
+  );
+
+  // Tab switching: Ctrl+1 = Search, Ctrl+2 = Chat
+  useHotkey("1", () => setMode("search"), { ctrl: true });
+  useHotkey("2", () => setMode("chat"), { ctrl: true });
+
+  // Toggle debug panel
+  useHotkey(
+    "d",
+    () => setDebugOpen((prev) => !prev),
     { ctrl: true }
   );
 
@@ -108,7 +128,7 @@ export default function App() {
 
       {/* Header */}
       <header className="shrink-0 px-5 pb-3">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
             <img
               src="/ghost-logo.svg"
@@ -120,62 +140,95 @@ export default function App() {
               Ghost
             </h1>
           </div>
+
+          {/* Mode tabs */}
+          <div className="flex items-center bg-ghost-surface rounded-lg p-0.5 border border-ghost-border/50">
+            <TabButton
+              active={mode === "search"}
+              onClick={() => setMode("search")}
+              label="Search"
+              shortcut="⌃1"
+            />
+            <TabButton
+              active={mode === "chat"}
+              onClick={() => setMode("chat")}
+              label="Chat"
+              shortcut="⌃2"
+            />
+          </div>
+
           <span className="text-[10px] text-ghost-text-dim/40 font-mono">
             v0.1.0
           </span>
         </div>
 
-        <SearchBar
-          value={query}
-          onChange={handleQueryChange}
-          isLoading={isLoading}
-          resultCount={results.length}
-        />
+        {/* Search bar (only in search mode) */}
+        {mode === "search" && (
+          <>
+            <SearchBar
+              value={query}
+              onChange={handleQueryChange}
+              isLoading={isLoading}
+              resultCount={results.length}
+            />
 
-        {error && (
-          <div className="mt-2 px-4 py-2 bg-ghost-danger/10 border border-ghost-danger/20 rounded-xl text-xs text-ghost-danger">
-            {error}
-          </div>
+            {error && (
+              <div className="mt-2 px-4 py-2 bg-ghost-danger/10 border border-ghost-danger/20 rounded-xl text-xs text-ghost-danger">
+                {error}
+              </div>
+            )}
+          </>
         )}
       </header>
 
-      {/* Results */}
-      <main className="flex-1 overflow-hidden px-3">
-        {hasDirectories === false && !query.trim() ? (
-          <div className="flex flex-col items-center justify-center h-64 text-ghost-text-dim/60 gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-ghost-accent/10 flex items-center justify-center">
-              <span className="text-ghost-accent text-2xl">📁</span>
-            </div>
-            <div className="text-center space-y-1">
-              <p className="text-sm font-medium text-ghost-text">Welcome to Ghost</p>
-              <p className="text-xs text-ghost-text-dim/50 max-w-[280px]">
-                Add a directory in Settings to start indexing your files, then search instantly.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowSettings(true)}
-              className="px-4 py-2 bg-ghost-accent text-white rounded-xl text-sm font-medium hover:bg-ghost-accent-dim transition-all"
-            >
-              Open Settings
-            </button>
+      {/* Main content */}
+      <main className="flex-1 overflow-hidden">
+        {mode === "search" ? (
+          <div className="h-full px-3">
+            {hasDirectories === false && !query.trim() ? (
+              <div className="flex flex-col items-center justify-center h-64 text-ghost-text-dim/60 gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-ghost-accent/10 flex items-center justify-center">
+                  <span className="text-ghost-accent text-2xl">📁</span>
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-medium text-ghost-text">
+                    Bienvenido a Ghost
+                  </p>
+                  <p className="text-xs text-ghost-text-dim/50 max-w-70">
+                    Agrega un directorio en Settings para indexar tus archivos.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="px-4 py-2 bg-ghost-accent text-white rounded-xl text-sm font-medium hover:bg-ghost-accent-dim transition-all"
+                >
+                  Abrir Settings
+                </button>
+              </div>
+            ) : (
+              <ResultsList
+                results={results}
+                selectedIndex={selectedIndex}
+                onSelect={setSelectedIndex}
+                onOpen={(index) => {
+                  const result = results[index];
+                  if (result) {
+                    openFile(result.path).catch(() => {});
+                    hideWindow().catch(() => {});
+                  }
+                }}
+                isLoading={isLoading}
+                hasQuery={!!query.trim()}
+              />
+            )}
           </div>
         ) : (
-          <ResultsList
-            results={results}
-            selectedIndex={selectedIndex}
-            onSelect={setSelectedIndex}
-            onOpen={(index) => {
-              const result = results[index];
-              if (result) {
-                openFile(result.path).catch(() => {});
-                hideWindow().catch(() => {});
-              }
-            }}
-            isLoading={isLoading}
-            hasQuery={!!query.trim()}
-          />
+          <ChatPanel />
         )}
       </main>
+
+      {/* Debug Panel (collapsible) */}
+      <DebugPanel isOpen={debugOpen} onToggle={() => setDebugOpen(!debugOpen)} />
 
       {/* Status Bar */}
       <StatusBar onSettingsClick={() => setShowSettings(true)} />
@@ -185,7 +238,6 @@ export default function App() {
         <Settings
           onClose={() => {
             setShowSettings(false);
-            // Refresh directories status after settings change
             getSettings()
               .then((s) => setHasDirectories(s.watched_directories.length > 0))
               .catch(() => {});
@@ -193,5 +245,31 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  label,
+  shortcut,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  shortcut: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+        active
+          ? "bg-ghost-accent/20 text-ghost-accent"
+          : "text-ghost-text-dim/50 hover:text-ghost-text-dim"
+      }`}
+      title={shortcut}
+    >
+      {label}
+    </button>
   );
 }

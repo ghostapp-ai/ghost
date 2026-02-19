@@ -13,13 +13,34 @@ pub struct Settings {
     pub watched_directories: Vec<String>,
     /// Global shortcut key combination (default: "CmdOrCtrl+Space").
     pub shortcut: String,
+    /// Chat model selection: "auto" or a model ID from the registry.
+    #[serde(default = "default_chat_model")]
+    pub chat_model: String,
+    /// Inference device: "auto", "cpu", "cuda", "metal".
+    #[serde(default = "default_chat_device")]
+    pub chat_device: String,
+    /// Maximum tokens to generate per response.
+    #[serde(default = "default_chat_max_tokens")]
+    pub chat_max_tokens: usize,
+    /// Sampling temperature (0.0 = deterministic, 2.0 = creative).
+    #[serde(default = "default_chat_temperature")]
+    pub chat_temperature: f64,
 }
+
+fn default_chat_model() -> String { "auto".into() }
+fn default_chat_device() -> String { "auto".into() }
+fn default_chat_max_tokens() -> usize { 512 }
+fn default_chat_temperature() -> f64 { 0.7 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             watched_directories: Vec::new(),
             shortcut: "CmdOrCtrl+Space".to_string(),
+            chat_model: default_chat_model(),
+            chat_device: default_chat_device(),
+            chat_max_tokens: default_chat_max_tokens(),
+            chat_temperature: default_chat_temperature(),
         }
     }
 }
@@ -69,11 +90,16 @@ mod tests {
         let settings = Settings {
             watched_directories: vec!["/home/user/docs".to_string()],
             shortcut: "CmdOrCtrl+Space".to_string(),
+            chat_model: "auto".to_string(),
+            chat_device: "auto".to_string(),
+            chat_max_tokens: 512,
+            chat_temperature: 0.7,
         };
         settings.save(&tmp).unwrap();
 
         let loaded = Settings::load(&tmp);
         assert_eq!(loaded.watched_directories, vec!["/home/user/docs"]);
+        assert_eq!(loaded.chat_model, "auto");
 
         let _ = std::fs::remove_file(&tmp);
     }

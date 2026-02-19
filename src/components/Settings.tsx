@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   FolderPlus,
   FolderMinus,
@@ -8,7 +8,7 @@ import {
   Save,
 } from "lucide-react";
 import { indexDirectory, getSettings, saveSettings, startWatcher } from "../lib/tauri";
-import type { IndexStats } from "../lib/types";
+import type { IndexStats, Settings as SettingsType } from "../lib/types";
 
 interface SettingsProps {
   onClose: () => void;
@@ -21,11 +21,16 @@ export function Settings({ onClose }: SettingsProps) {
   const [lastResult, setLastResult] = useState<IndexStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // Keep a ref to the full settings for preserving chat fields on save
+  const fullSettings = useRef<SettingsType | null>(null);
 
   // Load persisted settings on mount
   useEffect(() => {
     getSettings()
-      .then((s) => setDirectories(s.watched_directories))
+      .then((s) => {
+        setDirectories(s.watched_directories);
+        fullSettings.current = s;
+      })
       .catch(() => {});
   }, []);
 
@@ -46,9 +51,17 @@ export function Settings({ onClose }: SettingsProps) {
   // Persist directories to disk
   const handleSave = useCallback(async () => {
     try {
-      await saveSettings({
-        watched_directories: directories,
+      const base = fullSettings.current ?? {
+        watched_directories: [],
         shortcut: "CmdOrCtrl+Space",
+        chat_model: "auto",
+        chat_device: "auto",
+        chat_max_tokens: 512,
+        chat_temperature: 0.7,
+      };
+      await saveSettings({
+        ...base,
+        watched_directories: directories,
       });
       // Re-start watcher with updated directories
       if (directories.length > 0) {

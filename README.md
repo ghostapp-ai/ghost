@@ -40,6 +40,7 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 ## Features
 
 ### Phase 0 — Foundation (**Complete**)
+
 - Tauri v2 desktop shell with React/TypeScript frontend
 - Rust core engine with `thiserror` error handling + `tracing` logging
 - SQLite + sqlite-vec (via FFI auto-extension) for unified storage (documents, vectors, text)
@@ -52,6 +53,7 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 - 21 unit tests passing, zero compiler warnings
 
 ### Phase 1 — The Search Bar (**Complete**)
+
 - **Spotlight-like floating window**: `Ctrl/Cmd+Space` global shortcut, decorationless, always-on-top, transparent
 - Auto-hide on focus loss, Escape to dismiss, draggable title region
 - Dark ghost-themed UI with Tailwind CSS v4
@@ -62,23 +64,38 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 - Settings panel: watched directory management, persistent settings (JSON)
 - Auto-start file watcher on launch with saved directories
 - Onboarding flow for first-time users
-- Status bar: document count, AI engine status, vector search status
+- Status bar: document count, AI engine status, vector search status, chat model status
 - Cross-platform CI/CD: Windows, macOS (ARM64 + Intel), Linux installers
-- 21 tests, zero warnings, ~185KB JS bundle
+- 21 tests, zero warnings, ~199KB JS bundle
+
+### Native Chat Engine (**Complete**)
+
+- **Hardware-aware auto-selection**: Detects CPU cores, RAM, GPU at startup → recommends largest fitting model
+- **Model registry**: Qwen2.5-Instruct GGUF family (0.5B/1.5B/3B/7B) with Q4_K_M quantization
+- **Zero-config flow**: detect hardware → pick model → auto-download from HuggingFace Hub → background load
+- **Device selection**: CPU (default), CUDA (`--features cuda`), Metal (`--features metal`)
+- **Chat UI**: Tab-based interface (Search ↔ Chat), message bubbles, model status, loading states
+- **Debug panel**: Collapsible log viewer with pause/resume and color-coded levels (Ctrl+D)
+- **Fallback chain**: Native Candle GGUF → Ollama HTTP API → offline
+- **Settings**: model, device, max_tokens, temperature — all configurable, all with sensible defaults
+- **RAM detection**: Linux (/proc/meminfo), macOS (sysctl), Windows (PowerShell Get-CimInstance)
 
 ### Phase 2 — The Memory
+
 - Browser history indexing via UI Automation
 - App activity timeline ("What was I doing last Tuesday?")
 - Clipboard history with semantic search
 - Premium features: sync, encryption, more powerful models
 
 ### Phase 3 — The Agent
+
 - Local MCP Server with Qwen2.5-7B for tool calling
 - Actions: open apps, copy text, search web, create files
 - Action Preview: see what Ghost will do before it executes
 - Natural language OS control
 
 ### Phase 4 — The Platform
+
 - Skills SDK for third-party MCP servers
 - Integrations: Obsidian, VS Code, Slack, browsers
 - Mac port
@@ -88,7 +105,7 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 
 Ghost uses a 4-layer architecture where each layer is independently replaceable:
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │              Frontend (React/TypeScript)          │
 │  Search Bar │ Results │ Chat │ Settings │ Vault   │
@@ -111,26 +128,26 @@ Ghost uses a 4-layer architecture where each layer is independently replaceable:
 
 Ghost uses a two-speed architecture to feel instant without burning CPU:
 
-| Layer | When | Speed | Resource Usage |
-|-------|------|-------|----------------|
-| **Fast Layer** | Always | <10ms | 0% GPU, <1% CPU |
-| **Smart Layer** | On demand | 200-2000ms | Activates Ollama |
+| Layer            | When      | Speed       | Resource Usage   |
+| ---------------- | --------- | ----------- | ---------------- |
+| **Fast Layer**   | Always    | <10ms       | 0% GPU, <1% CPU  |
+| **Smart Layer**  | On demand | 200-2000ms  | Activates Ollama |
 
 The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Layer activates only when the user asks a natural language question, requests an action, or a new file needs indexing.
 
 ### Tech Stack
 
-| Component | Technology | Why |
-|-----------|-----------|-----|
-| Shell/UI | Tauri v2 + React/TypeScript | <10MB installer, native performance |
-| Database | SQLite + sqlite-vec + FTS5 | Single .db file, vectors + text + metadata |
-| Native Embeddings | Candle + all-MiniLM-L6-v2 | 384D, ~23MB, in-process, no external deps |
-| Fallback Embeddings | Ollama + nomic-embed-text | 768D, optional, higher quality for large models |
-| LLM | Ollama + Qwen2.5-7B Q4 | Tool calling, multilingual, 4GB VRAM |
-| Agent | MCP Server (TypeScript/Rust) | Open standard, 10,000+ compatible servers |
-| File Watcher | notify (Rust crate) | Cross-platform, async, <1% CPU |
-| Text Extraction | lopdf + zip + calamine | Pure Rust, no external dependencies |
-| Encryption | ChaCha20-Poly1305 (age crate) | Modern, audited |
+| Component          | Technology                       | Why                                                |
+| ------------------ | -------------------------------- | -------------------------------------------------- |
+| Shell/UI           | Tauri v2 + React/TypeScript      | <10MB installer, native performance                |
+| Database           | SQLite + sqlite-vec + FTS5       | Single .db file, vectors + text + metadata         |
+| Native Embeddings  | Candle + all-MiniLM-L6-v2        | 384D, ~23MB, in-process, no external deps          |
+| Fallback Embeddings| Ollama + nomic-embed-text        | 768D, optional, higher quality for large models    |
+| LLM                | Ollama + Qwen2.5-7B Q4           | Tool calling, multilingual, 4GB VRAM               |
+| Agent              | MCP Server (TypeScript/Rust)     | Open standard, 10,000+ compatible servers          |
+| File Watcher       | notify (Rust crate)              | Cross-platform, async, <1% CPU                     |
+| Text Extraction    | lopdf + zip + calamine           | Pure Rust, no external dependencies                |
+| Encryption         | ChaCha20-Poly1305 (age crate)    | Modern, audited                                    |
 
 ## Getting Started
 

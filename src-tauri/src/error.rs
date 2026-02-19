@@ -28,6 +28,9 @@ pub enum GhostError {
 
     #[error("Native model error: {0}")]
     NativeModel(String),
+
+    #[error("Chat error: {0}")]
+    Chat(String),
 }
 
 impl serde::Serialize for GhostError {

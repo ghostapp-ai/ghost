@@ -36,6 +36,10 @@ export interface AppStatus {
 export interface Settings {
   watched_directories: string[];
   shortcut: string;
+  chat_model: string;
+  chat_device: string;
+  chat_max_tokens: number;
+  chat_temperature: number;
 }
 
 /** Hardware info from the Rust backend. */
@@ -44,6 +48,8 @@ export interface HardwareInfo {
   has_avx2: boolean;
   has_neon: boolean;
   gpu_backend: "Cuda" | "Metal" | "Vulkan" | null;
+  total_ram_mb: number;
+  available_ram_mb: number;
 }
 
 /** AI engine status from the Rust backend. */
@@ -52,4 +58,51 @@ export interface AiStatus {
   model_name: string;
   dimensions: number;
   hardware: HardwareInfo;
+}
+
+/** Chat message (user, assistant, or system). */
+export interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+/** Chat response from the Rust backend. */
+export interface ChatResponse {
+  content: string;
+  tokens_generated: number;
+  duration_ms: number;
+  model_id: string;
+}
+
+/** Chat engine status. */
+export interface ChatStatus {
+  available: boolean;
+  backend: "native" | "ollama" | "loading" | "none";
+  model_id: string;
+  model_name: string;
+  loading: boolean;
+  error: string | null;
+  device: string;
+}
+
+/** A structured log entry from the Rust backend. */
+export interface LogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
+}
+
+/** Model info with runtime status (downloaded, active, recommended). */
+export interface ModelInfo {
+  id: string;
+  name: string;
+  description: string;
+  size_mb: number;
+  min_ram_mb: number;
+  parameters: string;
+  quality_tier: number;
+  downloaded: boolean;
+  active: boolean;
+  recommended: boolean;
+  fits_hardware: boolean;
 }

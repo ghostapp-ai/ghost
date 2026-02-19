@@ -73,7 +73,11 @@ src-tauri/src/
 │   ├── mod.rs          # EmbeddingEngine (fallback chain: Native → Ollama → None)
 │   ├── native.rs       # Candle-based in-process BERT inference (all-MiniLM-L6-v2)
 │   ├── ollama.rs       # OllamaEngine HTTP client (fallback engine)
-│   └── hardware.rs     # Hardware detection (CPU cores, SIMD, GPU backend)
+│   └── hardware.rs     # Hardware detection (CPU cores, SIMD, GPU backend, RAM)
+├── chat/
+│   ├── mod.rs          # ChatEngine orchestration, model lifecycle, Ollama fallback
+│   ├── native.rs       # Candle GGUF inference (Qwen2.5-Instruct, any size)
+│   └── models.rs       # Model registry, auto-selection, HF Hub cache detection
 ├── search/
 │   ├── mod.rs          # Search engine combining FTS5 + vector
 │   └── ranking.rs      # RRF (Reciprocal Rank Fusion) implementation
@@ -143,26 +147,25 @@ tracing-subscriber = "0.3"
 
 ```
 src/
-├── App.tsx              # Root component, router setup
+├── App.tsx              # Root component, tab system (Search/Chat), debug panel
 ├── main.tsx             # React entry point
 ├── components/
 │   ├── SearchBar.tsx    # Global search input
 │   ├── ResultsList.tsx  # Virtualized search results
 │   ├── ResultItem.tsx   # Single search result row
-│   ├── ChatPanel.tsx    # (Phase 3) Agent chat interface
-│   ├── Settings.tsx     # Settings panel
-│   └── VaultBrowser.tsx # File browser for indexed vault
+│   ├── ChatPanel.tsx    # Local LLM chat interface with model status
+│   ├── DebugPanel.tsx   # Collapsible log viewer with pause/resume
+│   ├── StatusBar.tsx    # Status pills: DB stats, AI, Vec, Chat model
+│   ├── Settings.tsx     # Settings panel with directory management
+│   └── VaultBrowser.tsx # (Future) File browser for indexed vault
 ├── hooks/
 │   ├── useSearch.ts     # Search query + results state
-│   ├── useTauriCommand.ts  # Generic Tauri IPC wrapper
-│   └── useHotkey.ts    # Global shortcut handling
-├── stores/
-│   └── appStore.ts     # Global app state (zustand or similar)
+│   └── useHotkey.ts     # Global shortcut handling
 ├── lib/
 │   ├── tauri.ts        # Tauri invoke wrappers with types
 │   └── types.ts        # Shared TypeScript types
 └── styles/
-    └── globals.css     # Global styles (Tailwind or vanilla CSS)
+    └── globals.css     # Global styles (Tailwind CSS v4)
 ```
 
 #### Frontend Conventions
@@ -469,3 +472,8 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-18 | Open Core monetization model | Market research: Raycast ($8/mo, $47.8M funding) + GitLab/Grafana validate open core for dev tools |
 | 2026-02-18 | Pro tier at $5-8/mo (not $9) | Undercut Raycast ($8/mo), well below ChatGPT ($20/mo), accessible for target market |
 | 2026-02-18 | No screen recording (differentiate from Screenpipe) | Screenpipe/Recall do surveillance; Ghost does search. Different value prop, avoids privacy backlash |
+| 2026-02-18 | Qwen2.5-Instruct GGUF for native chat | Apache 2.0, ChatML format, 4 size tiers (0.5B–7B), Q4_K_M quantization, great quality/size ratio |
+| 2026-02-18 | Per-request model reload over KV cache clear | quantized_qwen2 KV cache is private with no public clear method; OS page cache makes reload ~0.5-3s |
+| 2026-02-18 | Auto model selection over manual config | Zero-config UX: detect RAM → pick largest fitting model → background download; still configurable |
+| 2026-02-18 | Deferred model loading over blocking startup | App starts instantly, chat model downloads/loads in background `tokio::spawn` during `.setup()` |
+| 2026-02-18 | Feature flags for GPU backends | `cuda`/`metal`/`accelerate` Cargo features propagate to candle-core — no GPU overhead on CPU-only builds |

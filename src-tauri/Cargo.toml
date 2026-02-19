@@ -9,6 +9,12 @@ edition = "2021"
 name = "ghost_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+default = []
+cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
+metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
+accelerate = ["candle-core/accelerate", "candle-nn/accelerate", "candle-transformers/accelerate"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -63,4 +69,5 @@ tokenizers = "0.22"
 sha2 = "0.10"
 hex = "0.4"
 dirs = "6"
+chrono = "0.4"
 tauri-plugin-global-shortcut = "2.3.1"
