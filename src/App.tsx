@@ -1,55 +1,56 @@
 import { useState, useCallback, useEffect } from "react";
-import { SearchBar } from "./components/SearchBar";
+import { GhostInput } from "./components/GhostInput";
 import { ResultsList } from "./components/ResultsList";
+import { ChatMessages } from "./components/ChatMessages";
 import { StatusBar } from "./components/StatusBar";
 import { Settings } from "./components/Settings";
-import { ChatPanel } from "./components/ChatPanel";
 import { DebugPanel } from "./components/DebugPanel";
 import { useSearch } from "./hooks/useSearch";
 import { useHotkey } from "./hooks/useHotkey";
-import { hideWindow, openFile, getSettings, startWatcher } from "./lib/tauri";
+import { detectMode, type InputMode } from "./lib/detectMode";
+import {
+  hideWindow,
+  openFile,
+  getSettings,
+  startWatcher,
+  chatSend,
+  chatStatus as fetchChatStatus,
+  chatLoadModel,
+} from "./lib/tauri";
+import type { ChatMessage, ChatStatus } from "./lib/types";
 import "./styles/globals.css";
 
-type AppMode = "search" | "chat";
-
 export default function App() {
-  const { query, setQuery, results, isLoading, error } = useSearch(150);
+  // --- Search state ---
+  const { query, setQuery, results, isLoading: isSearching, error: searchError } = useSearch(150);
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // --- Chat state ---
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [tokensInfo, setTokensInfo] = useState<string | null>(null);
+  const [chatSt, setChatSt] = useState<ChatStatus | null>(null);
+
+  // --- UI state ---
+  const [mode, setMode] = useState<InputMode>("search");
+  const [modeOverride, setModeOverride] = useState<InputMode | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [hasDirectories, setHasDirectories] = useState<boolean | null>(null);
-  const [mode, setMode] = useState<AppMode>("chat");
   const [debugOpen, setDebugOpen] = useState(false);
 
-  // Reset selection when results change
-  const handleQueryChange = useCallback(
-    (q: string) => {
-      setQuery(q);
-      setSelectedIndex(0);
-    },
-    [setQuery]
-  );
+  // Effective mode: manual override wins, then auto-detected
+  const activeMode = modeOverride ?? mode;
 
-  // Auto-hide window on blur (Spotlight-like behavior)
+  // --- Poll chat status ---
   useEffect(() => {
-    const handleBlur = () => {
-      if (!showSettings) {
-        hideWindow().catch(() => {});
-      }
-    };
-    window.addEventListener("blur", handleBlur);
-    return () => window.removeEventListener("blur", handleBlur);
-  }, [showSettings]);
+    const refresh = () => fetchChatStatus().then(setChatSt).catch(() => {});
+    refresh();
+    const id = setInterval(refresh, 2000);
+    return () => clearInterval(id);
+  }, []);
 
-  // Reset query when window becomes visible again
-  useEffect(() => {
-    const handleFocus = () => {
-      handleQueryChange("");
-    };
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, [handleQueryChange]);
-
-  // Auto-start file watcher with saved directories on app launch
+  // --- Auto-start watcher ---
   useEffect(() => {
     getSettings()
       .then((s) => {
@@ -61,62 +62,121 @@ export default function App() {
       .catch(() => setHasDirectories(false));
   }, []);
 
-  // Open the currently selected file
-  const openSelectedFile = useCallback(() => {
-    const result = results[selectedIndex];
-    if (result) {
-      openFile(result.path).catch(() => {});
-      hideWindow().catch(() => {});
-    }
-  }, [results, selectedIndex]);
+  // --- Auto-hide on blur ---
+  useEffect(() => {
+    const handleBlur = () => {
+      if (!showSettings) hideWindow().catch(() => {});
+    };
+    window.addEventListener("blur", handleBlur);
+    return () => window.removeEventListener("blur", handleBlur);
+  }, [showSettings]);
 
-  // Keyboard navigation
+  // --- Reset on focus ---
+  useEffect(() => {
+    const handleFocus = () => {
+      handleQueryChange("");
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, []);
+
+  // --- Input handling ---
+  const handleQueryChange = useCallback(
+    (q: string) => {
+      setQuery(q);
+      setSelectedIndex(0);
+      const detected = detectMode(q, messages.length > 0);
+      setMode(detected);
+      setModeOverride(null);
+    },
+    [setQuery, messages.length]
+  );
+
+  // --- Mode toggle ---
+  const handleModeToggle = useCallback(() => {
+    setModeOverride((prev) => {
+      const current = prev ?? mode;
+      return current === "search" ? "chat" : "search";
+    });
+  }, [mode]);
+
+  // --- Submit (Enter) ---
+  const handleSubmit = useCallback(async () => {
+    if (activeMode === "search") {
+      const result = results[selectedIndex];
+      if (result) {
+        openFile(result.path).catch(() => {});
+        hideWindow().catch(() => {});
+      }
+    } else {
+      const trimmed = query.trim();
+      if (!trimmed || isGenerating) return;
+
+      const cleanQuery = trimmed.replace(/^[?@]\s*/, "");
+      if (!cleanQuery) return;
+
+      setChatError(null);
+      setTokensInfo(null);
+      const userMsg: ChatMessage = { role: "user", content: cleanQuery };
+      const newMessages = [...messages, userMsg];
+      setMessages(newMessages);
+      setQuery("");
+      setIsGenerating(true);
+
+      try {
+        const response = await chatSend(newMessages);
+        const assistantMsg: ChatMessage = {
+          role: "assistant",
+          content: response.content,
+        };
+        setMessages([...newMessages, assistantMsg]);
+        setTokensInfo(
+          `${response.tokens_generated} tokens · ${(response.duration_ms / 1000).toFixed(1)}s · ${response.model_id}`
+        );
+      } catch (e) {
+        setChatError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setIsGenerating(false);
+      }
+    }
+  }, [activeMode, results, selectedIndex, query, isGenerating, messages, setQuery]);
+
+  // --- Clear chat ---
+  const clearChat = useCallback(() => {
+    setMessages([]);
+    setChatError(null);
+    setTokensInfo(null);
+  }, []);
+
+  // --- Keyboard navigation ---
   useHotkey("ArrowDown", () => {
-    if (mode === "search") {
+    if (activeMode === "search") {
       setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
     }
   });
 
   useHotkey("ArrowUp", () => {
-    if (mode === "search") {
+    if (activeMode === "search") {
       setSelectedIndex((prev) => Math.max(prev - 1, 0));
-    }
-  });
-
-  useHotkey("Enter", () => {
-    if (mode === "search") {
-      openSelectedFile();
     }
   });
 
   useHotkey("Escape", () => {
     if (showSettings) {
       setShowSettings(false);
-    } else if (mode === "search" && query) {
+    } else if (query) {
       handleQueryChange("");
+    } else if (messages.length > 0) {
+      clearChat();
     } else {
       hideWindow().catch(() => {});
     }
   });
 
-  useHotkey(
-    ",",
-    () => {
-      setShowSettings((prev) => !prev);
-    },
-    { ctrl: true }
-  );
+  useHotkey(",", () => setShowSettings((prev) => !prev), { ctrl: true });
+  useHotkey("d", () => setDebugOpen((prev) => !prev), { ctrl: true });
 
-  // Tab switching: Ctrl+1 = Search, Ctrl+2 = Chat
-  useHotkey("1", () => setMode("search"), { ctrl: true });
-  useHotkey("2", () => setMode("chat"), { ctrl: true });
-
-  // Toggle debug panel
-  useHotkey(
-    "d",
-    () => setDebugOpen((prev) => !prev),
-    { ctrl: true }
-  );
+  const isModelReady = chatSt?.available ?? false;
 
   return (
     <div className="flex flex-col h-screen bg-ghost-bg rounded-2xl overflow-hidden border border-ghost-border/50 shadow-2xl">
@@ -127,7 +187,7 @@ export default function App() {
       />
 
       {/* Header */}
-      <header className="shrink-0 px-5 pb-3">
+      <header className="shrink-0 px-5 pb-2">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
             <img
@@ -141,49 +201,45 @@ export default function App() {
             </h1>
           </div>
 
-          {/* Mode tabs */}
-          <div className="flex items-center bg-ghost-surface rounded-lg p-0.5 border border-ghost-border/50">
-            <TabButton
-              active={mode === "search"}
-              onClick={() => setMode("search")}
-              label="Search"
-              shortcut="⌃1"
-            />
-            <TabButton
-              active={mode === "chat"}
-              onClick={() => setMode("chat")}
-              label="Chat"
-              shortcut="⌃2"
-            />
+          <div className="flex items-center gap-2">
+            {messages.length > 0 && (
+              <button
+                onClick={clearChat}
+                className="px-2 py-0.5 rounded-md text-[10px] text-ghost-text-dim/40 hover:text-ghost-text-dim hover:bg-ghost-surface transition-all"
+                title="Nueva conversación"
+              >
+                Nueva chat
+              </button>
+            )}
+            <span className="text-[10px] text-ghost-text-dim/30 font-mono">
+              v0.1.0
+            </span>
           </div>
-
-          <span className="text-[10px] text-ghost-text-dim/40 font-mono">
-            v0.1.0
-          </span>
         </div>
 
-        {/* Search bar (only in search mode) */}
-        {mode === "search" && (
-          <>
-            <SearchBar
-              value={query}
-              onChange={handleQueryChange}
-              isLoading={isLoading}
-              resultCount={results.length}
-            />
+        {/* Ghost Omnibox */}
+        <GhostInput
+          value={query}
+          onChange={handleQueryChange}
+          onSubmit={handleSubmit}
+          mode={activeMode}
+          onModeToggle={handleModeToggle}
+          isSearching={isSearching}
+          isGenerating={isGenerating}
+          resultCount={results.length}
+          modelReady={isModelReady}
+        />
 
-            {error && (
-              <div className="mt-2 px-4 py-2 bg-ghost-danger/10 border border-ghost-danger/20 rounded-xl text-xs text-ghost-danger">
-                {error}
-              </div>
-            )}
-          </>
+        {searchError && activeMode === "search" && (
+          <div className="mt-2 px-4 py-2 bg-ghost-danger/10 border border-ghost-danger/20 rounded-xl text-xs text-ghost-danger">
+            {searchError}
+          </div>
         )}
       </header>
 
       {/* Main content */}
       <main className="flex-1 overflow-hidden">
-        {mode === "search" ? (
+        {activeMode === "search" ? (
           <div className="h-full px-3">
             {hasDirectories === false && !query.trim() ? (
               <div className="flex flex-col items-center justify-center h-64 text-ghost-text-dim/60 gap-4">
@@ -217,17 +273,24 @@ export default function App() {
                     hideWindow().catch(() => {});
                   }
                 }}
-                isLoading={isLoading}
+                isLoading={isSearching}
                 hasQuery={!!query.trim()}
               />
             )}
           </div>
         ) : (
-          <ChatPanel />
+          <ChatMessages
+            messages={messages}
+            isGenerating={isGenerating}
+            status={chatSt}
+            tokensInfo={tokensInfo}
+            error={chatError}
+            onRetryDownload={() => chatLoadModel().catch(() => {})}
+          />
         )}
       </main>
 
-      {/* Debug Panel (collapsible) */}
+      {/* Debug Panel */}
       <DebugPanel isOpen={debugOpen} onToggle={() => setDebugOpen(!debugOpen)} />
 
       {/* Status Bar */}
@@ -245,31 +308,5 @@ export default function App() {
         />
       )}
     </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  label,
-  shortcut,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  shortcut: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-        active
-          ? "bg-ghost-accent/20 text-ghost-accent"
-          : "text-ghost-text-dim/50 hover:text-ghost-text-dim"
-      }`}
-      title={shortcut}
-    >
-      {label}
-    </button>
   );
 }
