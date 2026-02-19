@@ -36,7 +36,7 @@ lopdf = "0.34"
 calamine = "0.33"
 
 # HTTP client (for Ollama)
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.13", features = ["json"] }
 
 # Vector search
 sqlite-vec = "0.1.7-alpha.10"
