@@ -462,3 +462,6 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-18 | Fallback chain over hard Ollama dep | Ghost works offline/without Ollama, graceful degradation |
 | 2026-02-18 | GitHub Actions + tauri-action for CI/CD | Cross-platform builds (Win/Mac/Linux), automated releases on tag push |
 | 2026-02-18 | softprops/action-gh-release for releases | Mature, supports draft/prerelease, auto-attaches artifacts |
+| 2026-02-18 | Dependabot for dependency updates | Automated weekly PRs for Cargo, npm, and GitHub Actions |
+| 2026-02-18 | cargo audit in CI pipeline | Security scanning for Rust dependencies on every push/PR |
+| 2026-02-18 | Custom Ghost branding over default Tauri icons | Distinctive identity, professional look for store listings |

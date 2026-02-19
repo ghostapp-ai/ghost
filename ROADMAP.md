@@ -122,9 +122,29 @@
   - DMG for macOS (Apple Silicon + Intel via cross-compilation)
   - DEB + AppImage for Linux (x64)
   - Single consolidated workflow: CI on push + Release on tag
-  - CI pipeline: Rust tests + clippy + frontend TypeScript check
+  - CI pipeline: Rust tests + clippy + `cargo fmt --check` + `cargo audit` + frontend TypeScript check
   - ~11MB installer size (Linux .deb)
   - *(Pending)*: Code signing, auto-start option, system tray icon
+
+- [x] **Custom branding & visual identity**
+  - Custom Ghost icon (friendly ghost with glowing eyes, purple gradient)
+  - Full icon set: rounded, circle, monochrome, tray, wordmark variants
+  - Platform-specific icons: Windows (ICO + Square logos), macOS (ICNS), Linux (PNG)
+  - Web favicons: SVG, ICO, 16px, 32px, apple-touch-icon
+  - Web manifest (`site.webmanifest`) for PWA metadata
+  - Brand guidelines document (`branding/BRAND_GUIDELINES.md`)
+  - Icon generation script (`branding/scripts/generate-icons.sh`)
+  - Social media assets: OG card, GitHub avatar
+
+- [x] **Repository configuration & developer tooling**
+  - `.editorconfig` for consistent code style across editors
+  - `rustfmt.toml` + `clippy.toml` for Rust linting/formatting
+  - GitHub Issue templates (bug report + feature request)
+  - GitHub Pull Request template with privacy checklist
+  - `dependabot.yml` for automated dependency updates
+  - `CODEOWNERS` for PR review assignment
+  - `CONTRIBUTING.md` + `SECURITY.md`
+  - VS Code recommended extensions
 
 - [ ] **Performance optimization**
   - Cold start <500ms

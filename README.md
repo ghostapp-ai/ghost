@@ -204,8 +204,11 @@ ghost/
 │   │   └── search/         # Hybrid search engine + RRF ranking
 │   ├── Cargo.toml          # Rust dependencies
 │   └── tauri.conf.json     # Tauri configuration
+├── branding/               # Brand assets (SVGs, PNGs, social, scripts)
 ├── ROADMAP.md              # Detailed development roadmap
 ├── CLAUDE.md               # Agent instructions for AI-assisted development
+├── CONTRIBUTING.md         # Contribution guidelines
+├── SECURITY.md             # Security policy & vulnerability disclosure
 └── package.json            # Frontend dependencies
 ```
 
@@ -223,15 +226,11 @@ See [ROADMAP.md](ROADMAP.md) for the detailed development plan with phases, mile
 
 ## Contributing
 
-Ghost is currently in early development. Contributions are welcome:
+Ghost is currently in early development. Contributions are welcome!
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding conventions, and PR guidelines.
 
-Please read [CLAUDE.md](CLAUDE.md) for development conventions and coding standards.
+For security vulnerabilities, see [SECURITY.md](SECURITY.md).
 
 ## License
 
