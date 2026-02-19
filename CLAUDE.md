@@ -494,5 +494,6 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-19 | Programmatic `startDragging()` over data-tauri-drag-region only | Tauri v2 has known Linux/Wayland issues with CSS drag regions; JS fallback via `window.start_dragging()` ensures reliable drag |
 | 2026-02-19 | 50+ source code extensions in extractor | Developers need to search code too — rs, py, js, ts, go, etc. matches what Everything/Spotlight index |
 | 2026-02-19 | Never `--all-features` in CI on Linux | `metal`/`accelerate` Cargo features pull `objc2` (Apple-only); `cuda` needs NVIDIA. Default features only in CI |
-| 2026-02-19 | Release Please over manual `git tag` | Auto-release from conventional commits: analyzes commits → creates Release PR → merge triggers tag + GitHub Release + cross-platform builds. Zero manual steps |
-| 2026-02-19 | `node` release-type with `extra-files` | Root `package.json` drives versioning; `extra-files` syncs `Cargo.toml` + `tauri.conf.json` versions automatically |
+| 2026-02-19 | semantic-release over Release Please | 100% automatic: no PRs to merge, no manual steps. Push conventional commits → CI → semantic-release bumps version + CHANGELOG + tag + GitHub Release + cross-platform builds |
+| 2026-02-19 | `@semantic-release/exec` + custom script for version sync | `scripts/update-versions.sh` updates `package.json`, `Cargo.toml`, `tauri.conf.json` — avoids npm plugin dependency issues with bun |
+| 2026-02-19 | Repository best practices via GitHub API | Auto-delete branches, auto-merge, squash merge defaults, vulnerability alerts, security fixes, topic tags |

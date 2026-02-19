@@ -15,6 +15,7 @@ env:
 
 permissions:
   contents: write
+  issues: write
   pull-requests: write
 
 jobs:
@@ -67,30 +68,42 @@ jobs:
       - name: Frontend build check
         run: bun run build
 
-  # ─── Release Please: auto version bump + release PR ──────────────
-  # On every push to main, Release Please analyzes conventional commits
-  # and creates/updates a Release PR. When that PR is merged, it auto-
-  # creates a GitHub Release + git tag. No manual tagging needed.
-  release-please:
-    name: Release Please
+  # ─── Release: fully automatic via semantic-release ───────────────
+  # Analyzes conventional commits → bumps version → updates CHANGELOG
+  # → commits version files → creates git tag → creates GitHub Release
+  # No manual steps. No PRs to merge. Just push and it releases.
+  release:
+    name: Release
     needs: ci
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
+      released: ${{ steps.semantic.outputs.new_release_published }}
+      version: ${{ steps.semantic.outputs.new_release_version }}
+      tag: ${{ steps.semantic.outputs.new_release_git_tag }}
     steps:
-      - uses: googleapis/release-please-action@v4
-        id: release
+      - uses: actions/checkout@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: true
 
-  # ─── Build & Release: auto-triggers when Release Please creates a release
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v6
+        id: semantic
+        with:
+          extra_plugins: |
+            @semantic-release/changelog
+            @semantic-release/git
+            @semantic-release/exec
+            conventional-changelog-conventionalcommits
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─── Build: compiles for all platforms when a release is created ──
   build:
     name: Build (${{ matrix.label }})
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    needs: release
+    if: needs.release.outputs.released == 'true'
     permissions:
       contents: write
     strategy:
@@ -118,6 +131,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.tag }}
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -148,10 +163,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ needs.release-please.outputs.tag_name }}
-          releaseName: Ghost ${{ needs.release-please.outputs.tag_name }}
-          releaseBody: |
-            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          tagName: ${{ needs.release.outputs.tag }}
+          releaseName: Ghost ${{ needs.release.outputs.tag }}
           releaseDraft: false
           prerelease: false
           tauriScript: bun run tauri

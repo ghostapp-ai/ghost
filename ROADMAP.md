@@ -133,13 +133,20 @@
   - ~11MB installer size (Linux .deb)
   - *(Pending)*: Code signing, auto-start option, system tray icon
 
-- [x] **Automated release pipeline (Release Please)**
-  - Google Release Please replaces manual `git tag` workflow
-  - Conventional commits auto-analyzed → version bump + CHANGELOG generation
-  - Auto-created Release PR with changelog preview
-  - Merging Release PR → auto tag + GitHub Release + cross-platform builds
-  - Version sync across `package.json`, `Cargo.toml`, `tauri.conf.json`
-  - Zero manual steps: just push conventional commits and merge the release PR
+- [x] **Fully automatic release pipeline (semantic-release)**
+  - 100% automatic: push conventional commits → CI → release. Zero interaction needed
+  - semantic-release analyzes commits → bumps SemVer → generates CHANGELOG.md
+  - Creates git tag + GitHub Release + attaches cross-platform installers
+  - Version sync across `package.json`, `Cargo.toml`, `tauri.conf.json` via custom script
+  - No PRs to merge, no tags to create — just push code and it ships
+
+- [x] **Repository configuration & best practices**
+  - Auto-delete merged branches
+  - Auto-merge enabled for PRs
+  - Squash merge with PR title/body for clean git history
+  - Vulnerability alerts + automated security fixes enabled
+  - GitHub Actions allowed to create/approve PRs
+  - Repository topics for discoverability (ai, local-first, privacy, tauri, etc.)
 
 - [x] **Custom branding & visual identity**
   - Custom Ghost icon (friendly ghost with glowing eyes, purple gradient)
