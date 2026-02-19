@@ -11,6 +11,7 @@ use candle_transformers::models::quantized_qwen2::ModelWeights;
 use tokenizers::Tokenizer;
 
 use super::ChatMessage;
+use super::DownloadProgress;
 use super::models::ModelProfile;
 use crate::error::{GhostError, Result};
 
@@ -43,7 +44,11 @@ impl NativeChatEngine {
     ///
     /// Downloads the model from HuggingFace Hub on first run.
     /// Uses the specified device (CPU/CUDA/Metal).
-    pub async fn load(profile: &ModelProfile, device: Device) -> Result<Self> {
+    pub async fn load(
+        profile: &ModelProfile,
+        device: Device,
+        progress: std::sync::Arc<std::sync::Mutex<Option<DownloadProgress>>>,
+    ) -> Result<Self> {
         tracing::info!(
             "Loading native chat engine: {} ({}) on {:?}",
             profile.name,
@@ -52,7 +57,16 @@ impl NativeChatEngine {
         );
 
         // Download model files from HuggingFace Hub (cached after first download)
-        let (model_path, tokenizer_path) = Self::download_model_files(profile).await?;
+        let (model_path, tokenizer_path) = Self::download_model_files(profile, progress.clone()).await?;
+
+        // Update progress: loading model into memory
+        if let Ok(mut p) = progress.lock() {
+            *p = Some(DownloadProgress {
+                downloaded_bytes: 0,
+                total_bytes: 0,
+                phase: "loading_model".into(),
+            });
+        }
 
         // Verify model loads correctly by doing a test load
         tracing::info!("Validating GGUF model from {}...", model_path.display());
@@ -267,15 +281,57 @@ impl NativeChatEngine {
     }
 
     /// Download model files from HuggingFace Hub if not already cached.
+    ///
+    /// Monitors the filesystem during download to report progress.
     async fn download_model_files(
         profile: &ModelProfile,
+        progress: std::sync::Arc<std::sync::Mutex<Option<DownloadProgress>>>,
     ) -> Result<(std::path::PathBuf, std::path::PathBuf)> {
         let repo_id = profile.repo_id.to_string();
         let gguf_file = profile.gguf_file.to_string();
         let tokenizer_repo = profile.tokenizer_repo.to_string();
+        let expected_bytes = profile.size_mb * 1_048_576; // MB to bytes
+
+        // Check if already cached — skip monitoring if so
+        let already_cached = super::models::is_model_cached(profile);
+        if already_cached {
+            tracing::info!("Model already cached, skipping download");
+            if let Ok(mut p) = progress.lock() {
+                *p = Some(DownloadProgress {
+                    downloaded_bytes: expected_bytes,
+                    total_bytes: expected_bytes,
+                    phase: "cached".into(),
+                });
+            }
+        } else {
+            // Set initial download progress
+            if let Ok(mut p) = progress.lock() {
+                *p = Some(DownloadProgress {
+                    downloaded_bytes: 0,
+                    total_bytes: expected_bytes,
+                    phase: "downloading".into(),
+                });
+            }
+        }
+
+        // Start filesystem monitor for download progress (only if not cached)
+        let monitor_handle = if !already_cached {
+            let progress_monitor = progress.clone();
+            let repo_id_monitor = repo_id.clone();
+            let expected = expected_bytes;
+            Some(std::thread::spawn(move || {
+                Self::monitor_download_progress(
+                    &repo_id_monitor,
+                    expected,
+                    progress_monitor,
+                );
+            }))
+        } else {
+            None
+        };
 
         // Run sync HF Hub downloads in a blocking task to avoid blocking the async runtime
-        tokio::task::spawn_blocking(move || {
+        let result = tokio::task::spawn_blocking(move || {
             let api = hf_hub::api::sync::Api::new().map_err(|e| {
                 GhostError::Chat(format!("Failed to init HuggingFace Hub API: {}", e))
             })?;
@@ -308,6 +364,93 @@ impl NativeChatEngine {
             Ok((model_path, tokenizer_path))
         })
         .await
-        .map_err(|e| GhostError::Chat(format!("Download task panicked: {}", e)))?
+        .map_err(|e| GhostError::Chat(format!("Download task panicked: {}", e)))?;
+
+        // Stop the monitor thread (it will exit on next check since download is done)
+        if let Some(handle) = monitor_handle {
+            // Signal completion
+            if let Ok(mut p) = progress.lock() {
+                if let Some(ref mut dp) = *p {
+                    dp.phase = "download_complete".into();
+                    dp.downloaded_bytes = expected_bytes;
+                }
+            }
+            // Wait a short time then drop the thread (it checks phase to exit)
+            let _ = handle.join();
+        }
+
+        result
+    }
+
+    /// Monitor the HuggingFace cache directory for download progress.
+    ///
+    /// Checks every 500ms for growing blob files and updates the progress tracker.
+    fn monitor_download_progress(
+        repo_id: &str,
+        expected_bytes: u64,
+        progress: std::sync::Arc<std::sync::Mutex<Option<DownloadProgress>>>,
+    ) {
+        let cache_base = super::models::get_hf_cache_dir();
+        let repo_name = repo_id.replace('/', "--");
+        let blobs_dir = cache_base
+            .join(format!("models--{}", repo_name))
+            .join("blobs");
+
+        loop {
+            // Check if we should stop
+            if let Ok(p) = progress.lock() {
+                if let Some(ref dp) = *p {
+                    if dp.phase == "download_complete" || dp.phase == "loading_model" {
+                        return;
+                    }
+                } else {
+                    return; // Progress was cleared, stop monitoring
+                }
+            }
+
+            // Scan blobs directory for the largest growing file (likely our download)
+            let mut max_incomplete_size: u64 = 0;
+            if let Ok(entries) = std::fs::read_dir(&blobs_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    // hf_hub uses .incomplete suffix for in-progress downloads
+                    let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    if name.ends_with(".incomplete") {
+                        if let Ok(meta) = std::fs::metadata(&path) {
+                            max_incomplete_size = max_incomplete_size.max(meta.len());
+                        }
+                    }
+                }
+            }
+
+            // Also check for completed blobs without .incomplete (in case it finished between checks)
+            if max_incomplete_size == 0 {
+                if let Ok(entries) = std::fs::read_dir(&blobs_dir) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.is_file() {
+                            if let Ok(meta) = std::fs::metadata(&path) {
+                                // Only count files that are reasonably close to expected size
+                                // (avoid counting small metadata files)
+                                if meta.len() > expected_bytes / 10 {
+                                    max_incomplete_size = max_incomplete_size.max(meta.len());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if max_incomplete_size > 0 {
+                if let Ok(mut p) = progress.lock() {
+                    if let Some(ref mut dp) = *p {
+                        dp.downloaded_bytes = max_incomplete_size.min(expected_bytes);
+                        dp.phase = "downloading".into();
+                    }
+                }
+            }
+
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
     }
 }

@@ -122,7 +122,7 @@ pub fn is_model_cached(profile: &ModelProfile) -> bool {
 }
 
 /// Get the HuggingFace Hub cache directory.
-fn get_hf_cache_dir() -> std::path::PathBuf {
+pub fn get_hf_cache_dir() -> std::path::PathBuf {
     // Respect HF environment variables
     if let Ok(cache) = std::env::var("HF_HUB_CACHE") {
         return std::path::PathBuf::from(cache);

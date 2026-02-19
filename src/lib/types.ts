@@ -74,6 +74,13 @@ export interface ChatResponse {
   model_id: string;
 }
 
+/** Download progress information. */
+export interface DownloadProgress {
+  downloaded_bytes: number;
+  total_bytes: number;
+  phase: "checking_cache" | "downloading" | "download_complete" | "loading_model" | "cached";
+}
+
 /** Chat engine status. */
 export interface ChatStatus {
   available: boolean;
@@ -83,6 +90,7 @@ export interface ChatStatus {
   loading: boolean;
   error: string | null;
   device: string;
+  download_progress: DownloadProgress | null;
 }
 
 /** A structured log entry from the Rust backend. */

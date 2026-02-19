@@ -57,3 +57,9 @@ html, body, #root {
 ::selection {
   background-color: color-mix(in srgb, var(--color-ghost-accent) 40%, transparent);
 }
+
+/* Download progress shimmer */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}

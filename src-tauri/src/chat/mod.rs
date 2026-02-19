@@ -29,6 +29,14 @@ pub struct ChatMessage {
     pub content: String,
 }
 
+/// Download progress information.
+#[derive(Debug, Clone, Serialize)]
+pub struct DownloadProgress {
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub phase: String,
+}
+
 /// Chat engine status for the frontend.
 #[derive(Debug, Clone, Serialize)]
 pub struct ChatStatus {
@@ -39,6 +47,7 @@ pub struct ChatStatus {
     pub loading: bool,
     pub error: Option<String>,
     pub device: String,
+    pub download_progress: Option<DownloadProgress>,
 }
 
 /// Chat generation response.
@@ -64,6 +73,7 @@ pub struct ChatEngine {
     error: Mutex<Option<String>>,
     hardware: HardwareInfo,
     device_preference: Mutex<String>,
+    download_progress: std::sync::Arc<Mutex<Option<DownloadProgress>>>,
 }
 
 impl ChatEngine {
@@ -78,6 +88,7 @@ impl ChatEngine {
             error: Mutex::new(None),
             hardware,
             device_preference: Mutex::new(device_preference),
+            download_progress: std::sync::Arc::new(Mutex::new(None)),
         }
     }
 
@@ -111,6 +122,11 @@ impl ChatEngine {
         }
         // Clear previous error
         *self.error.lock().unwrap() = None;
+        *self.download_progress.lock().unwrap() = Some(DownloadProgress {
+            downloaded_bytes: 0,
+            total_bytes: profile.size_mb * 1_048_576, // Convert MB to bytes
+            phase: "checking_cache".into(),
+        });
 
         tracing::info!(
             "Loading model: {} ({}, ~{}MB)",
@@ -122,7 +138,9 @@ impl ChatEngine {
         let device_pref = self.device_preference.lock().unwrap().clone();
         let device = self.hardware.select_device(&device_pref);
 
-        match native::NativeChatEngine::load(profile, device).await {
+        // Pass progress tracker to the load function
+        let progress = self.download_progress.clone();
+        match native::NativeChatEngine::load(profile, device, progress.clone()).await {
             Ok(engine) => {
                 tracing::info!(
                     "Chat engine ready: {} on {:?}",
@@ -139,6 +157,7 @@ impl ChatEngine {
         }
 
         *self.loading.lock().unwrap() = false;
+        *self.download_progress.lock().unwrap() = None;
     }
 
     /// Switch to a different model. Downloads if needed.
@@ -176,6 +195,7 @@ impl ChatEngine {
         let error = self.error.lock().unwrap().clone();
         let model_id = self.active_model_id.lock().unwrap().clone();
         let device_pref = self.device_preference.lock().unwrap().clone();
+        let progress = self.download_progress.lock().unwrap().clone();
 
         if let Some(ref engine) = *native {
             ChatStatus {
@@ -186,6 +206,7 @@ impl ChatEngine {
                 loading: false,
                 error: None,
                 device: device_pref,
+                download_progress: None,
             }
         } else if loading {
             let model_name = models::find_model(&model_id)
@@ -199,6 +220,7 @@ impl ChatEngine {
                 loading: true,
                 error: None,
                 device: device_pref,
+                download_progress: progress,
             }
         } else if check_ollama_sync() {
             ChatStatus {
@@ -209,6 +231,7 @@ impl ChatEngine {
                 loading: false,
                 error: None,
                 device: "external".into(),
+                download_progress: None,
             }
         } else {
             let model_name = models::find_model(&model_id)
@@ -222,6 +245,7 @@ impl ChatEngine {
                 loading: false,
                 error,
                 device: device_pref,
+                download_progress: None,
             }
         }
     }
