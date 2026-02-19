@@ -1,0 +1,14 @@
+# Default owners for entire repository
+* @AngelAlexQC
+
+# Rust backend
+/src-tauri/ @AngelAlexQC
+
+# Frontend
+/src/ @AngelAlexQC
+
+# CI/CD
+/.github/ @AngelAlexQC
+
+# Documentation
+/*.md @AngelAlexQC

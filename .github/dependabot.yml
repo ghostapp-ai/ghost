@@ -1,0 +1,45 @@
+version: 2
+updates:
+  # Rust dependencies (src-tauri/Cargo.toml)
+  - package-ecosystem: "cargo"
+    directory: "/src-tauri"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "chore(deps):"
+    labels:
+      - "dependencies"
+      - "rust"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "AngelAlexQC"
+
+  # Frontend dependencies (package.json)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "chore(deps):"
+    labels:
+      - "dependencies"
+      - "frontend"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "AngelAlexQC"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(ci):"
+    labels:
+      - "dependencies"
+      - "ci"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "AngelAlexQC"

@@ -30,6 +30,8 @@ jobs:
             libjavascriptcoregtk-4.1-dev
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
@@ -41,6 +43,10 @@ jobs:
       - name: Install frontend deps
         run: bun install --frozen-lockfile
 
+      - name: Rust format check
+        working-directory: src-tauri
+        run: cargo fmt --all -- --check
+
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test --all-features
@@ -48,6 +54,12 @@ jobs:
       - name: Clippy
         working-directory: src-tauri
         run: cargo clippy -- -D warnings
+
+      - name: Security audit
+        working-directory: src-tauri
+        run: |
+          cargo install cargo-audit --locked || true
+          cargo audit
 
       - name: Frontend build check
         run: bun run build
