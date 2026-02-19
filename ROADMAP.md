@@ -129,10 +129,17 @@
   - NSIS installer for Windows (x64)
   - DMG for macOS (Apple Silicon + Intel via cross-compilation)
   - DEB + AppImage for Linux (x64)
-  - Single consolidated workflow: CI on push + Release on tag
   - CI pipeline: Rust tests + clippy + `cargo fmt --check` + `cargo audit` + frontend TypeScript check
   - ~11MB installer size (Linux .deb)
   - *(Pending)*: Code signing, auto-start option, system tray icon
+
+- [x] **Automated release pipeline (Release Please)**
+  - Google Release Please replaces manual `git tag` workflow
+  - Conventional commits auto-analyzed → version bump + CHANGELOG generation
+  - Auto-created Release PR with changelog preview
+  - Merging Release PR → auto tag + GitHub Release + cross-platform builds
+  - Version sync across `package.json`, `Cargo.toml`, `tauri.conf.json`
+  - Zero manual steps: just push conventional commits and merge the release PR
 
 - [x] **Custom branding & visual identity**
   - Custom Ghost icon (friendly ghost with glowing eyes, purple gradient)

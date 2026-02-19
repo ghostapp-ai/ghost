@@ -3,7 +3,6 @@ name: Ghost CI/CD
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
     branches: [main]
 
@@ -13,6 +12,10 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   # ─── CI: runs on every push/PR ───────────────────────────────────
@@ -64,11 +67,30 @@ jobs:
       - name: Frontend build check
         run: bun run build
 
-  # ─── Release: only on tag push ───────────────────────────────────
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
+  # ─── Release Please: auto version bump + release PR ──────────────
+  # On every push to main, Release Please analyzes conventional commits
+  # and creates/updates a Release PR. When that PR is merged, it auto-
+  # creates a GitHub Release + git tag. No manual tagging needed.
+  release-please:
+    name: Release Please
     needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─── Build & Release: auto-triggers when Release Please creates a release
+  build:
     name: Build (${{ matrix.label }})
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
     permissions:
       contents: write
     strategy:
@@ -121,16 +143,16 @@ jobs:
       - name: Install frontend deps
         run: bun install --frozen-lockfile
 
-      - name: Build & upload
+      - name: Build & upload artifacts
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: Ghost ${{ github.ref_name }}
+          tagName: ${{ needs.release-please.outputs.tag_name }}
+          releaseName: Ghost ${{ needs.release-please.outputs.tag_name }}
           releaseBody: |
-            See [ROADMAP.md](https://github.com/${{ github.repository }}/blob/main/ROADMAP.md) for details.
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
           releaseDraft: false
-          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          prerelease: false
           tauriScript: bun run tauri
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
