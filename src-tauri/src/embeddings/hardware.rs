@@ -97,7 +97,7 @@ impl HardwareInfo {
                 tracing::warn!("Metal requested but not available, falling back to CPU");
                 candle_core::Device::Cpu
             }
-            "auto" | _ => {
+            _ => {
                 // Try GPU acceleration first, fall back to CPU
                 if let Some(device) = Self::try_cuda_device() {
                     return device;

@@ -71,6 +71,18 @@ export async function showWindow(): Promise<void> {
   return invoke<void>("show_window");
 }
 
+/** Programmatic window drag — fallback for data-tauri-drag-region issues. */
+export async function startDragging(): Promise<void> {
+  return invoke<void>("start_dragging");
+}
+
+// --- Auto-Indexing ---
+
+/** Get auto-detected default user directories for indexing. */
+export async function getDefaultDirectories(): Promise<string[]> {
+  return invoke<string[]>("get_default_directories");
+}
+
 // --- Chat ---
 
 /** Send chat messages and get a response. */

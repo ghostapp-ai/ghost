@@ -50,7 +50,7 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 - Hardware detection: CPU cores, AVX2/NEON SIMD, GPU backend (CUDA/Metal/Vulkan)
 - File watcher (`notify` + `notify-debouncer-mini`) for real-time document indexing
 - Text extraction: PDF (lopdf), DOCX (zip), XLSX (calamine), TXT, Markdown, code files
-- 21 unit tests passing, zero compiler warnings
+- 27 unit tests passing, zero compiler warnings
 
 ### Phase 1 — The Search Bar (**Complete**)
 
@@ -62,11 +62,14 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 - **Open files**: Enter key or double-click opens files with system default app
 - Keyboard navigation: arrow keys, Enter to open, Esc to dismiss
 - Settings panel: watched directory management, persistent settings (JSON)
+- **Zero-config auto-indexing**: auto-discovers user directories (Documents, Desktop, Downloads, Pictures) on first launch — like Spotlight/Alfred
+- Cross-platform directory detection via `dirs` crate (XDG, Windows Known Folders, macOS standard paths)
 - Auto-start file watcher on launch with saved directories
-- Onboarding flow for first-time users
+- **Reliable window dragging**: programmatic `startDragging()` fallback for Linux/Wayland compatibility
+- 50+ source code extensions indexed (rs, py, js, ts, go, java, cpp, etc.)
 - Status bar: document count, AI engine status, vector search status, chat model status
 - Cross-platform CI/CD: Windows, macOS (ARM64 + Intel), Linux installers
-- 21 tests, zero warnings, ~199KB JS bundle
+- 27 tests, zero warnings, ~203KB JS bundle
 
 ### Native Chat Engine (**Complete**)
 

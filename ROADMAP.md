@@ -71,7 +71,7 @@
 
 ### Exit Criteria
 - [x] `bun run build` compiles frontend with zero errors (181KB JS bundle)
-- [x] `cargo test` passes all 21 tests
+- [x] `cargo test` passes all 27 tests
 - [x] `cargo check` compiles with zero errors, zero warnings
 - [ ] Insert 100 real documents from your machine *(manual validation pending)*
 - [ ] RAM usage idle <50MB *(benchmarking pending)*
@@ -112,7 +112,11 @@
   - Watch configured directories for changes (add/remove in Settings)
   - Embeddings stored in sqlite-vec automatically during indexing
   - **Auto-start**: watcher starts automatically on app launch with saved directories
-  - First-time onboarding: guides user to add directories when none configured
+  - **Zero-config auto-discovery**: on first launch, auto-detects user directories (Documents, Desktop, Downloads, Pictures) using `dirs` crate — like Spotlight/Alfred
+  - Cross-platform directory detection: XDG dirs on Linux, standard dirs on Windows/macOS, Spanish locale fallbacks
+  - Automatic background indexing + file watcher setup on first run
+  - Settings panel still available for manual customization
+  - Source code file support: 50+ programming languages indexed (rs, py, js, ts, go, etc.)
 
 - [x] **Settings UI**
   - Watched directories management (add/remove) with persistence

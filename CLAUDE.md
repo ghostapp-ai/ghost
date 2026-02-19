@@ -484,3 +484,7 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-18 | Filesystem monitoring for download progress | hf_hub sync API has no progress callbacks; monitoring `.incomplete` files in blobs/ every 500ms works reliably |
 | 2026-02-18 | Unified Omnibox over tab system | Single intelligent input reduces cognitive load; auto-detection via regex heuristics + sticky chat mode |
 | 2026-02-18 | detectMode() heuristics over LLM classification | Zero latency, regex-based: file patterns → search, conversational starters → chat, sticky mode for active chats |
+| 2026-02-19 | Zero-config auto-indexing over manual setup | Like Spotlight/Alfred: auto-detect ~/Documents, ~/Desktop, ~/Downloads, ~/Pictures on first launch. No user action required |
+| 2026-02-19 | `dirs` crate for XDG directory detection | Cross-platform (Linux XDG, macOS standard, Windows Known Folders), with locale fallbacks (Documentos, Escritorio, etc.) |
+| 2026-02-19 | Programmatic `startDragging()` over data-tauri-drag-region only | Tauri v2 has known Linux/Wayland issues with CSS drag regions; JS fallback via `window.start_dragging()` ensures reliable drag |
+| 2026-02-19 | 50+ source code extensions in extractor | Developers need to search code too — rs, py, js, ts, go, etc. matches what Everything/Spotlight index |

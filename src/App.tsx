@@ -16,6 +16,7 @@ import {
   chatSend,
   chatStatus as fetchChatStatus,
   chatLoadModel,
+  startDragging,
 } from "./lib/tauri";
 import type { ChatMessage, ChatStatus } from "./lib/types";
 import "./styles/globals.css";
@@ -54,9 +55,24 @@ export default function App() {
   useEffect(() => {
     getSettings()
       .then((s) => {
-        setHasDirectories(s.watched_directories.length > 0);
-        if (s.watched_directories.length > 0) {
+        const hasDirs = s.watched_directories.length > 0;
+        setHasDirectories(hasDirs);
+        if (hasDirs) {
           startWatcher(s.watched_directories).catch(() => {});
+        } else {
+          // Auto-indexing is happening in the background (Rust setup)
+          // Poll settings to detect when auto-discovery finishes
+          const poll = setInterval(() => {
+            getSettings().then((updated) => {
+              if (updated.watched_directories.length > 0) {
+                setHasDirectories(true);
+                startWatcher(updated.watched_directories).catch(() => {});
+                clearInterval(poll);
+              }
+            }).catch(() => {});
+          }, 2000);
+          // Clean up after 60 seconds max
+          setTimeout(() => clearInterval(poll), 60000);
         }
       })
       .catch(() => setHasDirectories(false));
@@ -180,15 +196,33 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-ghost-bg rounded-2xl overflow-hidden border border-ghost-border/50 shadow-2xl">
-      {/* Draggable title bar region */}
+      {/* Draggable title bar region — large hit area for reliable window drag */}
       <div
         data-tauri-drag-region
-        className="h-3 shrink-0 cursor-grab active:cursor-grabbing"
+        className="h-4 shrink-0 cursor-grab active:cursor-grabbing"
+        onMouseDown={(e) => {
+          // Only drag on primary button, skip if clicking a button
+          if (e.button === 0 && (e.target as HTMLElement).closest('[data-tauri-drag-region]') === e.currentTarget) {
+            startDragging().catch(() => {});
+          }
+        }}
       />
 
-      {/* Header */}
-      <header className="shrink-0 px-5 pb-2">
-        <div className="flex items-center justify-between mb-3">
+      {/* Header — also draggable */}
+      <header
+        className="shrink-0 px-5 pb-2"
+      >
+        <div
+          data-tauri-drag-region
+          className="flex items-center justify-between mb-3 cursor-grab active:cursor-grabbing"
+          onMouseDown={(e) => {
+            // Allow drag from header bar area, but not from buttons
+            const target = e.target as HTMLElement;
+            if (e.button === 0 && !target.closest('button') && !target.closest('a')) {
+              startDragging().catch(() => {});
+            }
+          }}
+        >
           <div className="flex items-center gap-2.5">
             <img
               src="/ghost-logo.svg"
@@ -244,22 +278,27 @@ export default function App() {
             {hasDirectories === false && !query.trim() ? (
               <div className="flex flex-col items-center justify-center h-64 text-ghost-text-dim/60 gap-4">
                 <div className="w-14 h-14 rounded-2xl bg-ghost-accent/10 flex items-center justify-center">
-                  <span className="text-ghost-accent text-2xl">📁</span>
+                  <span className="text-2xl">🔍</span>
                 </div>
                 <div className="text-center space-y-1">
                   <p className="text-sm font-medium text-ghost-text">
                     Bienvenido a Ghost
                   </p>
                   <p className="text-xs text-ghost-text-dim/50 max-w-70">
-                    Agrega un directorio en Settings para indexar tus archivos.
+                    Indexando tus archivos automáticamente...
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowSettings(true)}
-                  className="px-4 py-2 bg-ghost-accent text-white rounded-xl text-sm font-medium hover:bg-ghost-accent-dim transition-all"
-                >
-                  Abrir Settings
-                </button>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-ghost-accent animate-pulse" />
+                  <span className="text-xs text-ghost-text-dim/40">
+                    Descubriendo directorios
+                  </span>
+                </div>
+              </div>
+            ) : hasDirectories === null && !query.trim() ? (
+              <div className="flex flex-col items-center justify-center h-64 text-ghost-text-dim/60 gap-3">
+                <div className="w-3 h-3 rounded-full bg-ghost-accent animate-pulse" />
+                <p className="text-xs text-ghost-text-dim/40">Cargando...</p>
               </div>
             ) : (
               <ResultsList
