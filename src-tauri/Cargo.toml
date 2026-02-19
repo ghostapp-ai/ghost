@@ -32,7 +32,7 @@ notify = "7"
 notify-debouncer-mini = "0.5"
 
 # Text extraction
-lopdf = "0.34"
+lopdf = "0.39"
 calamine = "0.33"
 
 # HTTP client (for Ollama)
