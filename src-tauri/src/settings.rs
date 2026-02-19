@@ -27,10 +27,18 @@ pub struct Settings {
     pub chat_temperature: f64,
 }
 
-fn default_chat_model() -> String { "auto".into() }
-fn default_chat_device() -> String { "auto".into() }
-fn default_chat_max_tokens() -> usize { 512 }
-fn default_chat_temperature() -> f64 { 0.7 }
+fn default_chat_model() -> String {
+    "auto".into()
+}
+fn default_chat_device() -> String {
+    "auto".into()
+}
+fn default_chat_max_tokens() -> usize {
+    512
+}
+fn default_chat_temperature() -> f64 {
+    0.7
+}
 
 impl Default for Settings {
     fn default() -> Self {

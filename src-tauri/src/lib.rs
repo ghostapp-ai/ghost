@@ -10,8 +10,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use db::Database;
-use embeddings::{AiStatus, EmbeddingEngine};
 use embeddings::hardware::HardwareInfo;
+use embeddings::{AiStatus, EmbeddingEngine};
 use search::SearchResult;
 use settings::Settings;
 use tauri::Manager;
@@ -123,17 +123,33 @@ async fn get_default_directories() -> Result<Vec<String>, String> {
     };
 
     // XDG/platform directories
-    if let Some(doc) = dirs::document_dir() { try_add(doc); }
-    if let Some(desk) = dirs::desktop_dir() { try_add(desk); }
-    if let Some(dl) = dirs::download_dir() { try_add(dl); }
-    if let Some(pic) = dirs::picture_dir() { try_add(pic); }
+    if let Some(doc) = dirs::document_dir() {
+        try_add(doc);
+    }
+    if let Some(desk) = dirs::desktop_dir() {
+        try_add(desk);
+    }
+    if let Some(dl) = dirs::download_dir() {
+        try_add(dl);
+    }
+    if let Some(pic) = dirs::picture_dir() {
+        try_add(pic);
+    }
 
     // Additional common directories
     if let Some(home) = dirs::home_dir() {
         let extras = [
-            "Documents", "Documentos", "Desktop", "Escritorio",
-            "Downloads", "Descargas", "Pictures", "Imágenes",
-            "Notes", "Obsidian", "org",
+            "Documents",
+            "Documentos",
+            "Desktop",
+            "Escritorio",
+            "Downloads",
+            "Descargas",
+            "Pictures",
+            "Imágenes",
+            "Notes",
+            "Obsidian",
+            "org",
         ];
         for name in &extras {
             try_add(home.join(name));
@@ -251,11 +267,19 @@ async fn chat_send(
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<chat::ChatResponse, String> {
     let max_tokens = max_tokens.unwrap_or_else(|| {
-        state.settings.lock().map(|s| s.chat_max_tokens).unwrap_or(512)
+        state
+            .settings
+            .lock()
+            .map(|s| s.chat_max_tokens)
+            .unwrap_or(512)
     });
     push_log(
         "info",
-        format!("Chat: {} messages, max_tokens={}", messages.len(), max_tokens),
+        format!(
+            "Chat: {} messages, max_tokens={}",
+            messages.len(),
+            max_tokens
+        ),
     );
     state
         .chat_engine
@@ -304,9 +328,7 @@ async fn chat_switch_model(
 // --- Hardware & Model Commands ---
 
 #[tauri::command]
-async fn get_hardware_info(
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<HardwareInfo, String> {
+async fn get_hardware_info(state: tauri::State<'_, Arc<AppState>>) -> Result<HardwareInfo, String> {
     Ok(state.hardware.clone())
 }
 
@@ -318,9 +340,7 @@ async fn get_available_models(
 }
 
 #[tauri::command]
-async fn get_recommended_model(
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<String, String> {
+async fn get_recommended_model(state: tauri::State<'_, Arc<AppState>>) -> Result<String, String> {
     Ok(state.chat_engine.recommended_model_id())
 }
 
@@ -552,7 +572,10 @@ pub fn run() {
 
                 if needs_auto_setup {
                     tracing::info!("First launch detected — auto-discovering user directories...");
-                    push_log("info", "First launch: auto-discovering user directories".into());
+                    push_log(
+                        "info",
+                        "First launch: auto-discovering user directories".into(),
+                    );
 
                     let mut auto_dirs = Vec::new();
 
@@ -575,11 +598,7 @@ pub fn run() {
                         }
 
                         // Additional common directories
-                        let extra = [
-                            home.join("Notes"),
-                            home.join("Obsidian"),
-                            home.join("org"),
-                        ];
+                        let extra = [home.join("Notes"), home.join("Obsidian"), home.join("org")];
                         for dir in &extra {
                             if dir.exists() {
                                 let s = dir.to_string_lossy().to_string();
@@ -591,7 +610,14 @@ pub fn run() {
                     }
 
                     if !auto_dirs.is_empty() {
-                        push_log("info", format!("Auto-discovered {} directories: {:?}", auto_dirs.len(), auto_dirs));
+                        push_log(
+                            "info",
+                            format!(
+                                "Auto-discovered {} directories: {:?}",
+                                auto_dirs.len(),
+                                auto_dirs
+                            ),
+                        );
                         tracing::info!("Auto-discovered {} directories", auto_dirs.len());
 
                         // Save to settings so this only happens once
@@ -609,22 +635,31 @@ pub fn run() {
                                 &state_for_autoindex.db,
                                 &state_for_autoindex.embedding_engine,
                                 &path,
-                            ).await {
+                            )
+                            .await
+                            {
                                 Ok(stats) => {
-                                    push_log("info", format!(
-                                        "Indexed {}: {} files ({} ok, {} failed)",
-                                        dir_path, stats.total, stats.indexed, stats.failed
-                                    ));
+                                    push_log(
+                                        "info",
+                                        format!(
+                                            "Indexed {}: {} files ({} ok, {} failed)",
+                                            dir_path, stats.total, stats.indexed, stats.failed
+                                        ),
+                                    );
                                 }
                                 Err(e) => {
-                                    push_log("warn", format!("Failed to index {}: {}", dir_path, e));
+                                    push_log(
+                                        "warn",
+                                        format!("Failed to index {}: {}", dir_path, e),
+                                    );
                                     tracing::warn!("Auto-index failed for {}: {}", dir_path, e);
                                 }
                             }
                         }
 
                         // Start file watcher on discovered directories
-                        let watch_dirs: Vec<std::path::PathBuf> = auto_dirs.iter().map(std::path::PathBuf::from).collect();
+                        let watch_dirs: Vec<std::path::PathBuf> =
+                            auto_dirs.iter().map(std::path::PathBuf::from).collect();
                         match crate::indexer::watcher::start_watching(watch_dirs) {
                             Ok(rx) => {
                                 let watcher_state = state_for_autoindex.clone();
@@ -632,29 +667,56 @@ pub fn run() {
                                     while let Ok(events) = rx.recv() {
                                         for event in events {
                                             match event {
-                                                crate::indexer::watcher::FileEvent::Changed(path) => {
-                                                    tracing::info!("File changed, re-indexing: {}", path.display());
+                                                crate::indexer::watcher::FileEvent::Changed(
+                                                    path,
+                                                ) => {
+                                                    tracing::info!(
+                                                        "File changed, re-indexing: {}",
+                                                        path.display()
+                                                    );
                                                     if let Err(e) = crate::indexer::index_file(
                                                         &watcher_state.db,
                                                         &watcher_state.embedding_engine,
                                                         &path,
-                                                    ).await {
-                                                        tracing::warn!("Failed to re-index {}: {}", path.display(), e);
+                                                    )
+                                                    .await
+                                                    {
+                                                        tracing::warn!(
+                                                            "Failed to re-index {}: {}",
+                                                            path.display(),
+                                                            e
+                                                        );
                                                     }
                                                 }
-                                                crate::indexer::watcher::FileEvent::Removed(path) => {
-                                                    tracing::info!("File removed: {}", path.display());
-                                                    let path_str = path.to_string_lossy().to_string();
-                                                    if let Ok(Some((doc_id, _))) = watcher_state.db.get_document_by_path(&path_str) {
-                                                        let _ = watcher_state.db.delete_embeddings_for_document(doc_id);
-                                                        let _ = watcher_state.db.delete_chunks_for_document(doc_id);
+                                                crate::indexer::watcher::FileEvent::Removed(
+                                                    path,
+                                                ) => {
+                                                    tracing::info!(
+                                                        "File removed: {}",
+                                                        path.display()
+                                                    );
+                                                    let path_str =
+                                                        path.to_string_lossy().to_string();
+                                                    if let Ok(Some((doc_id, _))) = watcher_state
+                                                        .db
+                                                        .get_document_by_path(&path_str)
+                                                    {
+                                                        let _ = watcher_state
+                                                            .db
+                                                            .delete_embeddings_for_document(doc_id);
+                                                        let _ = watcher_state
+                                                            .db
+                                                            .delete_chunks_for_document(doc_id);
                                                     }
                                                 }
                                             }
                                         }
                                     }
                                 });
-                                push_log("info", "File watcher started on auto-discovered directories".into());
+                                push_log(
+                                    "info",
+                                    "File watcher started on auto-discovered directories".into(),
+                                );
                             }
                             Err(e) => {
                                 push_log("warn", format!("Failed to start watcher: {}", e));

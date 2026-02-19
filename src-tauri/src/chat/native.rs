@@ -4,15 +4,15 @@
 //! Automatically selects the optimal device (CPU/CUDA/Metal).
 //! Downloads models from HuggingFace Hub on first use.
 
-use candle_core::{Device, Tensor};
 use candle_core::quantized::gguf_file;
+use candle_core::{Device, Tensor};
 use candle_transformers::generation::{LogitsProcessor, Sampling};
 use candle_transformers::models::quantized_qwen2::ModelWeights;
 use tokenizers::Tokenizer;
 
+use super::models::ModelProfile;
 use super::ChatMessage;
 use super::DownloadProgress;
-use super::models::ModelProfile;
 use crate::error::{GhostError, Result};
 
 /// Default sampling parameters.
@@ -57,7 +57,8 @@ impl NativeChatEngine {
         );
 
         // Download model files from HuggingFace Hub (cached after first download)
-        let (model_path, tokenizer_path) = Self::download_model_files(profile, progress.clone()).await?;
+        let (model_path, tokenizer_path) =
+            Self::download_model_files(profile, progress.clone()).await?;
 
         // Update progress: loading model into memory
         if let Ok(mut p) = progress.lock() {
@@ -320,11 +321,7 @@ impl NativeChatEngine {
             let repo_id_monitor = repo_id.clone();
             let expected = expected_bytes;
             Some(std::thread::spawn(move || {
-                Self::monitor_download_progress(
-                    &repo_id_monitor,
-                    expected,
-                    progress_monitor,
-                );
+                Self::monitor_download_progress(&repo_id_monitor, expected, progress_monitor);
             }))
         } else {
             None
@@ -414,7 +411,11 @@ impl NativeChatEngine {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     // hf_hub uses .incomplete suffix for in-progress downloads
-                    let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    let name = path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
                     if name.ends_with(".incomplete") {
                         if let Ok(meta) = std::fs::metadata(&path) {
                             max_incomplete_size = max_incomplete_size.max(meta.len());

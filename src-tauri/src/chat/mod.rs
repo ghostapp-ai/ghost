@@ -97,9 +97,7 @@ impl ChatEngine {
     /// This should be called in a background task — it may take minutes
     /// for the first download.
     pub async fn load_model(&self) {
-        let model_id = {
-            self.active_model_id.lock().unwrap().clone()
-        };
+        let model_id = { self.active_model_id.lock().unwrap().clone() };
 
         let profile = match models::find_model(&model_id) {
             Some(p) => p,
@@ -162,9 +160,8 @@ impl ChatEngine {
 
     /// Switch to a different model. Downloads if needed.
     pub async fn switch_model(&self, model_id: &str) -> Result<()> {
-        let profile = models::find_model(model_id).ok_or_else(|| {
-            GhostError::Chat(format!("Unknown model: {}", model_id))
-        })?;
+        let profile = models::find_model(model_id)
+            .ok_or_else(|| GhostError::Chat(format!("Unknown model: {}", model_id)))?;
 
         // Check hardware compatibility
         if self.hardware.available_ram_mb < profile.min_ram_mb {
@@ -251,11 +248,7 @@ impl ChatEngine {
     }
 
     /// Generate a chat response from a list of messages.
-    pub async fn chat(
-        &self,
-        messages: &[ChatMessage],
-        max_tokens: usize,
-    ) -> Result<ChatResponse> {
+    pub async fn chat(&self, messages: &[ChatMessage], max_tokens: usize) -> Result<ChatResponse> {
         let start = std::time::Instant::now();
         let model_id = self.active_model_id.lock().unwrap().clone();
 

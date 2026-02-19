@@ -155,10 +155,7 @@ pub struct ModelInfo {
 }
 
 /// Build a list of all available models with runtime status.
-pub fn list_models(
-    hardware: &HardwareInfo,
-    active_model_id: &str,
-) -> Vec<ModelInfo> {
+pub fn list_models(hardware: &HardwareInfo, active_model_id: &str) -> Vec<ModelInfo> {
     let recommended = recommend_model(hardware);
 
     MODEL_REGISTRY
