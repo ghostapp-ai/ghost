@@ -15,39 +15,8 @@ pub struct Database {
 }
 
 impl Database {
-    /// Open or create the ghost vault database.
-    pub fn open(path: &PathBuf) -> Result<Self> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        let conn = Connection::open(path)?;
-        schema::initialize_schema(&conn)?;
-
-        // Try to load sqlite-vec extension
-        let vec_enabled = Self::try_load_vec(&conn);
-
-        Ok(Self {
-            conn: Mutex::new(conn),
-            vec_enabled,
-        })
-    }
-
-    /// Open an in-memory database (for testing).
-    pub fn open_in_memory() -> Result<Self> {
-        let conn = Connection::open_in_memory()?;
-        schema::initialize_schema(&conn)?;
-
-        let vec_enabled = Self::try_load_vec(&conn);
-
-        Ok(Self {
-            conn: Mutex::new(conn),
-            vec_enabled,
-        })
-    }
-
-    /// Attempt to load the sqlite-vec extension and initialize vector tables.
-    fn try_load_vec(conn: &Connection) -> bool {
+    /// Register sqlite-vec auto-extension (must be called before opening connections).
+    fn register_vec_extension() {
         unsafe {
             rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute::<
                 *const (),
@@ -60,7 +29,47 @@ impl Database {
                 sqlite_vec::sqlite3_vec_init as *const (),
             )));
         }
+    }
 
+    /// Open or create the ghost vault database.
+    pub fn open(path: &PathBuf) -> Result<Self> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        // Register sqlite-vec BEFORE opening the connection
+        Self::register_vec_extension();
+
+        let conn = Connection::open(path)?;
+        schema::initialize_schema(&conn)?;
+
+        // Test if sqlite-vec loaded correctly
+        let vec_enabled = Self::try_load_vec(&conn);
+
+        Ok(Self {
+            conn: Mutex::new(conn),
+            vec_enabled,
+        })
+    }
+
+    /// Open an in-memory database (for testing).
+    pub fn open_in_memory() -> Result<Self> {
+        // Register sqlite-vec BEFORE opening the connection
+        Self::register_vec_extension();
+
+        let conn = Connection::open_in_memory()?;
+        schema::initialize_schema(&conn)?;
+
+        let vec_enabled = Self::try_load_vec(&conn);
+
+        Ok(Self {
+            conn: Mutex::new(conn),
+            vec_enabled,
+        })
+    }
+
+    /// Test if sqlite-vec is working and initialize vector tables.
+    fn try_load_vec(conn: &Connection) -> bool {
         // Test if sqlite-vec is working
         match conn.query_row("SELECT vec_version()", [], |row| row.get::<_, String>(0)) {
             Ok(version) => {

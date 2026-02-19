@@ -46,11 +46,14 @@ pub struct EmbeddingEngine {
     native: Option<native::NativeEngine>,
     ollama: ollama::OllamaEngine,
     active_backend: AiBackend,
+    hardware: hardware::HardwareInfo,
 }
 
 impl EmbeddingEngine {
     /// Initialize the engine: try native first, fall back to Ollama.
     pub async fn initialize() -> Self {
+        let hw = hardware::HardwareInfo::detect();
+
         // Try native engine first
         match native::NativeEngine::load().await {
             Ok(engine) => {
@@ -59,6 +62,7 @@ impl EmbeddingEngine {
                     native: Some(engine),
                     ollama: ollama::OllamaEngine::new(),
                     active_backend: AiBackend::Native,
+                    hardware: hw,
                 };
             }
             Err(e) => {
@@ -76,6 +80,7 @@ impl EmbeddingEngine {
                 native: None,
                 ollama,
                 active_backend: AiBackend::Ollama,
+                hardware: hw,
             }
         } else {
             tracing::warn!("No embedding engine available — FTS5 keyword search only");
@@ -83,6 +88,7 @@ impl EmbeddingEngine {
                 native: None,
                 ollama,
                 active_backend: AiBackend::None,
+                hardware: hw,
             }
         }
     }
@@ -103,7 +109,6 @@ impl EmbeddingEngine {
 
     /// Get the AI status for the frontend.
     pub fn status(&self) -> AiStatus {
-        let hw = hardware::HardwareInfo::detect();
         AiStatus {
             backend: self.active_backend.clone(),
             model_name: match &self.active_backend {
@@ -112,7 +117,7 @@ impl EmbeddingEngine {
                 AiBackend::None => "none".to_string(),
             },
             dimensions: self.dimensions(),
-            hardware: hw,
+            hardware: self.hardware.clone(),
         }
     }
 

@@ -160,7 +160,7 @@ async fn start_watcher(
     // Start watcher in a background thread
     let rx = indexer::watcher::start_watching(dirs).map_err(|e| e.to_string())?;
 
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         while let Ok(events) = rx.recv() {
             for event in events {
                 match event {
@@ -228,7 +228,7 @@ async fn chat_status(state: tauri::State<'_, Arc<AppState>>) -> Result<chat::Cha
 #[tauri::command]
 async fn chat_load_model(state: tauri::State<'_, Arc<AppState>>) -> Result<(), String> {
     let state = state.inner().clone();
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         state.chat_engine.load_model().await;
     });
     Ok(())
@@ -472,7 +472,7 @@ pub fn run() {
             // --- Background model loading ---
             // Don't block app startup — load the chat model in a background task
             let state_for_loading = app_state.clone();
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 tracing::info!("Background: starting chat model load...");
                 state_for_loading.chat_engine.load_model().await;
                 let status = state_for_loading.chat_engine.status();
