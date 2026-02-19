@@ -12,9 +12,17 @@
   "app": {
     "windows": [
       {
-        "title": "ghost",
-        "width": 800,
-        "height": 600
+        "label": "main",
+        "title": "Ghost",
+        "width": 680,
+        "height": 520,
+        "resizable": true,
+        "decorations": false,
+        "transparent": true,
+        "center": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": true
       }
     ],
     "security": {

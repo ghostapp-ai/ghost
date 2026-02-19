@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { SearchResult, DbStats, IndexStats, AiStatus } from "./types";
+import { openPath } from "@tauri-apps/plugin-opener";
+import type { SearchResult, DbStats, IndexStats, AiStatus, Settings } from "./types";
 
 /** Perform hybrid search (FTS5 + vector) across indexed documents. */
 export async function search(
@@ -42,4 +43,29 @@ export async function startWatcher(directories: string[]): Promise<void> {
 /** Check if vector search (sqlite-vec) is available. */
 export async function getVecStatus(): Promise<boolean> {
   return invoke<boolean>("get_vec_status");
+}
+
+/** Hide the main window. */
+export async function hideWindow(): Promise<void> {
+  return invoke<void>("hide_window");
+}
+
+/** Show the main window and focus it. */
+export async function showWindow(): Promise<void> {
+  return invoke<void>("show_window");
+}
+
+/** Load persisted settings. */
+export async function getSettings(): Promise<Settings> {
+  return invoke<Settings>("get_settings");
+}
+
+/** Save settings to disk. */
+export async function saveSettings(newSettings: Settings): Promise<void> {
+  return invoke<void>("save_settings", { newSettings });
+}
+
+/** Open a file with the system default application. */
+export async function openFile(path: string): Promise<void> {
+  return openPath(path);
 }

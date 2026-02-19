@@ -67,7 +67,7 @@
 
 ### Exit Criteria
 - [x] `bun run build` compiles frontend with zero errors (181KB JS bundle)
-- [x] `cargo test` passes all 16 tests
+- [x] `cargo test` passes all 21 tests
 - [x] `cargo check` compiles with zero errors, zero warnings
 - [ ] Insert 100 real documents from your machine *(manual validation pending)*
 - [ ] RAM usage idle <50MB *(benchmarking pending)*
@@ -80,11 +80,14 @@
 
 ### Technical Deliverables
 
-- [ ] **Global search bar UI**
+- [x] **Global search bar UI**
   - Transparent floating window activated by `Cmd/Ctrl+Space`
-  - Tauri global shortcut override at OS level
-  - <500ms time from hotkey to visible, focused input
+  - Tauri global shortcut override at OS level (`tauri-plugin-global-shortcut`)
+  - Decorationless, always-on-top, skip-taskbar window (Spotlight-like)
   - Auto-hide on focus loss (blur event)
+  - Escape key hides window when query is empty
+  - Draggable title region for repositioning
+  - Settings persisted to disk (JSON in app data directory)
 
 - [x] **Search input with instant feedback**
   - Debounced input (150ms) triggers hybrid search
@@ -97,23 +100,28 @@
   - Hybrid ranking: RRF (Reciprocal Rank Fusion) combining FTS5 + vector scores
   - Show: file name, path, snippet with highlighted match, relevance score
   - File type icons (PDF, DOCX, XLSX, TXT, MD, code) and source badges (hybrid/fts/vector)
+  - **Open files**: Enter key or double-click opens with system default app
+  - Window auto-hides after opening a file
 
 - [x] **Automatic indexing**
   - Background indexing via `start_watcher` Tauri command
   - Watch configured directories for changes (add/remove in Settings)
   - Embeddings stored in sqlite-vec automatically during indexing
+  - **Auto-start**: watcher starts automatically on app launch with saved directories
+  - First-time onboarding: guides user to add directories when none configured
 
 - [x] **Settings UI**
-  - Watched directories management (add/remove)
+  - Watched directories management (add/remove) with persistence
   - Manual "Index Now" trigger with progress state
+  - Save button persists directories to disk (survives restarts)
   - Status dashboard: files indexed, chunks, Ollama health, vector status
   - Dark theme integrated with Ghost aesthetic
 
 - [x] **Cross-platform installers via GitHub Actions CI/CD**
   - NSIS installer for Windows (x64)
-  - DMG for macOS (Apple Silicon + Intel)
+  - DMG for macOS (Apple Silicon + Intel via cross-compilation)
   - DEB + AppImage for Linux (x64)
-  - Automated release workflow: push tag → build all platforms → GitHub Release
+  - Single consolidated workflow: CI on push + Release on tag
   - CI pipeline: Rust tests + clippy + frontend TypeScript check
   - ~11MB installer size (Linux .deb)
   - *(Pending)*: Code signing, auto-start option, system tray icon

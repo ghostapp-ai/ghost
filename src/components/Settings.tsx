@@ -1,12 +1,13 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   FolderPlus,
   FolderMinus,
   Play,
   X,
   Loader2,
+  Save,
 } from "lucide-react";
-import { indexDirectory } from "../lib/tauri";
+import { indexDirectory, getSettings, saveSettings, startWatcher } from "../lib/tauri";
 import type { IndexStats } from "../lib/types";
 
 interface SettingsProps {
@@ -19,18 +20,46 @@ export function Settings({ onClose }: SettingsProps) {
   const [indexing, setIndexing] = useState(false);
   const [lastResult, setLastResult] = useState<IndexStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  // Load persisted settings on mount
+  useEffect(() => {
+    getSettings()
+      .then((s) => setDirectories(s.watched_directories))
+      .catch(() => {});
+  }, []);
 
   const addDirectory = useCallback(() => {
     const trimmed = newDir.trim();
     if (trimmed && !directories.includes(trimmed)) {
       setDirectories((prev) => [...prev, trimmed]);
       setNewDir("");
+      setSaved(false);
     }
   }, [newDir, directories]);
 
   const removeDirectory = useCallback((dir: string) => {
     setDirectories((prev) => prev.filter((d) => d !== dir));
+    setSaved(false);
   }, []);
+
+  // Persist directories to disk
+  const handleSave = useCallback(async () => {
+    try {
+      await saveSettings({
+        watched_directories: directories,
+        shortcut: "CmdOrCtrl+Space",
+      });
+      // Re-start watcher with updated directories
+      if (directories.length > 0) {
+        await startWatcher(directories).catch(() => {});
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, [directories]);
 
   const startIndexing = useCallback(async () => {
     if (directories.length === 0) return;
@@ -122,12 +151,21 @@ export function Settings({ onClose }: SettingsProps) {
             )}
           </div>
 
-          {/* Index Button */}
-          <button
-            onClick={startIndexing}
-            disabled={indexing || directories.length === 0}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-ghost-accent text-white rounded-xl font-medium text-sm hover:bg-ghost-accent-dim disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-          >
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              disabled={directories.length === 0}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-ghost-surface-hover text-ghost-text border border-ghost-border rounded-xl font-medium text-sm hover:bg-ghost-border disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              <Save className="w-4 h-4" />
+              {saved ? "Saved!" : "Save"}
+            </button>
+            <button
+              onClick={startIndexing}
+              disabled={indexing || directories.length === 0}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-ghost-accent text-white rounded-xl font-medium text-sm hover:bg-ghost-accent-dim disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
             {indexing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -140,6 +178,7 @@ export function Settings({ onClose }: SettingsProps) {
               </>
             )}
           </button>
+          </div>
 
           {/* Results */}
           {lastResult && (

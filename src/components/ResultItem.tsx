@@ -12,6 +12,7 @@ interface ResultItemProps {
   result: SearchResult;
   isSelected: boolean;
   onSelect: () => void;
+  onOpen: () => void;
 }
 
 const EXT_ICONS: Record<string, typeof FileText> = {
@@ -57,12 +58,13 @@ function formatPath(path: string): string {
   return home;
 }
 
-export function ResultItem({ result, isSelected, onSelect }: ResultItemProps) {
+export function ResultItem({ result, isSelected, onSelect, onOpen }: ResultItemProps) {
   const Icon = getIcon(result.extension);
 
   return (
     <button
       onClick={onSelect}
+      onDoubleClick={onOpen}
       className={`
         w-full text-left px-4 py-3 rounded-xl transition-all duration-150
         border border-transparent

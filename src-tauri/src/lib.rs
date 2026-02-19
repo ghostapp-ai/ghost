@@ -3,6 +3,7 @@ mod embeddings;
 mod error;
 mod indexer;
 mod search;
+mod settings;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -10,19 +11,58 @@ use std::sync::Arc;
 use db::Database;
 use embeddings::{AiStatus, EmbeddingEngine};
 use search::SearchResult;
+use settings::Settings;
+use tauri::Manager;
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 /// Application state shared across commands.
 pub struct AppState {
     pub db: Database,
     pub embedding_engine: EmbeddingEngine,
+    pub settings: std::sync::Mutex<Settings>,
+}
+
+/// Get the app data directory.
+fn get_app_data_dir() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("com.ghost.app")
 }
 
 /// Get the default vault database path.
 fn get_db_path() -> PathBuf {
-    let data_dir = dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("com.ghost.app");
-    data_dir.join("ghost_vault.db")
+    get_app_data_dir().join("ghost_vault.db")
+}
+
+// --- Window Management ---
+
+/// Toggle window visibility (show/hide).
+fn toggle_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        if window.is_visible().unwrap_or(false) {
+            let _ = window.hide();
+        } else {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }
+}
+
+#[tauri::command]
+async fn hide_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        window.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn show_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 // --- Tauri Commands ---
@@ -136,6 +176,27 @@ async fn get_vec_status(
     Ok(state.db.is_vec_enabled())
 }
 
+// --- Settings Commands ---
+
+#[tauri::command]
+async fn get_settings(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Settings, String> {
+    let settings = state.settings.lock().map_err(|e| e.to_string())?;
+    Ok(settings.clone())
+}
+
+#[tauri::command]
+async fn save_settings(
+    new_settings: Settings,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+    *settings = new_settings;
+    settings.save(&get_app_data_dir().join("settings.json"))
+        .map_err(|e| e.to_string())
+}
+
 // --- App Setup ---
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -150,6 +211,11 @@ pub fn run() {
 
     tracing::info!("Starting Ghost v{}", env!("CARGO_PKG_VERSION"));
 
+    // Initialize settings
+    let settings_path = get_app_data_dir().join("settings.json");
+    let settings = Settings::load(&settings_path);
+    tracing::info!("Settings loaded: {} watched directories", settings.watched_directories.len());
+
     // Initialize database
     let db_path = get_db_path();
     tracing::info!("Database path: {}", db_path.display());
@@ -157,8 +223,6 @@ pub fn run() {
     let db = Database::open(&db_path).expect("Failed to open database");
 
     // Initialize embedding engine (tries Native → Ollama → None).
-    // Uses block_on since model loads from cache are fast (<200ms).
-    // First-time download happens here too (requires network once).
     let embedding_engine = tauri::async_runtime::block_on(async {
         tracing::info!("Initializing AI embedding engine...");
         let engine = EmbeddingEngine::initialize().await;
@@ -169,10 +233,12 @@ pub fn run() {
     let app_state = Arc::new(AppState {
         db,
         embedding_engine,
+        settings: std::sync::Mutex::new(settings),
     });
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(app_state)
         .invoke_handler(tauri::generate_handler![
             search_query,
@@ -183,7 +249,28 @@ pub fn run() {
             check_ai_status,
             start_watcher,
             get_vec_status,
+            hide_window,
+            show_window,
+            get_settings,
+            save_settings,
         ])
+        .setup(|app| {
+            // Register global shortcut: Ctrl+Space (or Cmd+Space on macOS)
+            use tauri_plugin_global_shortcut::ShortcutState;
+            let handle = app.handle().clone();
+
+            app.global_shortcut().on_shortcut("CmdOrCtrl+Space", move |_app, shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    tracing::debug!("Global shortcut pressed: {:?}", shortcut);
+                    toggle_window(&handle);
+                }
+            }).unwrap_or_else(|e| {
+                tracing::warn!("Failed to register global shortcut CmdOrCtrl+Space: {}", e);
+            });
+
+            tracing::info!("Global shortcut registered: CmdOrCtrl+Space");
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running Ghost");
 }

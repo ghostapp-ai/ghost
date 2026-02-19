@@ -49,16 +49,22 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 - Hardware detection: CPU cores, AVX2/NEON SIMD, GPU backend (CUDA/Metal/Vulkan)
 - File watcher (`notify` + `notify-debouncer-mini`) for real-time document indexing
 - Text extraction: PDF (lopdf), DOCX (zip), XLSX (calamine), TXT, Markdown, code files
-- 16 unit tests passing, zero compiler warnings
+- 21 unit tests passing, zero compiler warnings
 
-### Phase 1 — The Search Bar (**In Progress**)
+### Phase 1 — The Search Bar (**Complete**)
+- **Spotlight-like floating window**: `Ctrl/Cmd+Space` global shortcut, decorationless, always-on-top, transparent
+- Auto-hide on focus loss, Escape to dismiss, draggable title region
 - Dark ghost-themed UI with Tailwind CSS v4
 - Debounced search input (150ms) with loading skeletons
 - Virtualized results list (`@tanstack/react-virtual`) with file type icons
+- **Open files**: Enter key or double-click opens files with system default app
 - Keyboard navigation: arrow keys, Enter to open, Esc to dismiss
-- Settings panel: watched directory management, manual indexing, status dashboard
-- Status bar: document count, Ollama health, vector search status
-- *Pending*: global hotkey launcher, Windows installer, performance benchmarks
+- Settings panel: watched directory management, persistent settings (JSON)
+- Auto-start file watcher on launch with saved directories
+- Onboarding flow for first-time users
+- Status bar: document count, AI engine status, vector search status
+- Cross-platform CI/CD: Windows, macOS (ARM64 + Intel), Linux installers
+- 21 tests, zero warnings, ~185KB JS bundle
 
 ### Phase 2 — The Memory
 - Browser history indexing via UI Automation
@@ -188,12 +194,13 @@ ghost/
 │   └── App.tsx             # Root component with keyboard navigation
 ├── src-tauri/              # Backend (Rust)
 │   ├── src/
-│   │   ├── lib.rs          # Tauri commands: search, index, watcher, stats
+│   │   ├── lib.rs          # Tauri commands: search, index, watcher, settings, window mgmt
 │   │   ├── main.rs         # Entry point
 │   │   ├── error.rs        # Error types (thiserror)
+│   │   ├── settings.rs     # Persistent settings (JSON)
 │   │   ├── indexer/        # File watcher + text extraction + chunking
 │   │   ├── db/             # SQLite + sqlite-vec + FTS5 (schema + CRUD)
-│   │   ├── embeddings/     # Ollama embedding client
+│   │   ├── embeddings/     # Native Candle + Ollama embedding engines
 │   │   └── search/         # Hybrid search engine + RRF ranking
 │   ├── Cargo.toml          # Rust dependencies
 │   └── tauri.conf.json     # Tauri configuration
@@ -209,9 +216,9 @@ See [ROADMAP.md](ROADMAP.md) for the detailed development plan with phases, mile
 ## Privacy & Security
 
 - **Zero telemetry**: Ghost collects no usage data, no analytics, no crash reports.
-- **Local-only processing**: All AI inference runs on your machine via Ollama.
+- **Local-only processing**: All AI inference runs on your machine — native Candle engine or optional Ollama.
 - **Single file database**: Your entire vault is one `.db` file you control.
-- **Optional encryption**: ChaCha20-Poly1305 for vault encryption when sync is enabled.
+- **Optional encryption**: ChaCha20-Poly1305 for vault encryption when sync is enabled (Phase 2).
 - **Open source core**: The engine is fully auditable.
 
 ## Contributing

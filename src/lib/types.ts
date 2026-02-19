@@ -32,6 +32,12 @@ export interface AppStatus {
   stats: DbStats;
 }
 
+/** Persistent settings stored on disk. */
+export interface Settings {
+  watched_directories: string[];
+  shortcut: string;
+}
+
 /** Hardware info from the Rust backend. */
 export interface HardwareInfo {
   cpu_cores: number;

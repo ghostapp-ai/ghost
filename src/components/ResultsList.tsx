@@ -8,6 +8,7 @@ interface ResultsListProps {
   results: SearchResult[];
   selectedIndex: number;
   onSelect: (index: number) => void;
+  onOpen: (index: number) => void;
   isLoading: boolean;
   hasQuery: boolean;
 }
@@ -16,6 +17,7 @@ export function ResultsList({
   results,
   selectedIndex,
   onSelect,
+  onOpen,
   isLoading,
   hasQuery,
 }: ResultsListProps) {
@@ -116,6 +118,7 @@ export function ResultsList({
               result={results[virtualItem.index]}
               isSelected={virtualItem.index === selectedIndex}
               onSelect={() => onSelect(virtualItem.index)}
+              onOpen={() => onOpen(virtualItem.index)}
             />
           </div>
         ))}

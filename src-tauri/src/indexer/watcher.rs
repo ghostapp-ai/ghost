@@ -52,10 +52,10 @@ pub fn start_watching(
             match debounced_rx.recv() {
                 Ok(Ok(events)) => {
                     let file_events = process_events(events);
-                    if !file_events.is_empty() {
-                        if tx.send(file_events).is_err() {
-                            break;
-                        }
+                    if !file_events.is_empty()
+                        && tx.send(file_events).is_err()
+                    {
+                        break;
                     }
                 }
                 Ok(Err(e)) => {

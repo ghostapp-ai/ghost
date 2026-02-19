@@ -28,8 +28,14 @@ html, body, #root {
   margin: 0;
   padding: 0;
   height: 100%;
-  background-color: var(--color-ghost-bg);
+  background-color: transparent;
   color: var(--color-ghost-text);
+}
+
+/* Disable text selection on drag regions */
+[data-tauri-drag-region] {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* Scrollbar styling */

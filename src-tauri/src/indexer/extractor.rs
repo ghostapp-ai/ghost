@@ -68,7 +68,7 @@ fn extract_pdf(path: &Path) -> Result<String> {
     let mut text = String::new();
     let pages = doc.get_pages();
 
-    for (page_num, _) in &pages {
+    for page_num in pages.keys() {
         if let Ok(content) = doc.extract_text(&[*page_num]) {
             text.push_str(&content);
             text.push('\n');
