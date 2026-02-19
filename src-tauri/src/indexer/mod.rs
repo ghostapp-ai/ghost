@@ -7,13 +7,13 @@ use std::path::Path;
 use sha2::{Digest, Sha256};
 
 use crate::db::Database;
-use crate::embeddings::EmbeddingClient;
+use crate::embeddings::EmbeddingEngine;
 use crate::error::{GhostError, Result};
 
 /// Index a single file: extract text, chunk, store in DB, and optionally embed.
 pub async fn index_file(
     db: &Database,
-    embedding_client: &EmbeddingClient,
+    embedding_engine: &EmbeddingEngine,
     path: &Path,
 ) -> Result<()> {
     let path_str = path.to_string_lossy().to_string();
@@ -81,10 +81,10 @@ pub async fn index_file(
     }
 
     // Try to generate embeddings (graceful degradation if Ollama is down)
-    if embedding_client.health_check().await.unwrap_or(false) {
+    if embedding_engine.health_check().await.unwrap_or(false) {
         let unembedded = db.get_unembedded_chunks(chunks.len())?;
         for (chunk_id, content) in &unembedded {
-            match embedding_client.embed(content).await {
+            match embedding_engine.embed(content).await {
                 Ok(embedding) => {
                     // Store embedding in sqlite-vec
                     if let Err(e) = db.insert_embedding(*chunk_id, &embedding) {
@@ -100,7 +100,7 @@ pub async fn index_file(
             }
         }
     } else {
-        tracing::info!("Ollama not available — skipping embeddings, FTS5 index created");
+        tracing::info!("No embedding engine available — skipping embeddings, FTS5 index created");
     }
 
     Ok(())
@@ -109,7 +109,7 @@ pub async fn index_file(
 /// Index all supported files in a directory recursively.
 pub async fn index_directory(
     db: &Database,
-    embedding_client: &EmbeddingClient,
+    embedding_engine: &EmbeddingEngine,
     dir: &Path,
 ) -> Result<IndexStats> {
     let mut stats = IndexStats::default();
@@ -124,7 +124,7 @@ pub async fn index_directory(
     let entries = walk_directory(dir)?;
 
     for path in entries {
-        match index_file(db, embedding_client, &path).await {
+        match index_file(db, embedding_engine, &path).await {
             Ok(()) => stats.indexed += 1,
             Err(e) => {
                 tracing::warn!("Failed to index {}: {}", path.display(), e);

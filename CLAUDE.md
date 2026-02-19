@@ -70,8 +70,10 @@ src-tauri/src/
 │   ├── documents.rs    # Document CRUD operations
 │   └── search.rs       # FTS5 + sqlite-vec hybrid search queries
 ├── embeddings/
-│   ├── mod.rs          # Embedding pipeline coordinator
-│   └── ollama.rs       # Ollama HTTP client for /api/embeddings
+│   ├── mod.rs          # EmbeddingEngine (fallback chain: Native → Ollama → None)
+│   ├── native.rs       # Candle-based in-process BERT inference (all-MiniLM-L6-v2)
+│   ├── ollama.rs       # OllamaEngine HTTP client (fallback engine)
+│   └── hardware.rs     # Hardware detection (CPU cores, SIMD, GPU backend)
 ├── search/
 │   ├── mod.rs          # Search engine combining FTS5 + vector
 │   └── ranking.rs      # RRF (Reciprocal Rank Fusion) implementation
@@ -103,18 +105,25 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 
 # Database
-rusqlite = { version = "0.31", features = ["bundled", "vtab"] }
+rusqlite = { version = "0.32", features = ["bundled", "vtab"] }
 # sqlite-vec loaded as extension at runtime
 
 # File watching
 notify = "7"
 
 # Text extraction
-lopdf = "0.33"           # PDF
-docx-rs = "0.4"          # DOCX
+lopdf = "0.34"           # PDF
+zip = "2"                # DOCX
 calamine = "0.26"        # XLSX
 
-# HTTP (for Ollama + MCP server)
+# Native AI inference (in-process, no external deps)
+candle-core = "0.9"      # Tensor operations
+candle-nn = "0.9"        # Neural network layers
+candle-transformers = "0.9" # BERT, GPT, etc.
+hf-hub = "0.4"           # Model download from HuggingFace
+tokenizers = "0.22"      # Fast text tokenization
+
+# HTTP (for Ollama fallback + MCP server)
 reqwest = { version = "0.12", features = ["json"] }
 axum = "0.8"             # (Phase 3, MCP server)
 
@@ -214,7 +223,7 @@ CREATE VIRTUAL TABLE chunks_fts USING fts5(
 -- Vector table via sqlite-vec for semantic search
 CREATE VIRTUAL TABLE chunks_vec USING vec0(
     chunk_id INTEGER PRIMARY KEY,
-    embedding FLOAT[768]             -- nomic-embed-text dimensions
+    embedding FLOAT[384]             -- all-MiniLM-L6-v2 (native) or FLOAT[768] (Ollama)
 );
 ```
 
@@ -309,36 +318,44 @@ export async function search(query: string, limit?: number): Promise<SearchResul
 
 ---
 
-## Ollama Integration Pattern
+## Embedding Engine Architecture
 
-Ghost communicates with Ollama via HTTP on localhost:
+Ghost uses a fallback chain for embeddings: **Native → Ollama → FTS5-only**
 
+### Native Engine (Primary — Zero Dependencies)
 ```rust
-// embeddings/ollama.rs
-const OLLAMA_BASE: &str = "http://localhost:11434";
-const EMBEDDING_MODEL: &str = "nomic-embed-text";
-
-pub async fn generate_embedding(text: &str) -> Result<Vec<f32>> {
-    let client = reqwest::Client::new();
-    let response = client
-        .post(format!("{}/api/embeddings", OLLAMA_BASE))
-        .json(&serde_json::json!({
-            "model": EMBEDDING_MODEL,
-            "prompt": text
-        }))
-        .send()
-        .await?
-        .json::<EmbeddingResponse>()
-        .await?;
-    Ok(response.embedding)
-}
+// embeddings/native.rs — runs in-process via Candle
+// Model: all-MiniLM-L6-v2 (384 dimensions, ~23MB safetensors)
+// Downloads once from HuggingFace Hub, cached locally
+// Works on any CPU — no GPU, Ollama, or internet required after first run
+let engine = NativeEngine::load().await?;
+let embedding: Vec<f32> = engine.embed("search query")?; // 384-dim
 ```
 
-### Important Ollama Notes
-- Ghost must gracefully handle Ollama not running (show user-friendly error)
-- Embedding calls are async and batched (don't block the UI)
-- Model availability should be checked at startup
-- For Phase 3 (agent): use Qwen2.5-7B with tool calling via `/api/chat`
+### Ollama Engine (Fallback — Optional)
+```rust
+// embeddings/ollama.rs — HTTP client to localhost Ollama
+const OLLAMA_BASE: &str = "http://localhost:11434";
+const EMBEDDING_MODEL: &str = "nomic-embed-text"; // 768 dimensions
+```
+
+### Unified Engine (mod.rs)
+```rust
+// embeddings/mod.rs — tries Native first, falls back to Ollama
+let engine = EmbeddingEngine::initialize().await;
+// engine.backend() returns AiBackend::Native, ::Ollama, or ::None
+let embedding = engine.embed("query").await?;
+```
+
+### Important AI Engine Notes
+- Ghost works WITHOUT Ollama — native Candle engine is the primary backend
+- Ollama is a fallback for users who want larger/better models (nomic-embed-text 768D)
+- First app launch downloads the native model (~23MB) from HuggingFace Hub (requires internet once)
+- Subsequent launches load the cached model in <200ms
+- Embedding calls in NativeEngine are synchronous (no HTTP overhead)
+- If both Native and Ollama fail, Ghost falls back to FTS5 keyword-only search
+- Model availability checked at startup and reported in StatusBar
+- For Phase 3 (agent): use Qwen2.5-7B with tool calling via Ollama `/api/chat`
 
 ---
 
@@ -421,9 +438,10 @@ Ghost does NOT use environment variables for configuration. All settings are sto
 - **macOS**: `~/Library/Application Support/com.ghost.app/config.json`
 - **Linux**: `~/.config/com.ghost.app/config.json`
 
-### Ollama Models to Pull
+### Ollama Models (Optional)
 ```bash
-ollama pull nomic-embed-text    # Embeddings (Phase 0+)
+# Optional: for higher-quality 768D embeddings
+ollama pull nomic-embed-text    # Embeddings (fallback)
 ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 ```
 
@@ -439,3 +457,6 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-18 | MCP over custom tool protocol | Open standard, 10,000+ servers, Linux Foundation backed |
 | 2026-02-18 | Windows-first over Mac-first | 73% of PCs, Raycast/Alfred are Mac-only, market gap |
 | 2026-02-18 | Bun over npm | Faster installs, native TypeScript, used in tauri.conf.json |
+| 2026-02-18 | Candle over Burn/ONNX for embeddings | Same org as HF Hub/tokenizers, mature BERT support, pure Rust |
+| 2026-02-18 | all-MiniLM-L6-v2 over nomic-embed-text for native | 384D vs 768D, 23MB vs 274MB, faster, no external deps |
+| 2026-02-18 | Fallback chain over hard Ollama dep | Ghost works offline/without Ollama, graceful degradation |

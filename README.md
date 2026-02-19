@@ -33,7 +33,7 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 
 - **100% Local**: Your data never leaves your machine. Zero telemetry, zero cloud dependencies.
 - **Instant Search**: Hybrid keyword (FTS5) + semantic vector search across all your documents.
-- **AI-Powered**: Local LLM reasoning via Ollama for natural language queries and actions.
+- **Native AI**: In-process embedding inference via Candle — no Ollama or internet required after first model download.
 - **Lightweight**: <10MB installer, <40MB RAM idle, <500ms launch. 70% less RAM than Electron.
 - **Extensible**: MCP Server protocol for skills/plugins — compatible with the growing ecosystem of 10,000+ MCP servers.
 
@@ -44,7 +44,9 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 - Rust core engine with `thiserror` error handling + `tracing` logging
 - SQLite + sqlite-vec (via FFI auto-extension) for unified storage (documents, vectors, text)
 - FTS5 keyword search + sqlite-vec KNN vector search with RRF hybrid ranking
-- Ollama integration with nomic-embed-text for local embeddings (graceful fallback)
+- **Native AI inference**: Candle (HuggingFace Rust ML) with all-MiniLM-L6-v2 (384D, ~23MB) — works on any CPU, zero external dependencies
+- **Fallback chain**: Native → Ollama → FTS5-only keyword search
+- Hardware detection: CPU cores, AVX2/NEON SIMD, GPU backend (CUDA/Metal/Vulkan)
 - File watcher (`notify` + `notify-debouncer-mini`) for real-time document indexing
 - Text extraction: PDF (lopdf), DOCX (zip), XLSX (calamine), TXT, Markdown, code files
 - 16 unit tests passing, zero compiler warnings
@@ -88,12 +90,13 @@ Ghost uses a 4-layer architecture where each layer is independently replaceable:
 │                 Tauri v2 IPC Bridge               │
 ├─────────────────────────────────────────────────┤
 │              Core Engine (Rust)                    │
-│  File Watcher │ Text Extractor │ Embedding Pipeline│
+│  File Watcher │ Text Extractor │ Embedding Engine  │
 │  Vector DB │ HTTP Server │ Encryption              │
 ├─────────────────────────────────────────────────┤
-│              AI Layer (Local)                      │
-│  Ollama + nomic-embed-text (embeddings)           │
-│  Ollama + Qwen2.5-7B (reasoning/tool calling)    │
+│              AI Layer (Local — Zero Dependencies)  │
+│  Native: Candle + all-MiniLM-L6-v2 (384D)        │
+│  Fallback: Ollama + nomic-embed-text (768D)       │
+│  Future: Qwen2.5-7B (reasoning/tool calling)     │
 │  MCP Server (agent actions)                       │
 └─────────────────────────────────────────────────┘
 ```
@@ -115,7 +118,8 @@ The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Lay
 |-----------|-----------|-----|
 | Shell/UI | Tauri v2 + React/TypeScript | <10MB installer, native performance |
 | Database | SQLite + sqlite-vec + FTS5 | Single .db file, vectors + text + metadata |
-| Embeddings | Ollama + nomic-embed-text | 768 dims, local, surpasses OpenAI ada-002 |
+| Native Embeddings | Candle + all-MiniLM-L6-v2 | 384D, ~23MB, in-process, no external deps |
+| Fallback Embeddings | Ollama + nomic-embed-text | 768D, optional, higher quality for large models |
 | LLM | Ollama + Qwen2.5-7B Q4 | Tool calling, multilingual, 4GB VRAM |
 | Agent | MCP Server (TypeScript/Rust) | Open standard, 10,000+ compatible servers |
 | File Watcher | notify (Rust crate) | Cross-platform, async, <1% CPU |
@@ -128,7 +132,7 @@ The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Lay
 
 - [Rust](https://rustup.rs/) (latest stable)
 - [Node.js](https://nodejs.org/) >= 18 or [Bun](https://bun.sh/) >= 1.0
-- [Ollama](https://ollama.com/) installed and running
+- [Ollama](https://ollama.com/) (optional — Ghost uses native AI by default)
 - Platform-specific Tauri v2 dependencies ([see guide](https://v2.tauri.app/start/prerequisites/))
 
 ### Installation
@@ -141,10 +145,10 @@ cd ghost
 # Install frontend dependencies
 bun install
 
-# Pull the embedding model
-ollama pull nomic-embed-text
+# (Optional) Pull Ollama model for higher-quality 768D embeddings
+# ollama pull nomic-embed-text
 
-# Run in development mode
+# Run in development mode (native AI model downloads on first run ~23MB)
 bun run tauri dev
 ```
 

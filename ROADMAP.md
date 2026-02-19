@@ -37,6 +37,16 @@
   - Batch embedding: process multiple chunks asynchronously
   - Graceful degradation when Ollama is unavailable
 
+- [x] **Native AI embedding engine (Phase A — Universal)**
+  - Replace hard Ollama dependency with native in-process inference
+  - Candle (HuggingFace Rust ML) for BERT model execution
+  - all-MiniLM-L6-v2 (384D, ~23MB) — runs on any CPU, no internet after first download
+  - Fallback chain: Native → Ollama → FTS5-only keyword search
+  - Hardware detection: CPU cores, AVX2/NEON SIMD, GPU (CUDA/Metal/Vulkan)
+  - Configurable vector dimensions (384 native, 768 Ollama)
+  - Frontend StatusBar shows active AI backend (Native/Ollama/Offline)
+  - Zero compilation warnings, all tests passing
+
 - [x] **File watcher**
   - Integrate `notify` crate for filesystem events
   - Debounce rapid file changes via `notify-debouncer-mini` (500ms window)
@@ -287,5 +297,8 @@ Sell the local MCP server infrastructure to enterprises that want their AI agent
 | MCP Spec | modelcontextprotocol.io | v2025-11-25 spec. Linux Foundation / AAIF |
 | uiautomation | crates.io/crates/uiautomation | Windows UI Automation wrapper for Rust |
 | notify | crates.io/crates/notify | Cross-platform filesystem watcher |
+| candle | github.com/huggingface/candle | Rust ML framework, BERT/LLM inference |
+| all-MiniLM-L6-v2 | huggingface.co/sentence-transformers/all-MiniLM-L6-v2 | 384 dims, 23MB, excellent quality |
+| hf-hub | crates.io/crates/hf-hub | HuggingFace model download/cache |
 | mcp-desktop-automation | github.com/tanob/mcp-desktop-automation | Reference MCP server for desktop control |
 | Screenpipe | github.com/mediar-ai/screenpipe | Architecture reference (not code) |

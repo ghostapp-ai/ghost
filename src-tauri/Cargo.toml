@@ -52,6 +52,13 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# Native AI inference (candle)
+candle-core = "0.9"
+candle-nn = "0.9"
+candle-transformers = "0.9"
+hf-hub = "0.4"
+tokenizers = "0.22"
+
 # Utilities
 sha2 = "0.10"
 hex = "0.4"

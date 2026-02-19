@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { SearchResult, DbStats, IndexStats } from "./types";
+import type { SearchResult, DbStats, IndexStats, AiStatus } from "./types";
 
 /** Perform hybrid search (FTS5 + vector) across indexed documents. */
 export async function search(
@@ -27,6 +27,11 @@ export async function getStats(): Promise<DbStats> {
 /** Check if Ollama is running and reachable. */
 export async function checkOllama(): Promise<boolean> {
   return invoke<boolean>("check_ollama");
+}
+
+/** Get AI engine status (backend, model, hardware). */
+export async function checkAiStatus(): Promise<AiStatus> {
+  return invoke<AiStatus>("check_ai_status");
 }
 
 /** Start watching directories for file changes. */

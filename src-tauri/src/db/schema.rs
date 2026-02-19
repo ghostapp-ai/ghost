@@ -68,16 +68,26 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
 
 /// Initialize the sqlite-vec virtual table for vector search.
 /// Must be called AFTER loading the sqlite-vec extension.
+/// Dimensions default to 384 (all-MiniLM-L6-v2) for native engine,
+/// or 768 (nomic-embed-text) for Ollama.
 pub fn initialize_vec_table(conn: &Connection) -> Result<()> {
-    conn.execute_batch(
-        "
-        CREATE VIRTUAL TABLE IF NOT EXISTS chunks_vec USING vec0(
+    initialize_vec_table_with_dims(conn, 384)
+}
+
+/// Initialize the sqlite-vec virtual table with specific dimensions.
+pub fn initialize_vec_table_with_dims(conn: &Connection, dimensions: usize) -> Result<()> {
+    let sql = format!(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS chunks_vec USING vec0(
             chunk_id INTEGER PRIMARY KEY,
-            embedding FLOAT[768]
-        );
-        ",
-    )?;
-    tracing::info!("sqlite-vec chunks_vec table initialized");
+            embedding FLOAT[{}]
+        );",
+        dimensions
+    );
+    conn.execute_batch(&sql)?;
+    tracing::info!(
+        "sqlite-vec chunks_vec table initialized ({}D)",
+        dimensions
+    );
     Ok(())
 }
 

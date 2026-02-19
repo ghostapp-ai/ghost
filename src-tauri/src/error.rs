@@ -25,6 +25,9 @@ pub enum GhostError {
 
     #[error("Ollama not available: {0}")]
     OllamaUnavailable(String),
+
+    #[error("Native model error: {0}")]
+    NativeModel(String),
 }
 
 impl serde::Serialize for GhostError {

@@ -8,13 +8,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use db::Database;
-use embeddings::EmbeddingClient;
+use embeddings::{AiStatus, EmbeddingEngine};
 use search::SearchResult;
 
 /// Application state shared across commands.
 pub struct AppState {
     pub db: Database,
-    pub embedding_client: EmbeddingClient,
+    pub embedding_engine: EmbeddingEngine,
 }
 
 /// Get the default vault database path.
@@ -34,7 +34,7 @@ async fn search_query(
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<Vec<SearchResult>, String> {
     let limit = limit.unwrap_or(20);
-    search::hybrid_search(&state.db, &state.embedding_client, &query, limit)
+    search::hybrid_search(&state.db, &state.embedding_engine, &query, limit)
         .await
         .map_err(|e| e.to_string())
 }
@@ -45,7 +45,7 @@ async fn index_directory(
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<indexer::IndexStats, String> {
     let dir = PathBuf::from(&path);
-    indexer::index_directory(&state.db, &state.embedding_client, &dir)
+    indexer::index_directory(&state.db, &state.embedding_engine, &dir)
         .await
         .map_err(|e| e.to_string())
 }
@@ -56,7 +56,7 @@ async fn index_file(
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<(), String> {
     let file_path = PathBuf::from(&path);
-    indexer::index_file(&state.db, &state.embedding_client, &file_path)
+    indexer::index_file(&state.db, &state.embedding_engine, &file_path)
         .await
         .map_err(|e| e.to_string())
 }
@@ -73,10 +73,17 @@ async fn check_ollama(
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<bool, String> {
     state
-        .embedding_client
+        .embedding_engine
         .health_check()
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn check_ai_status(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<AiStatus, String> {
+    Ok(state.embedding_engine.status())
 }
 
 #[tauri::command]
@@ -98,7 +105,7 @@ async fn start_watcher(
                     indexer::watcher::FileEvent::Changed(path) => {
                         tracing::info!("File changed, re-indexing: {}", path.display());
                         if let Err(e) =
-                            indexer::index_file(&app_state.db, &app_state.embedding_client, &path)
+                            indexer::index_file(&app_state.db, &app_state.embedding_engine, &path)
                                 .await
                         {
                             tracing::warn!("Failed to re-index {}: {}", path.display(), e);
@@ -148,11 +155,20 @@ pub fn run() {
     tracing::info!("Database path: {}", db_path.display());
 
     let db = Database::open(&db_path).expect("Failed to open database");
-    let embedding_client = EmbeddingClient::new();
+
+    // Initialize embedding engine (tries Native → Ollama → None).
+    // Uses block_on since model loads from cache are fast (<200ms).
+    // First-time download happens here too (requires network once).
+    let embedding_engine = tauri::async_runtime::block_on(async {
+        tracing::info!("Initializing AI embedding engine...");
+        let engine = EmbeddingEngine::initialize().await;
+        tracing::info!("AI backend active: {}", engine.backend());
+        engine
+    });
 
     let app_state = Arc::new(AppState {
         db,
-        embedding_client,
+        embedding_engine,
     });
 
     tauri::Builder::default()
@@ -164,6 +180,7 @@ pub fn run() {
             index_file,
             get_stats,
             check_ollama,
+            check_ai_status,
             start_watcher,
             get_vec_status,
         ])

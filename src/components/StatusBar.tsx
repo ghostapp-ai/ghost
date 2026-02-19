@@ -3,13 +3,13 @@ import {
   Database,
   FileText,
   Layers,
-  Cpu,
   CircleCheck,
   CircleX,
   ChevronRight,
+  Zap,
 } from "lucide-react";
-import { getStats, checkOllama, getVecStatus } from "../lib/tauri";
-import type { DbStats } from "../lib/types";
+import { getStats, checkAiStatus, getVecStatus } from "../lib/tauri";
+import type { DbStats, AiStatus } from "../lib/types";
 
 interface StatusBarProps {
   onSettingsClick: () => void;
@@ -17,19 +17,19 @@ interface StatusBarProps {
 
 export function StatusBar({ onSettingsClick }: StatusBarProps) {
   const [stats, setStats] = useState<DbStats | null>(null);
-  const [ollamaOk, setOllamaOk] = useState(false);
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [vecOk, setVecOk] = useState(false);
 
   useEffect(() => {
     async function refresh() {
       try {
-        const [s, o, v] = await Promise.all([
+        const [s, ai, v] = await Promise.all([
           getStats(),
-          checkOllama(),
+          checkAiStatus(),
           getVecStatus(),
         ]);
         setStats(s);
-        setOllamaOk(o);
+        setAiStatus(ai);
         setVecOk(v);
       } catch {
         // Silently handle — status bar is informational
@@ -59,9 +59,9 @@ export function StatusBar({ onSettingsClick }: StatusBarProps) {
 
       <div className="flex items-center gap-4">
         <StatusIndicator
-          icon={<Cpu className="w-3 h-3" />}
-          label="Ollama"
-          ok={ollamaOk}
+          icon={<Zap className="w-3 h-3" />}
+          label={`AI: ${aiStatus?.backend === "Native" ? "Native" : aiStatus?.backend === "Ollama" ? "Ollama" : "Offline"}`}
+          ok={aiStatus?.backend !== "None"}
         />
         <StatusIndicator
           icon={<Layers className="w-3 h-3" />}

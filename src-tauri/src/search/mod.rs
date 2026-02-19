@@ -1,7 +1,7 @@
 pub mod ranking;
 
 use crate::db::Database;
-use crate::embeddings::EmbeddingClient;
+use crate::embeddings::EmbeddingEngine;
 use crate::error::Result;
 
 /// A search result combining document info with relevance score.
@@ -22,7 +22,7 @@ pub struct SearchResult {
 /// Uses RRF (Reciprocal Rank Fusion) to merge results from both systems.
 pub async fn hybrid_search(
     db: &Database,
-    embedding_client: &EmbeddingClient,
+    embedding_engine: &EmbeddingEngine,
     query: &str,
     limit: usize,
 ) -> Result<Vec<SearchResult>> {
@@ -31,7 +31,7 @@ pub async fn hybrid_search(
 
     // Vector search (if sqlite-vec is available and Ollama is running)
     let vec_results = if db.is_vec_enabled() {
-        match embedding_client.embed(query).await {
+        match embedding_engine.embed(query).await {
             Ok(query_embedding) => db.vec_search(&query_embedding, limit * 2)?,
             Err(e) => {
                 tracing::debug!("Vector search unavailable: {} — using FTS5 only", e);
@@ -103,7 +103,7 @@ mod tests {
     #[tokio::test]
     async fn test_hybrid_search() {
         let db = Database::open_in_memory().unwrap();
-        let embedding_client = EmbeddingClient::new();
+        let embedding_engine = EmbeddingEngine::initialize().await;
 
         let doc_id = db
             .upsert_document(
@@ -121,7 +121,7 @@ mod tests {
         db.insert_chunk(doc_id, 1, "python scripting language data science", 5)
             .unwrap();
 
-        let results = hybrid_search(&db, &embedding_client, "rust programming", 10)
+        let results = hybrid_search(&db, &embedding_engine, "rust programming", 10)
             .await
             .unwrap();
         assert!(!results.is_empty());

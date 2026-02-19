@@ -31,3 +31,19 @@ export interface AppStatus {
   vecEnabled: boolean;
   stats: DbStats;
 }
+
+/** Hardware info from the Rust backend. */
+export interface HardwareInfo {
+  cpu_cores: number;
+  has_avx2: boolean;
+  has_neon: boolean;
+  gpu_backend: "Cuda" | "Metal" | "Vulkan" | null;
+}
+
+/** AI engine status from the Rust backend. */
+export interface AiStatus {
+  backend: "Native" | "Ollama" | "None";
+  model_name: string;
+  dimensions: number;
+  hardware: HardwareInfo;
+}
