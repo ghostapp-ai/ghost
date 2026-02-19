@@ -1,51 +1,99 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { useState, useCallback } from "react";
+import { SearchBar } from "./components/SearchBar";
+import { ResultsList } from "./components/ResultsList";
+import { StatusBar } from "./components/StatusBar";
+import { Settings } from "./components/Settings";
+import { useSearch } from "./hooks/useSearch";
+import { useHotkey } from "./hooks/useHotkey";
+import "./styles/globals.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+export default function App() {
+  const { query, setQuery, results, isLoading, error } = useSearch(150);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  // Reset selection when results change
+  const handleQueryChange = useCallback(
+    (q: string) => {
+      setQuery(q);
+      setSelectedIndex(0);
+    },
+    [setQuery]
+  );
+
+  // Keyboard navigation
+  useHotkey("ArrowDown", () => {
+    setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
+  });
+
+  useHotkey("ArrowUp", () => {
+    setSelectedIndex((prev) => Math.max(prev - 1, 0));
+  });
+
+  useHotkey("Escape", () => {
+    if (showSettings) {
+      setShowSettings(false);
+    } else if (query) {
+      handleQueryChange("");
+    }
+  });
+
+  useHotkey(
+    ",",
+    () => {
+      setShowSettings((prev) => !prev);
+    },
+    { ctrl: true }
+  );
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <div className="flex flex-col h-screen bg-ghost-bg">
+      {/* Header */}
+      <header className="shrink-0 px-5 pt-5 pb-3">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-ghost-accent/20 flex items-center justify-center">
+              <span className="text-ghost-accent text-sm font-bold">G</span>
+            </div>
+            <h1 className="text-sm font-semibold text-ghost-text tracking-tight">
+              Ghost
+            </h1>
+          </div>
+          <span className="text-[10px] text-ghost-text-dim/40 font-mono">
+            v0.1.0
+          </span>
+        </div>
 
-      <div className="row">
-        <a href="https://vitejs.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
+        <SearchBar
+          value={query}
+          onChange={handleQueryChange}
+          isLoading={isLoading}
+          resultCount={results.length}
         />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+
+        {error && (
+          <div className="mt-2 px-4 py-2 bg-ghost-danger/10 border border-ghost-danger/20 rounded-xl text-xs text-ghost-danger">
+            {error}
+          </div>
+        )}
+      </header>
+
+      {/* Results */}
+      <main className="flex-1 overflow-hidden px-3">
+        <ResultsList
+          results={results}
+          selectedIndex={selectedIndex}
+          onSelect={setSelectedIndex}
+          isLoading={isLoading}
+          hasQuery={!!query.trim()}
+        />
+      </main>
+
+      {/* Status Bar */}
+      <StatusBar onSettingsClick={() => setShowSettings(true)} />
+
+      {/* Settings Modal */}
+      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+    </div>
   );
 }
-
-export default App;

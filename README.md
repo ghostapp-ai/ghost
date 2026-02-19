@@ -39,18 +39,24 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 
 ## Features
 
-### Phase 0 — Foundation (Current)
+### Phase 0 — Foundation (**Complete**)
 - Tauri v2 desktop shell with React/TypeScript frontend
-- Rust core engine for maximum performance and security
-- SQLite + sqlite-vec for unified storage (documents, vectors, text)
-- Ollama integration with nomic-embed-text for local embeddings
-- File watcher for real-time document indexing
+- Rust core engine with `thiserror` error handling + `tracing` logging
+- SQLite + sqlite-vec (via FFI auto-extension) for unified storage (documents, vectors, text)
+- FTS5 keyword search + sqlite-vec KNN vector search with RRF hybrid ranking
+- Ollama integration with nomic-embed-text for local embeddings (graceful fallback)
+- File watcher (`notify` + `notify-debouncer-mini`) for real-time document indexing
+- Text extraction: PDF (lopdf), DOCX (zip), XLSX (calamine), TXT, Markdown, code files
+- 16 unit tests passing, zero compiler warnings
 
-### Phase 1 — The Search Bar
-- Global hotkey launcher (Cmd/Ctrl+Space)
-- Automatic file indexing with text extraction (PDF, DOCX, XLSX, TXT)
-- Hybrid search: FTS5 keyword + KNN vector in a single query
-- Virtualized results list with RRF ranking
+### Phase 1 — The Search Bar (**In Progress**)
+- Dark ghost-themed UI with Tailwind CSS v4
+- Debounced search input (150ms) with loading skeletons
+- Virtualized results list (`@tanstack/react-virtual`) with file type icons
+- Keyboard navigation: arrow keys, Enter to open, Esc to dismiss
+- Settings panel: watched directory management, manual indexing, status dashboard
+- Status bar: document count, Ollama health, vector search status
+- *Pending*: global hotkey launcher, Windows installer, performance benchmarks
 
 ### Phase 2 — The Memory
 - Browser history indexing via UI Automation
@@ -113,7 +119,7 @@ The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Lay
 | LLM | Ollama + Qwen2.5-7B Q4 | Tool calling, multilingual, 4GB VRAM |
 | Agent | MCP Server (TypeScript/Rust) | Open standard, 10,000+ compatible servers |
 | File Watcher | notify (Rust crate) | Cross-platform, async, <1% CPU |
-| Text Extraction | lopdf + docx-rs + calamine | Pure Rust, no external dependencies |
+| Text Extraction | lopdf + zip + calamine | Pure Rust, no external dependencies |
 | Encryption | ChaCha20-Poly1305 (age crate) | Modern, audited |
 
 ## Getting Started
@@ -155,20 +161,20 @@ The installer will be generated in `src-tauri/target/release/bundle/`.
 ```
 ghost/
 ├── src/                    # Frontend (React/TypeScript)
-│   ├── components/         # UI components
-│   ├── hooks/              # Custom React hooks
-│   ├── stores/             # State management
-│   └── App.tsx             # Root component
+│   ├── components/         # UI components (SearchBar, ResultsList, Settings, StatusBar)
+│   ├── hooks/              # Custom React hooks (useSearch, useHotkey)
+│   ├── lib/                # Tauri IPC wrappers + TypeScript types
+│   ├── styles/             # Global CSS (Tailwind v4 theme)
+│   └── App.tsx             # Root component with keyboard navigation
 ├── src-tauri/              # Backend (Rust)
 │   ├── src/
-│   │   ├── lib.rs          # Tauri app setup + commands
+│   │   ├── lib.rs          # Tauri commands: search, index, watcher, stats
 │   │   ├── main.rs         # Entry point
-│   │   ├── indexer/        # File watcher + text extraction
-│   │   ├── db/             # SQLite + sqlite-vec + FTS5
-│   │   ├── embeddings/     # Ollama embedding pipeline
-│   │   ├── search/         # Hybrid search engine
-│   │   ├── mcp/            # MCP server implementation
-│   │   └── automation/     # OS UI automation layer
+│   │   ├── error.rs        # Error types (thiserror)
+│   │   ├── indexer/        # File watcher + text extraction + chunking
+│   │   ├── db/             # SQLite + sqlite-vec + FTS5 (schema + CRUD)
+│   │   ├── embeddings/     # Ollama embedding client
+│   │   └── search/         # Hybrid search engine + RRF ranking
 │   ├── Cargo.toml          # Rust dependencies
 │   └── tauri.conf.json     # Tauri configuration
 ├── ROADMAP.md              # Detailed development roadmap

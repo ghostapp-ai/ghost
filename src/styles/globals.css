@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/* Ghost custom theme */
+@theme {
+  --color-ghost-bg: #0a0a0f;
+  --color-ghost-surface: #12121a;
+  --color-ghost-surface-hover: #1a1a26;
+  --color-ghost-border: #1e1e2e;
+  --color-ghost-text: #e4e4ef;
+  --color-ghost-text-dim: #8888a0;
+  --color-ghost-accent: #6c5ce7;
+  --color-ghost-accent-dim: #5a4bd6;
+  --color-ghost-success: #00d68f;
+  --color-ghost-warning: #ffaa00;
+  --color-ghost-danger: #ff3d71;
+}
+
+/* Base styles */
+:root {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: var(--color-ghost-bg);
+  color: var(--color-ghost-text);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ghost-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ghost-text-dim);
+}
+
+/* Selection */
+::selection {
+  background-color: color-mix(in srgb, var(--color-ghost-accent) 40%, transparent);
+}
