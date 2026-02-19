@@ -3,6 +3,10 @@
 > Realistic 12-month plan for a solo developer working 30-40h/week.
 > Each phase has a clear business objective before moving to the next.
 > The search must be instant and reliable — nothing else matters until Phase 1 ships.
+>
+> **Market research completed**: See [docs/plans/2026-02-18-market-research.md](docs/plans/2026-02-18-market-research.md)
+> Key insight: AI assistant market growing 44% CAGR to $21B by 2030. Rewind (dead), Raycast (Mac-only),
+> Microsoft Recall (privacy backlash) all validate our direction. MCP ecosystem (5,800+ servers) ready for integration.
 
 ---
 
@@ -160,9 +164,40 @@
 
 ---
 
+## Phase 1.5 — "MCP Bridge" (Weeks 8-10)
+
+**Goal**: Make Ghost accessible from any MCP-compatible AI client (Claude Desktop, Cursor, etc.). Instant ecosystem integration.
+
+> Added after market research (Feb 2026). MCP ecosystem has 5,800+ servers. Being MCP-compatible
+> is a competitive differentiator that connects Ghost to the entire AI tool ecosystem immediately.
+
+### Technical Deliverables
+
+- [ ] **Basic MCP server**
+  - HTTP server via `axum` on localhost (configurable port)
+  - MCP protocol v2025-11-25 compliance
+  - Tool: `ghost_search` — hybrid search across indexed files
+  - Tool: `ghost_index_status` — report indexing stats
+  - Resource: expose indexed documents metadata
+
+- [ ] **Integration testing**
+  - Test with Claude Desktop as MCP client
+  - Test with Cursor as MCP client
+  - Documentation: "How to connect Ghost to Claude Desktop"
+
+### Exit Criteria
+- [ ] Claude Desktop can search local files through Ghost MCP
+- [ ] <100ms overhead added by MCP layer
+- [ ] Setup guide published
+
+---
+
 ## Phase 2 — "The Memory" (Weeks 11-18)
 
-**Goal**: 500 users → first paying users. Launch $9/mo Premium tier. Target: 50-100 paying.
+**Goal**: 500 users → first paying users. Launch $5-8/mo Pro tier. Target: 50-100 paying.
+
+> Pricing adjusted after market research: Raycast charges $8/mo, ChatGPT $20/mo.
+> Ghost Pro at $5-8/mo undercuts both while offering unique local AI search.
 
 ### Technical Deliverables
 
@@ -197,7 +232,7 @@
 - [ ] **Licensing system**
   - License key validation (offline-capable)
   - Free tier: core search + 3 watched directories
-  - Premium tier ($9/mo): unlimited directories, memory, encryption, sync
+  - Premium tier ($5-8/mo): unlimited directories, memory, encryption, sync
 
 ### Exit Criteria
 - [ ] Activity timeline shows accurate history
