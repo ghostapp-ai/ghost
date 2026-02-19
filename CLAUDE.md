@@ -147,13 +147,16 @@ tracing-subscriber = "0.3"
 
 ```
 src/
-├── App.tsx              # Root component, tab system (Search/Chat), debug panel
+├── App.tsx              # Root component, unified Omnibox layout, search+chat state
 ├── main.tsx             # React entry point
 ├── components/
-│   ├── SearchBar.tsx    # Global search input
+│   ├── GhostInput.tsx   # Unified Omnibox: auto-resize textarea, mode indicator, toggle
+│   ├── ChatMessages.tsx # Chat message list, download progress, empty states
+│   ├── DownloadProgress.tsx # Model download progress bar with shimmer animation
 │   ├── ResultsList.tsx  # Virtualized search results
 │   ├── ResultItem.tsx   # Single search result row
-│   ├── ChatPanel.tsx    # Local LLM chat interface with model status
+│   ├── ChatPanel.tsx    # (Legacy) Standalone chat panel — superseded by Omnibox
+│   ├── SearchBar.tsx    # (Legacy) Search-only input — superseded by GhostInput
 │   ├── DebugPanel.tsx   # Collapsible log viewer with pause/resume
 │   ├── StatusBar.tsx    # Status pills: DB stats, AI, Vec, Chat model
 │   ├── Settings.tsx     # Settings panel with directory management
@@ -163,7 +166,8 @@ src/
 │   └── useHotkey.ts     # Global shortcut handling
 ├── lib/
 │   ├── tauri.ts        # Tauri invoke wrappers with types
-│   └── types.ts        # Shared TypeScript types
+│   ├── types.ts        # Shared TypeScript types
+│   └── detectMode.ts   # Smart search/chat auto-detection heuristics
 └── styles/
     └── globals.css     # Global styles (Tailwind CSS v4)
 ```
@@ -477,3 +481,6 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-18 | Auto model selection over manual config | Zero-config UX: detect RAM → pick largest fitting model → background download; still configurable |
 | 2026-02-18 | Deferred model loading over blocking startup | App starts instantly, chat model downloads/loads in background `tokio::spawn` during `.setup()` |
 | 2026-02-18 | Feature flags for GPU backends | `cuda`/`metal`/`accelerate` Cargo features propagate to candle-core — no GPU overhead on CPU-only builds |
+| 2026-02-18 | Filesystem monitoring for download progress | hf_hub sync API has no progress callbacks; monitoring `.incomplete` files in blobs/ every 500ms works reliably |
+| 2026-02-18 | Unified Omnibox over tab system | Single intelligent input reduces cognitive load; auto-detection via regex heuristics + sticky chat mode |
+| 2026-02-18 | detectMode() heuristics over LLM classification | Zero latency, regex-based: file patterns → search, conversational starters → chat, sticky mode for active chats |

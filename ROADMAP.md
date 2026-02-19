@@ -167,6 +167,21 @@
   - Per-request model reload for clean KV cache (no public clear method in quantized_qwen2)
   - Background model loading via `tokio::spawn` in `.setup()` — doesn't block app startup
 
+- [x] **Model download progress tracking**
+  - Filesystem monitoring of HF Hub cache `.incomplete` files every 500ms
+  - DownloadProgress struct with phases: checking_cache, downloading, loading_model, cached
+  - Visual progress bar with shimmer animation, MB counters, percentage display
+  - Reported via `chat_status` polling (2s interval)
+
+- [x] **Unified Omnibox (intelligent single input)**
+  - Replace tab system (Search/Chat) with a single smart input
+  - Auto-detection: file patterns → search, conversational starters → chat
+  - Sticky chat mode: stays in chat when conversation is active
+  - Manual mode override via toggle button
+  - GhostInput component with auto-resize textarea, mode indicator, keyboard hints
+  - Progressive Escape: clear query → clear chat → hide window
+  - Chat history persists across mode switches
+
 - [ ] **Performance optimization**
   - Cold start <500ms
   - Search results <100ms for keyword, <500ms for semantic
