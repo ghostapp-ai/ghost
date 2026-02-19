@@ -42,7 +42,7 @@ reqwest = { version = "0.13", features = ["json"] }
 sqlite-vec = "0.1.7-alpha.10"
 
 # DOCX extraction
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "7", default-features = false, features = ["deflate"] }
 
 # Error handling
 thiserror = "2"

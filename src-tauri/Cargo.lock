@@ -1914,7 +1914,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "zip 2.4.2",
+ "zip 7.2.0",
 ]
 
 [[package]]
