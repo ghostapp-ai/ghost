@@ -20,7 +20,11 @@ pub async fn index_file(
 
     // Read file metadata
     let metadata = std::fs::metadata(path).map_err(|e| {
-        GhostError::Indexer(format!("Cannot read metadata for {}: {}", path.display(), e))
+        GhostError::Indexer(format!(
+            "Cannot read metadata for {}: {}",
+            path.display(),
+            e
+        ))
     })?;
 
     let size_bytes = metadata.len() as i64;
@@ -30,9 +34,7 @@ pub async fn index_file(
         .and_then(|t| {
             t.duration_since(std::time::UNIX_EPOCH)
                 .ok()
-                .map(|d| {
-                    chrono_format_timestamp(d.as_secs())
-                })
+                .map(|d| chrono_format_timestamp(d.as_secs()))
         })
         .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string());
 
@@ -62,7 +64,14 @@ pub async fn index_file(
     let extension = path.extension().and_then(|e| e.to_str());
 
     // Upsert document
-    let doc_id = db.upsert_document(&path_str, filename, extension, size_bytes, &hash, &modified_at)?;
+    let doc_id = db.upsert_document(
+        &path_str,
+        filename,
+        extension,
+        size_bytes,
+        &hash,
+        &modified_at,
+    )?;
 
     // Delete old chunks and embeddings, then re-chunk
     db.delete_embeddings_for_document(doc_id)?;

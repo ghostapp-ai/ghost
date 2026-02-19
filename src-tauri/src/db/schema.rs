@@ -84,10 +84,7 @@ pub fn initialize_vec_table_with_dims(conn: &Connection, dimensions: usize) -> R
         dimensions
     );
     conn.execute_batch(&sql)?;
-    tracing::info!(
-        "sqlite-vec chunks_vec table initialized ({}D)",
-        dimensions
-    );
+    tracing::info!("sqlite-vec chunks_vec table initialized ({}D)", dimensions);
     Ok(())
 }
 

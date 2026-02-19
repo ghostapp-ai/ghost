@@ -129,9 +129,8 @@ pub fn models_dir() -> Result<std::path::PathBuf> {
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("com.ghost.app")
         .join("models");
-    std::fs::create_dir_all(&data_dir).map_err(|e| {
-        GhostError::NativeModel(format!("Failed to create models dir: {}", e))
-    })?;
+    std::fs::create_dir_all(&data_dir)
+        .map_err(|e| GhostError::NativeModel(format!("Failed to create models dir: {}", e)))?;
     Ok(data_dir)
 }
 

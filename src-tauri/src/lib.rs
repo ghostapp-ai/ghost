@@ -91,10 +91,7 @@ async fn index_directory(
 }
 
 #[tauri::command]
-async fn index_file(
-    path: String,
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<(), String> {
+async fn index_file(path: String, state: tauri::State<'_, Arc<AppState>>) -> Result<(), String> {
     let file_path = PathBuf::from(&path);
     indexer::index_file(&state.db, &state.embedding_engine, &file_path)
         .await
@@ -102,16 +99,12 @@ async fn index_file(
 }
 
 #[tauri::command]
-async fn get_stats(
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<db::DbStats, String> {
+async fn get_stats(state: tauri::State<'_, Arc<AppState>>) -> Result<db::DbStats, String> {
     state.db.get_stats().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-async fn check_ollama(
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<bool, String> {
+async fn check_ollama(state: tauri::State<'_, Arc<AppState>>) -> Result<bool, String> {
     state
         .embedding_engine
         .health_check()
@@ -120,9 +113,7 @@ async fn check_ollama(
 }
 
 #[tauri::command]
-async fn check_ai_status(
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<AiStatus, String> {
+async fn check_ai_status(state: tauri::State<'_, Arc<AppState>>) -> Result<AiStatus, String> {
     Ok(state.embedding_engine.status())
 }
 
@@ -154,8 +145,7 @@ async fn start_watcher(
                     indexer::watcher::FileEvent::Removed(path) => {
                         tracing::info!("File removed: {}", path.display());
                         let path_str = path.to_string_lossy().to_string();
-                        if let Ok(Some((doc_id, _))) =
-                            app_state.db.get_document_by_path(&path_str)
+                        if let Ok(Some((doc_id, _))) = app_state.db.get_document_by_path(&path_str)
                         {
                             let _ = app_state.db.delete_embeddings_for_document(doc_id);
                             let _ = app_state.db.delete_chunks_for_document(doc_id);
@@ -170,18 +160,14 @@ async fn start_watcher(
 }
 
 #[tauri::command]
-async fn get_vec_status(
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<bool, String> {
+async fn get_vec_status(state: tauri::State<'_, Arc<AppState>>) -> Result<bool, String> {
     Ok(state.db.is_vec_enabled())
 }
 
 // --- Settings Commands ---
 
 #[tauri::command]
-async fn get_settings(
-    state: tauri::State<'_, Arc<AppState>>,
-) -> Result<Settings, String> {
+async fn get_settings(state: tauri::State<'_, Arc<AppState>>) -> Result<Settings, String> {
     let settings = state.settings.lock().map_err(|e| e.to_string())?;
     Ok(settings.clone())
 }
@@ -193,7 +179,8 @@ async fn save_settings(
 ) -> Result<(), String> {
     let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
     *settings = new_settings;
-    settings.save(&get_app_data_dir().join("settings.json"))
+    settings
+        .save(&get_app_data_dir().join("settings.json"))
         .map_err(|e| e.to_string())
 }
 
@@ -214,7 +201,10 @@ pub fn run() {
     // Initialize settings
     let settings_path = get_app_data_dir().join("settings.json");
     let settings = Settings::load(&settings_path);
-    tracing::info!("Settings loaded: {} watched directories", settings.watched_directories.len());
+    tracing::info!(
+        "Settings loaded: {} watched directories",
+        settings.watched_directories.len()
+    );
 
     // Initialize database
     let db_path = get_db_path();
@@ -259,14 +249,16 @@ pub fn run() {
             use tauri_plugin_global_shortcut::ShortcutState;
             let handle = app.handle().clone();
 
-            app.global_shortcut().on_shortcut("CmdOrCtrl+Space", move |_app, shortcut, event| {
-                if event.state == ShortcutState::Pressed {
-                    tracing::debug!("Global shortcut pressed: {:?}", shortcut);
-                    toggle_window(&handle);
-                }
-            }).unwrap_or_else(|e| {
-                tracing::warn!("Failed to register global shortcut CmdOrCtrl+Space: {}", e);
-            });
+            app.global_shortcut()
+                .on_shortcut("CmdOrCtrl+Space", move |_app, shortcut, event| {
+                    if event.state == ShortcutState::Pressed {
+                        tracing::debug!("Global shortcut pressed: {:?}", shortcut);
+                        toggle_window(&handle);
+                    }
+                })
+                .unwrap_or_else(|e| {
+                    tracing::warn!("Failed to register global shortcut CmdOrCtrl+Space: {}", e);
+                });
 
             tracing::info!("Global shortcut registered: CmdOrCtrl+Space");
             Ok(())

@@ -10,8 +10,8 @@ use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel, Config as BertConfig, DTYPE};
 use tokenizers::Tokenizer;
 
-use crate::error::{GhostError, Result};
 use super::hardware;
+use crate::error::{GhostError, Result};
 
 /// Default model: all-MiniLM-L6-v2 — fast, small (23MB), 384-dim, excellent quality.
 const DEFAULT_MODEL_REPO: &str = "sentence-transformers/all-MiniLM-L6-v2";
@@ -42,37 +42,27 @@ impl NativeEngine {
         let device = Device::Cpu;
 
         // Download or use cached model files from HuggingFace Hub
-        let (model_path, tokenizer_path, config_path) =
-            Self::ensure_model_files().await?;
+        let (model_path, tokenizer_path, config_path) = Self::ensure_model_files().await?;
 
         // Load config
-        let config_str = std::fs::read_to_string(&config_path).map_err(|e| {
-            GhostError::NativeModel(format!("Failed to read config: {}", e))
-        })?;
-        let config: BertConfig = serde_json::from_str(&config_str).map_err(|e| {
-            GhostError::NativeModel(format!("Failed to parse config: {}", e))
-        })?;
+        let config_str = std::fs::read_to_string(&config_path)
+            .map_err(|e| GhostError::NativeModel(format!("Failed to read config: {}", e)))?;
+        let config: BertConfig = serde_json::from_str(&config_str)
+            .map_err(|e| GhostError::NativeModel(format!("Failed to parse config: {}", e)))?;
 
         // Load tokenizer
-        let tokenizer = Tokenizer::from_file(&tokenizer_path).map_err(|e| {
-            GhostError::NativeModel(format!("Failed to load tokenizer: {}", e))
-        })?;
+        let tokenizer = Tokenizer::from_file(&tokenizer_path)
+            .map_err(|e| GhostError::NativeModel(format!("Failed to load tokenizer: {}", e)))?;
 
         // Load model weights
         let vb = unsafe {
-            VarBuilder::from_mmaped_safetensors(
-                &[model_path],
-                DTYPE,
-                &device,
-            )
-            .map_err(|e| {
+            VarBuilder::from_mmaped_safetensors(&[model_path], DTYPE, &device).map_err(|e| {
                 GhostError::NativeModel(format!("Failed to load model weights: {}", e))
             })?
         };
 
-        let model = BertModel::load(vb, &config).map_err(|e| {
-            GhostError::NativeModel(format!("Failed to build BERT model: {}", e))
-        })?;
+        let model = BertModel::load(vb, &config)
+            .map_err(|e| GhostError::NativeModel(format!("Failed to build BERT model: {}", e)))?;
 
         tracing::info!(
             "Native embedding model loaded: {} ({}D, device={:?})",

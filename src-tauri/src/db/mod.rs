@@ -167,9 +167,8 @@ impl Database {
     /// Get chunks that don't have embeddings yet.
     pub fn get_unembedded_chunks(&self, limit: usize) -> Result<Vec<(i64, String)>> {
         self.with_conn(|conn| {
-            let mut stmt = conn.prepare(
-                "SELECT id, content FROM chunks WHERE has_embedding = 0 LIMIT ?1",
-            )?;
+            let mut stmt =
+                conn.prepare("SELECT id, content FROM chunks WHERE has_embedding = 0 LIMIT ?1")?;
             let rows = stmt.query_map(rusqlite::params![limit], |row| {
                 Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
             })?;

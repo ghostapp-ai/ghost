@@ -54,9 +54,8 @@ pub fn is_supported_extension(extension: &str) -> bool {
 }
 
 fn extract_plain_text(path: &Path) -> Result<String> {
-    let content = std::fs::read_to_string(path).map_err(|e| {
-        GhostError::Indexer(format!("Failed to read {}: {}", path.display(), e))
-    })?;
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| GhostError::Indexer(format!("Failed to read {}: {}", path.display(), e)))?;
     Ok(content)
 }
 
@@ -100,9 +99,8 @@ fn extract_docx(path: &Path) -> Result<String> {
     // DOCX stores text content in word/document.xml
     if let Ok(mut document) = archive.by_name("word/document.xml") {
         let mut xml_content = String::new();
-        std::io::Read::read_to_string(&mut document, &mut xml_content).map_err(|e| {
-            GhostError::Indexer(format!("Failed to read document.xml: {}", e))
-        })?;
+        std::io::Read::read_to_string(&mut document, &mut xml_content)
+            .map_err(|e| GhostError::Indexer(format!("Failed to read document.xml: {}", e)))?;
 
         // Extract text between <w:t> and <w:t xml:space="preserve"> tags
         let mut in_text_tag = false;

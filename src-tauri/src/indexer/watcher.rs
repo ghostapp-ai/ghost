@@ -19,9 +19,7 @@ pub enum FileEvent {
 
 /// Start watching a directory for file changes.
 /// Returns a receiver that emits FileEvents.
-pub fn start_watching(
-    directories: Vec<PathBuf>,
-) -> Result<mpsc::Receiver<Vec<FileEvent>>> {
+pub fn start_watching(directories: Vec<PathBuf>) -> Result<mpsc::Receiver<Vec<FileEvent>>> {
     let (tx, rx) = mpsc::channel();
 
     let (debounced_tx, debounced_rx) = mpsc::channel();
@@ -52,9 +50,7 @@ pub fn start_watching(
             match debounced_rx.recv() {
                 Ok(Ok(events)) => {
                     let file_events = process_events(events);
-                    if !file_events.is_empty()
-                        && tx.send(file_events).is_err()
-                    {
+                    if !file_events.is_empty() && tx.send(file_events).is_err() {
                         break;
                     }
                 }
