@@ -49,7 +49,7 @@ jobs:
 
       - name: Rust tests
         working-directory: src-tauri
-        run: cargo test --all-features
+        run: cargo test
 
       - name: Clippy
         working-directory: src-tauri

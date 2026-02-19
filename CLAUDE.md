@@ -260,9 +260,12 @@ WHERE embedding MATCH ? ORDER BY distance LIMIT 20;
 
 ### While Working
 1. Write tests for new Rust modules (`#[cfg(test)]` inline or `tests/` dir)
-2. Run `cargo clippy` before committing Rust code
-3. Run `bun run build` to verify frontend compiles
-4. Test on Windows first (primary target)
+2. Run `cargo fmt --all` before committing Rust code
+3. Run `cargo clippy -- -D warnings` before committing Rust code
+4. Run `cargo test` to verify all tests pass
+5. Run `bun run build` to verify frontend compiles
+6. Test on Windows first (primary target)
+7. **NEVER use `--all-features`** — `metal`/`accelerate` features are macOS-only and will break Linux CI
 
 ### After Completing a Task
 1. Update the three core documents (README.md, ROADMAP.md, CLAUDE.md)
@@ -271,17 +274,19 @@ WHERE embedding MATCH ? ORDER BY distance LIMIT 20;
 
 ### Testing
 ```bash
-# Rust tests
-cd src-tauri && cargo test
-
-# Rust linting
-cd src-tauri && cargo clippy -- -D warnings
+# Full local CI check (run before every push)
+cd src-tauri && cargo fmt --all -- --check && cargo test && cargo clippy -- -D warnings
 
 # Frontend type checking
 bun run build
 
 # Full app dev mode
 bun run tauri dev
+
+# IMPORTANT: Never use --all-features on Linux
+# metal/accelerate features require macOS (objc2 crate)
+# cuda feature requires NVIDIA drivers
+# Default features (no flags) is the correct CI configuration
 ```
 
 ---
@@ -488,3 +493,4 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-19 | `dirs` crate for XDG directory detection | Cross-platform (Linux XDG, macOS standard, Windows Known Folders), with locale fallbacks (Documentos, Escritorio, etc.) |
 | 2026-02-19 | Programmatic `startDragging()` over data-tauri-drag-region only | Tauri v2 has known Linux/Wayland issues with CSS drag regions; JS fallback via `window.start_dragging()` ensures reliable drag |
 | 2026-02-19 | 50+ source code extensions in extractor | Developers need to search code too — rs, py, js, ts, go, etc. matches what Everything/Spotlight index |
+| 2026-02-19 | Never `--all-features` in CI on Linux | `metal`/`accelerate` Cargo features pull `objc2` (Apple-only); `cuda` needs NVIDIA. Default features only in CI |
