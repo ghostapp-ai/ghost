@@ -540,3 +540,13 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-20 | Concrete `RunningService<RoleClient, ()>` over DynService | MCP client doesn't need dynamic dispatch; `()` handler is the standard client pattern in rmcp |
 | 2026-02-20 | Port 6774 default for MCP server | Memorable (GHOST on phone keypad ≈ 4-4-6-7-8), unlikely to conflict with common services |
 | 2026-02-20 | MCP Settings tab in existing Settings panel | Consistent UX — users manage MCP alongside directories and models. No separate config files needed |
+| 2026-02-20 | AG-UI via Tauri events over WebSocket/SSE for desktop frontend | Tauri IPC (`app.emit()`) is zero-overhead, type-safe, already available. SSE endpoint added for external clients only |
+| 2026-02-20 | `tokio::sync::broadcast` for AG-UI event bus over mpsc | Fan-out to multiple consumers (Tauri events + SSE + logging). Fire-and-forget semantics with backpressure via lagged detection |
+| 2026-02-20 | `async-stream` crate for SSE endpoint over manual Stream impl | Clean `yield`-based syntax for axum SSE, well-maintained (tokio-rs org), 0.3.6 stable |
+| 2026-02-20 | Word-chunking simulation over blocking on real streaming | Ship streaming UX now (word-group deltas), upgrade to true token-streaming from llama.cpp later. Incremental delivery |
+| 2026-02-20 | `useAgui` hook over global state management | Self-contained AG-UI state per component tree, no external deps (Zustand), follows React patterns |
+| 2026-02-19 | Parallel CI jobs over single sequential job | Split CI into 3 parallel jobs (checks, audit, test+clippy). Reduces CI gate from ~10min to ~6min (longest parallel job) |
+| 2026-02-19 | sccache over Swatinem/rust-cache for CI | sccache caches at compilation-unit level (not whole target/), shared across jobs via GHA cache. 40-60% faster repeat builds |
+| 2026-02-19 | cargo-nextest over default test runner | 40-60% faster test execution via parallel test scheduling. Pre-built binary via taiki-e/install-action (no cargo install) |
+| 2026-02-19 | taiki-e/install-action over cargo install | Pre-built binaries for cargo-audit and cargo-nextest — installs in <5s vs 30-60s for cargo install |
+| 2026-02-19 | sccache in build matrix jobs | Cross-platform build caching for release artifacts. Heavy crates (llama-cpp-2, candle) cached between runs |

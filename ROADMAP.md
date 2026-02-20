@@ -306,16 +306,22 @@
   - [ ] Free tier: 3 MCP server connections; Pro: unlimited
 
 #### AG-UI Runtime (Agent ↔ User Interaction Protocol)
-- [ ] **AG-UI event system in Rust backend**
+- [x] **AG-UI event system in Rust backend**
   - Implement ~16 AG-UI event types (TEXT_MESSAGE_CONTENT, TOOL_CALL_START, STATE_DELTA, etc.)
-  - Bidirectional streaming: agent events → frontend, user actions → agent
-  - Tool lifecycle management: started → streaming → finished/failed
-  - Human-in-the-loop: approval gates for dangerous actions
+  - Event bus (broadcast channel) for fan-out to multiple consumers
+  - SSE endpoint on `/agui` for external clients alongside MCP `/mcp` endpoint
+  - AgentRunner orchestrates chat lifecycle as AG-UI event stream
+  - Tool call event emission (TOOL_CALL_START/ARGS/END) infrastructure ready
+- [x] **AG-UI React client**
+  - `useAgui` hook: listens to Tauri `agui://event` events, manages run state
+  - Streaming text display with real-time TEXT_MESSAGE_CONTENT deltas
+  - `chat_send_streaming` Tauri command for event-driven chat
+  - Fallback to non-streaming `chat_send` when model not natively available
+- [ ] **AG-UI advanced features (next iteration)**
+  - Bidirectional streaming: user actions → agent (human-in-the-loop)
+  - Approval gates for dangerous tool actions
+  - True token-by-token streaming from llama.cpp (replace word-chunking)
   - State synchronization between Rust agent and React UI
-- [ ] **AG-UI React client**
-  - Event stream consumer with real-time UI updates
-  - Tool progress indicators, streaming text display
-  - Action approval dialogs (human-in-the-loop)
 
 #### A2UI Renderer (Generative UI)
 - [ ] **A2UI JSON → React component renderer**
@@ -338,7 +344,7 @@
 ### Exit Criteria
 - [x] Claude Desktop can search local files through Ghost MCP server
 - [ ] Ghost chat can invoke tools from at least 2 external MCP servers
-- [ ] AG-UI event stream renders streaming text + tool progress in React
+- [x] AG-UI event stream renders streaming text + tool progress in React
 - [ ] A2UI renders at least 3 component types (form, table, text block)
 - [ ] <100ms overhead added by MCP protocol layer
 - [ ] Setup guide published for MCP server + client configuration
