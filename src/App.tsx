@@ -5,6 +5,7 @@ import { ChatMessages } from "./components/ChatMessages";
 import { StatusBar } from "./components/StatusBar";
 import { Settings } from "./components/Settings";
 import { DebugPanel } from "./components/DebugPanel";
+import { Onboarding } from "./components/Onboarding";
 import { useSearch } from "./hooks/useSearch";
 import { useHotkey } from "./hooks/useHotkey";
 import { detectMode, type InputMode } from "./lib/detectMode";
@@ -22,6 +23,9 @@ import type { ChatMessage, ChatStatus } from "./lib/types";
 import "./styles/globals.css";
 
 export default function App() {
+  // --- Setup / onboarding state ---
+  const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
+
   // --- Search state ---
   const { query, setQuery, results, isLoading: isSearching, error: searchError } = useSearch(150);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -55,6 +59,9 @@ export default function App() {
   useEffect(() => {
     getSettings()
       .then((s) => {
+        // Check if onboarding is needed
+        setSetupComplete(s.setup_complete);
+
         const hasDirs = s.watched_directories.length > 0;
         setHasDirectories(hasDirs);
         if (hasDirs) {
@@ -75,7 +82,10 @@ export default function App() {
           setTimeout(() => clearInterval(poll), 60000);
         }
       })
-      .catch(() => setHasDirectories(false));
+      .catch(() => {
+        setSetupComplete(true); // Default to showing app on error
+        setHasDirectories(false);
+      });
   }, []);
 
   // --- Auto-hide on blur ---
@@ -193,6 +203,24 @@ export default function App() {
   useHotkey("d", () => setDebugOpen((prev) => !prev), { ctrl: true });
 
   const isModelReady = chatSt?.available ?? false;
+
+  // Loading state — waiting for settings to load
+  if (setupComplete === null) {
+    return (
+      <div className="flex flex-col h-screen bg-ghost-bg rounded-2xl overflow-hidden border border-ghost-border/50 shadow-2xl items-center justify-center">
+        <div className="w-3 h-3 rounded-full bg-ghost-accent animate-pulse" />
+      </div>
+    );
+  }
+
+  // First launch — show onboarding
+  if (!setupComplete) {
+    return (
+      <Onboarding
+        onComplete={() => setSetupComplete(true)}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-ghost-bg rounded-2xl overflow-hidden border border-ghost-border/50 shadow-2xl">
