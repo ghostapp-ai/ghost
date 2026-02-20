@@ -266,6 +266,30 @@ impl Database {
         })
     }
 
+    /// Get recently indexed documents, ordered by indexed_at descending.
+    pub fn get_recent_documents(&self, limit: usize) -> Result<Vec<RecentDocument>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT path, filename, extension, size_bytes, indexed_at \
+                 FROM documents ORDER BY indexed_at DESC LIMIT ?1",
+            )?;
+            let rows = stmt.query_map(rusqlite::params![limit], |row| {
+                Ok(RecentDocument {
+                    path: row.get(0)?,
+                    filename: row.get(1)?,
+                    extension: row.get(2)?,
+                    size_bytes: row.get(3)?,
+                    indexed_at: row.get(4)?,
+                })
+            })?;
+            let mut results = Vec::new();
+            for row in rows {
+                results.push(row?);
+            }
+            Ok(results)
+        })
+    }
+
     // --- Vector operations (sqlite-vec) ---
 
     /// Insert an embedding vector for a chunk.
@@ -341,6 +365,16 @@ pub struct DbStats {
     pub document_count: i64,
     pub chunk_count: i64,
     pub embedded_chunk_count: i64,
+}
+
+/// A recently indexed document.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RecentDocument {
+    pub path: String,
+    pub filename: String,
+    pub extension: Option<String>,
+    pub size_bytes: i64,
+    pub indexed_at: String,
 }
 
 #[cfg(test)]
