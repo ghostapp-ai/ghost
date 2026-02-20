@@ -1115,8 +1115,7 @@ pub fn run() {
     });
 
     #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init());
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
 
     // Desktop-only plugins
     #[cfg(desktop)]
@@ -1229,10 +1228,7 @@ pub fn run() {
                         }
                     })
                     .unwrap_or_else(|e| {
-                        tracing::warn!(
-                            "Failed to register global shortcut CmdOrCtrl+Space: {}",
-                            e
-                        );
+                        tracing::warn!("Failed to register global shortcut CmdOrCtrl+Space: {}", e);
                     });
 
                 tracing::info!("Global shortcut registered: CmdOrCtrl+Space");
@@ -1454,10 +1450,9 @@ pub fn run() {
                                                         );
                                                         let path_str =
                                                             path.to_string_lossy().to_string();
-                                                        if let Ok(Some((doc_id, _))) =
-                                                            watcher_state
-                                                                .db
-                                                                .get_document_by_path(&path_str)
+                                                        if let Ok(Some((doc_id, _))) = watcher_state
+                                                            .db
+                                                            .get_document_by_path(&path_str)
                                                         {
                                                             let _ = watcher_state
                                                                 .db
