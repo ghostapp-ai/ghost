@@ -88,23 +88,24 @@ export default function App() {
       });
   }, []);
 
-  // --- Auto-hide on blur ---
+  // --- Auto-hide on blur (with startup grace period) ---
+  const [blurEnabled, setBlurEnabled] = useState(false);
   useEffect(() => {
+    // Give the app 2 seconds to stabilize before enabling auto-hide.
+    // This prevents the window from disappearing immediately on startup
+    // when focus hasn't been established yet (common on Linux/WSL2).
+    const timer = setTimeout(() => setBlurEnabled(true), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!blurEnabled) return;
     const handleBlur = () => {
       if (!showSettings) hideWindow().catch(() => {});
     };
     window.addEventListener("blur", handleBlur);
     return () => window.removeEventListener("blur", handleBlur);
-  }, [showSettings]);
-
-  // --- Reset on focus ---
-  useEffect(() => {
-    const handleFocus = () => {
-      handleQueryChange("");
-    };
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
-  }, []);
+  }, [showSettings, blurEnabled]);
 
   // --- Input handling ---
   const handleQueryChange = useCallback(
