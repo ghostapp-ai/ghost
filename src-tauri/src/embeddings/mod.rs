@@ -52,6 +52,10 @@ pub struct EmbeddingEngine {
 impl EmbeddingEngine {
     /// Initialize the engine: try native first, fall back to Ollama.
     pub async fn initialize() -> Self {
+        // Ensure TLS provider is installed (needed for Ollama health check & HF Hub downloads).
+        // Idempotent — safe to call from both run() and tests.
+        crate::ensure_tls_provider();
+
         let hw = hardware::HardwareInfo::detect();
 
         // Try native engine first

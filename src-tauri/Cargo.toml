@@ -50,7 +50,12 @@ lopdf = "0.39"
 calamine = "0.33"
 
 # HTTP client (for Ollama — rustls avoids OpenSSL cross-compilation issues on Android/iOS)
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+# NOTE: Use rustls-no-provider to avoid aws-lc-sys (fails on MSVC with __builtin_bswap*).
+# Ring is installed as the default CryptoProvider at startup in lib.rs.
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider"] }
+
+# TLS crypto provider — ring compiles cleanly on all platforms (MSVC, GCC, Clang)
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 
 # Vector search
 sqlite-vec = "0.1.7-alpha.10"

@@ -14,6 +14,20 @@ use ghost_pro;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+/// Install ring as the default TLS crypto provider (idempotent).
+///
+/// Must be called before any TLS connection (Ollama, MCP, HF Hub).
+/// Uses ring instead of aws-lc-rs because aws-lc-sys fails on MSVC
+/// (missing `__builtin_bswap*` GCC intrinsics).
+pub(crate) fn ensure_tls_provider() {
+    static INIT: std::sync::Once = std::sync::Once::new();
+    INIT.call_once(|| {
+        rustls::crypto::ring::default_provider()
+            .install_default()
+            .expect("Failed to install ring as default TLS crypto provider");
+    });
+}
+
 use db::Database;
 use embeddings::hardware::HardwareInfo;
 use embeddings::{AiStatus, EmbeddingEngine};
@@ -1002,6 +1016,9 @@ async fn complete_setup(state: tauri::State<'_, Arc<AppState>>) -> Result<(), St
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Ensure ring TLS crypto provider is installed before any network I/O.
+    ensure_tls_provider();
+
     // Initialize logging
     tracing_subscriber::fmt()
         .with_env_filter(
