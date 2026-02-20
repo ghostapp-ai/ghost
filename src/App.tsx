@@ -8,6 +8,7 @@ import { DebugPanel } from "./components/DebugPanel";
 import { Onboarding } from "./components/Onboarding";
 import { useSearch } from "./hooks/useSearch";
 import { useHotkey } from "./hooks/useHotkey";
+import { useAgui } from "./hooks/useAgui";
 import { detectMode, type InputMode } from "./lib/detectMode";
 import {
   hideWindow,
@@ -36,6 +37,31 @@ export default function App() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [tokensInfo, setTokensInfo] = useState<string | null>(null);
   const [chatSt, setChatSt] = useState<ChatStatus | null>(null);
+
+  // --- AG-UI streaming ---
+  const { runState, isStreaming, sendStreaming, reset: resetAgui } = useAgui();
+
+  // Sync AG-UI streaming state → message list when run finishes
+  useEffect(() => {
+    if (runState?.status === "finished" && runState.content) {
+      const assistantMsg: ChatMessage = {
+        role: "assistant",
+        content: runState.content,
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+      setIsGenerating(false);
+      if (runState.metadata) {
+        const m = runState.metadata;
+        const tokens = m.tokens_generated ?? 0;
+        const duration = Number(m.duration_ms ?? 0) / 1000;
+        const model = m.model_id ?? "";
+        setTokensInfo(`${tokens} tokens · ${duration.toFixed(1)}s · ${model}`);
+      }
+    } else if (runState?.status === "error") {
+      setChatError(runState.error ?? "Unknown error");
+      setIsGenerating(false);
+    }
+  }, [runState?.status, runState?.content, runState?.error, runState?.metadata]);
 
   // --- UI state ---
   const [mode, setMode] = useState<InputMode>("search");
@@ -151,29 +177,37 @@ export default function App() {
       setIsGenerating(true);
 
       try {
-        const response = await chatSend(newMessages);
-        const assistantMsg: ChatMessage = {
-          role: "assistant",
-          content: response.content,
-        };
-        setMessages([...newMessages, assistantMsg]);
-        setTokensInfo(
-          `${response.tokens_generated} tokens · ${(response.duration_ms / 1000).toFixed(1)}s · ${response.model_id}`
-        );
+        // Use AG-UI streaming when chat model is available natively
+        if (chatSt?.backend === "native" || chatSt?.backend === "ollama") {
+          await sendStreaming(newMessages);
+          // Response will arrive via AG-UI events → useEffect sync above
+        } else {
+          // Fallback: non-streaming chat for compatibility
+          const response = await chatSend(newMessages);
+          const assistantMsg: ChatMessage = {
+            role: "assistant",
+            content: response.content,
+          };
+          setMessages([...newMessages, assistantMsg]);
+          setTokensInfo(
+            `${response.tokens_generated} tokens · ${(response.duration_ms / 1000).toFixed(1)}s · ${response.model_id}`
+          );
+          setIsGenerating(false);
+        }
       } catch (e) {
         setChatError(e instanceof Error ? e.message : String(e));
-      } finally {
         setIsGenerating(false);
       }
     }
-  }, [activeMode, results, selectedIndex, query, isGenerating, messages, setQuery]);
+  }, [activeMode, results, selectedIndex, query, isGenerating, messages, setQuery, chatSt?.backend, sendStreaming]);
 
   // --- Clear chat ---
   const clearChat = useCallback(() => {
     setMessages([]);
     setChatError(null);
     setTokensInfo(null);
-  }, []);
+    resetAgui();
+  }, [resetAgui]);
 
   // --- Keyboard navigation ---
   useHotkey("ArrowDown", () => {
@@ -350,6 +384,7 @@ export default function App() {
           <ChatMessages
             messages={messages}
             isGenerating={isGenerating}
+            streamingContent={isStreaming ? (runState?.content ?? "") : undefined}
             status={chatSt}
             tokensInfo={tokensInfo}
             error={chatError}

@@ -165,3 +165,68 @@ export interface McpToolInfo {
   description: string | null;
   input_schema: unknown | null;
 }
+
+// --- AG-UI Protocol Types ---
+
+/** AG-UI event type discriminator. */
+export type AgUiEventType =
+  | "RUN_STARTED"
+  | "RUN_FINISHED"
+  | "RUN_ERROR"
+  | "STEP_STARTED"
+  | "STEP_FINISHED"
+  | "TEXT_MESSAGE_START"
+  | "TEXT_MESSAGE_CONTENT"
+  | "TEXT_MESSAGE_END"
+  | "TOOL_CALL_START"
+  | "TOOL_CALL_ARGS"
+  | "TOOL_CALL_END"
+  | "STATE_SNAPSHOT"
+  | "STATE_DELTA"
+  | "RAW"
+  | "CUSTOM";
+
+/** Base AG-UI event from the Rust backend. */
+export interface AgUiEvent {
+  type: AgUiEventType;
+  runId: string;
+  threadId?: string;
+  timestamp: number;
+  // Flattened payload fields (varies by event type):
+  // TEXT_MESSAGE_START / CONTENT / END
+  messageId?: string;
+  role?: string;
+  delta?: string;
+  // TOOL_CALL_START / ARGS / END
+  toolCallId?: string;
+  toolCallName?: string;
+  parentMessageId?: string;
+  result?: string;
+  // STEP_STARTED / FINISHED
+  stepName?: string;
+  stepIndex?: number;
+  // RUN_ERROR
+  message?: string;
+  code?: string;
+  // STATE_SNAPSHOT / DELTA
+  snapshot?: unknown;
+  // CUSTOM
+  name?: string;
+  value?: unknown;
+}
+
+/** State of a streaming AG-UI run. */
+export interface AgUiRunState {
+  runId: string;
+  status: "running" | "finished" | "error";
+  /** Accumulated response text from TEXT_MESSAGE_CONTENT deltas. */
+  content: string;
+  /** Current step name (from STEP_STARTED). */
+  currentStep: string | null;
+  /** Active tool calls in progress. */
+  activeToolCalls: Map<string, { name: string; args: string; result?: string }>;
+  /** Error message if status is "error". */
+  error: string | null;
+  /** Generation metadata from CUSTOM event. */
+  metadata: Record<string, unknown> | null;
+}

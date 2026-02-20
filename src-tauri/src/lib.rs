@@ -21,7 +21,7 @@ use search::SearchResult;
 use settings::Settings;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 /// Application state shared across commands.
@@ -32,6 +32,7 @@ pub struct AppState {
     pub hardware: HardwareInfo,
     pub settings: std::sync::Mutex<Settings>,
     pub mcp_client: protocols::mcp_client::McpClientManager,
+    pub agui_event_bus: protocols::agui::AgUiEventBus,
 }
 
 /// A structured log entry for the debug panel.
@@ -297,6 +298,95 @@ async fn chat_send(
             push_log("error", format!("Chat error: {}", e));
             e.to_string()
         })
+}
+
+/// AG-UI streaming chat — emits events through Tauri event system.
+///
+/// Returns the run_id immediately. The frontend listens to
+/// `agui://event` Tauri events for the streaming response.
+#[tauri::command]
+async fn chat_send_streaming(
+    messages: Vec<chat::ChatMessage>,
+    max_tokens: Option<usize>,
+    state: tauri::State<'_, Arc<AppState>>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let max_tokens = max_tokens.unwrap_or_else(|| {
+        state
+            .settings
+            .lock()
+            .map(|s| s.chat_max_tokens)
+            .unwrap_or(512)
+    });
+
+    let run_id = format!(
+        "run-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    );
+
+    push_log(
+        "info",
+        format!(
+            "AG-UI streaming chat: run_id={}, {} messages, max_tokens={}",
+            run_id,
+            messages.len(),
+            max_tokens
+        ),
+    );
+
+    let state_inner = state.inner().clone();
+    let run_id_clone = run_id.clone();
+
+    // Subscribe to AG-UI events and forward to Tauri event system
+    let mut rx = state_inner.agui_event_bus.subscribe();
+    let app_clone = app.clone();
+    let run_id_for_listener = run_id.clone();
+
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    // Only forward events for this run
+                    if event.run_id == run_id_for_listener {
+                        let is_terminal = matches!(
+                            event.event_type,
+                            protocols::agui::EventType::RunFinished
+                                | protocols::agui::EventType::RunError
+                        );
+                        let _ = app_clone.emit("agui://event", &event);
+                        if is_terminal {
+                            break;
+                        }
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    tracing::warn!("AG-UI event listener lagged by {} events", n);
+                }
+            }
+        }
+    });
+
+    // Spawn the agent runner in a background task
+    tokio::spawn(async move {
+        let runner = protocols::agui::AgentRunner::new(state_inner.clone());
+        if let Err(e) = runner
+            .run(
+                &run_id_clone,
+                &messages,
+                max_tokens,
+                &state_inner.agui_event_bus,
+            )
+            .await
+        {
+            tracing::error!("AG-UI run failed: {}", e);
+        }
+    });
+
+    Ok(run_id)
 }
 
 #[tauri::command]
@@ -955,6 +1045,7 @@ pub fn run() {
         hardware,
         settings: std::sync::Mutex::new(settings),
         mcp_client: protocols::mcp_client::McpClientManager::new(),
+        agui_event_bus: protocols::agui::AgUiEventBus::new(256),
     });
 
     tauri::Builder::default()
@@ -979,6 +1070,7 @@ pub fn run() {
             get_default_directories,
             // Chat
             chat_send,
+            chat_send_streaming,
             chat_status,
             chat_load_model,
             chat_switch_model,

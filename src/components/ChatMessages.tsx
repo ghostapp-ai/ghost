@@ -14,6 +14,8 @@ import type { ChatMessage, ChatStatus } from "../lib/types";
 interface ChatMessagesProps {
   messages: ChatMessage[];
   isGenerating: boolean;
+  /** Live streaming content from AG-UI (TEXT_MESSAGE_CONTENT deltas). */
+  streamingContent?: string;
   status: ChatStatus | null;
   tokensInfo: string | null;
   error: string | null;
@@ -86,6 +88,7 @@ function SmartGreeting() {
 export function ChatMessages({
   messages,
   isGenerating,
+  streamingContent,
   status,
   tokensInfo,
   error,
@@ -95,7 +98,7 @@ export function ChatMessages({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isGenerating]);
+  }, [messages, isGenerating, streamingContent]);
 
   const isAvailable = status?.available ?? false;
   const isLoading = status?.loading ?? false;
@@ -181,16 +184,25 @@ export function ChatMessages({
         <MessageBubble key={i} message={msg} />
       ))}
 
-      {/* Generating indicator */}
+      {/* Generating indicator / streaming content */}
       {isGenerating && (
         <div className="flex items-start gap-2.5 px-1">
           <div className="w-6 h-6 rounded-lg bg-ghost-accent/15 flex items-center justify-center shrink-0 mt-0.5">
             <Bot className="w-3.5 h-3.5 text-ghost-accent" />
           </div>
-          <div className="flex items-center gap-2 text-sm text-ghost-text-dim/60">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Generando...
-          </div>
+          {streamingContent ? (
+            <div className="max-w-[85%] px-3 py-2 rounded-xl text-sm leading-relaxed bg-ghost-surface text-ghost-text border border-ghost-border/50">
+              <p className="whitespace-pre-wrap wrap-break-word">
+                {streamingContent}
+                <span className="inline-block w-1.5 h-4 bg-ghost-accent/60 animate-pulse ml-0.5 align-text-bottom rounded-sm" />
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-ghost-text-dim/60">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Generando...
+            </div>
+          )}
         </div>
       )}
 
