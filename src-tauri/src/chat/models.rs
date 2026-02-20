@@ -89,29 +89,33 @@ pub fn find_model(id: &str) -> Option<&'static ModelProfile> {
     MODEL_REGISTRY.iter().find(|m| m.id == id)
 }
 
-/// Check if a GPU acceleration feature is actually compiled into this binary.
-fn gpu_feature_compiled() -> bool {
-    #[cfg(any(feature = "cuda", feature = "metal"))]
-    {
-        true
-    }
-    #[cfg(not(any(feature = "cuda", feature = "metal")))]
-    {
-        false
-    }
+/// Check if GPU offload is available at runtime via llama.cpp.
+///
+/// This detects actual GPU availability (Vulkan, CUDA, Metal) — not just
+/// compile-time feature flags. Returns true if llama.cpp can offload to GPU.
+pub fn has_gpu_runtime() -> bool {
+    // Check if any GPU-type device is reported by llama.cpp backends
+    let devices = llama_cpp_2::list_llama_ggml_backend_devices();
+    devices.iter().any(|d| {
+        matches!(
+            d.device_type,
+            llama_cpp_2::LlamaBackendDeviceType::Gpu
+                | llama_cpp_2::LlamaBackendDeviceType::IntegratedGpu
+        )
+    })
 }
 
 /// Recommend the best model that fits the available hardware.
 ///
 /// Strategy:
-/// - CPU-only (no GPU feature compiled): cap at 1.5B for interactive speed
-/// - GPU available and compiled: pick the largest that fits in RAM
+/// - CPU-only (no GPU detected at runtime): cap at 1.5B for interactive speed
+/// - GPU available: pick the largest that fits in RAM
 /// - Always leave 512MB headroom for the OS and app
 pub fn recommend_model(hardware: &HardwareInfo) -> &'static ModelProfile {
     let available = hardware.available_ram_mb;
-    let has_gpu = gpu_feature_compiled();
+    let has_gpu = has_gpu_runtime();
 
-    // CPU-only builds: cap at 1.5B for acceptable inference speed.
+    // CPU-only: cap at 1.5B for acceptable inference speed.
     // 3B+ on CPU takes 10+ seconds per response which feels broken.
     let max_quality_tier: u8 = if has_gpu { 4 } else { 2 };
 
@@ -235,9 +239,9 @@ mod tests {
             available_ram_mb: 24000,
         };
         let model = recommend_model(&hw);
-        // Without GPU feature compiled, caps at 1.5B for CPU speed
-        // With GPU feature, would select 7B
-        if gpu_feature_compiled() {
+        // Without GPU at runtime, caps at 1.5B for CPU speed
+        // With GPU, would select 7B
+        if has_gpu_runtime() {
             assert_eq!(model.id, "qwen2.5-7b");
         } else {
             assert_eq!(model.id, "qwen2.5-1.5b");

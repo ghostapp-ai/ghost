@@ -768,10 +768,9 @@ pub fn run() {
     push_log(
         "info",
         format!(
-            "Settings: {} dirs, model={}, device={}",
+            "Settings: {} dirs, model={}",
             settings.watched_directories.len(),
             settings.chat_model,
-            settings.chat_device,
         ),
     );
 
@@ -813,16 +812,13 @@ pub fn run() {
     };
 
     // --- Step 6: Create chat engine (deferred loading) ---
-    let chat_engine = chat::ChatEngine::new(
-        hardware.clone(),
-        model_id.clone(),
-        settings.chat_device.clone(),
-    );
+    // llama.cpp auto-detects GPU at runtime — no device preference needed.
+    let chat_engine = chat::ChatEngine::new(hardware.clone(), model_id.clone());
     push_log(
         "info",
         format!(
-            "Chat engine created (model={}, device={}). Loading in background...",
-            model_id, settings.chat_device
+            "Chat engine created (model={}). GPU auto-detection on load...",
+            model_id
         ),
     );
 
