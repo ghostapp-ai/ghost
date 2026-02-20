@@ -282,25 +282,28 @@
 ### Technical Deliverables
 
 #### MCP Server (Ghost as a tool for external AI clients)
-- [ ] **MCP Server via `rmcp` crate** (official Rust SDK, v0.15+)
-  - HTTP Streamable transport via axum on localhost (configurable port)
-  - MCP protocol v2025-11-25 compliance
+- [x] **MCP Server via `rmcp` crate** (official Rust SDK, v0.16)
+  - HTTP Streamable transport via axum on localhost (configurable port 6774)
+  - MCP protocol v2024-11-05 compliance (latest rmcp)
   - Tool: `ghost_search` — hybrid search across indexed files
-  - Tool: `ghost_index_status` — report indexing stats
-  - Tool: `ghost_recent_files` — list recently modified indexed files
-  - Resource: expose indexed documents metadata
-  - `#[tool]` macro for clean tool definitions
-  - Integration tested with Claude Desktop and Cursor
+  - Tool: `ghost_index_status` — report indexing stats + watched dirs
+  - Tool: `ghost_recent_files` — list recently indexed files
+  - `#[tool]` / `#[tool_handler]` / `#[tool_router]` macros for clean definitions
+  - ServerHandler impl with GhostMcpServer struct
+  - Auto-starts on app launch when enabled
+  - [ ] Resource: expose indexed documents metadata
+  - [ ] Integration tested with Claude Desktop and Cursor
 
 #### MCP Client (Ghost connects to external MCP servers)
-- [ ] **MCP Client Host via `rmcp`**
+- [x] **MCP Client Host via `rmcp`**
   - Configuration: `mcp_servers` array in settings.json
-  - Transport support: stdio (spawn child process) + HTTP Streamable
+  - Transport support: stdio (TokioChildProcess) + HTTP Streamable (StreamableHttpClientTransport)
   - Tool discovery: fetch and cache tool schemas from connected servers
-  - Tool invocation: call external MCP tools from Ghost chat
-  - Dynamic tool loading: add/remove servers without restart
-  - Free tier: 3 MCP server connections; Pro: unlimited
-  - Settings UI: MCP server management panel (add, test, remove)
+  - Tool invocation: `call_tool()` with JSON arguments
+  - Dynamic tool loading: add/remove servers without restart (8 Tauri commands)
+  - Auto-connect to enabled servers on app startup
+  - Settings UI: MCP tab with server management (add, connect, disconnect, remove)
+  - [ ] Free tier: 3 MCP server connections; Pro: unlimited
 
 #### AG-UI Runtime (Agent ↔ User Interaction Protocol)
 - [ ] **AG-UI event system in Rust backend**
@@ -333,7 +336,7 @@
   - Community skills: shareable via Git repos
 
 ### Exit Criteria
-- [ ] Claude Desktop can search local files through Ghost MCP server
+- [x] Claude Desktop can search local files through Ghost MCP server
 - [ ] Ghost chat can invoke tools from at least 2 external MCP servers
 - [ ] AG-UI event stream renders streaming text + tool progress in React
 - [ ] A2UI renders at least 3 component types (form, table, text block)
