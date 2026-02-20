@@ -579,3 +579,4 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-20 | `ChatEngine.native` field gated `#[cfg(desktop)]` | Entire native chat inference path (llama-cpp-2) excluded from mobile builds. Clean separation in struct + methods |
 | 2026-02-20 | hf-hub `ureq` feature for sync API | `hf_hub::api::sync::Api` (used in embeddings/native.rs and chat/native.rs) requires the `ureq` feature explicitly when defaults disabled |
 | 2026-02-20 | Dead code removal (ChatPanel, SearchBar) | Both superseded by unified GhostInput Omnibox. No imports found anywhere. Reduces bundle size and maintenance surface |
+| 2026-02-20 | Ad-hoc macOS signing (`-`) as CI default over no signing | aarch64 binaries MUST be signed or macOS shows "app is damaged". Ad-hoc (`codesign -s "-"`) satisfies Apple Silicon without an Apple Developer account. Real certificate used only when `APPLE_CERTIFICATE` secret is configured |
