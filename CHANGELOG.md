@@ -1,3 +1,9 @@
+## [0.9.1](https://github.com/ghostapp-ai/ghost/compare/v0.9.0...v0.9.1) (2026-02-20)
+
+### 🐛 Bug Fixes
+
+* **ci:** handle Dependabot PRs and harden repo configuration ([c30b301](https://github.com/ghostapp-ai/ghost/commit/c30b301caab7417cce721f7422aad64723b1619f))
+
 ## [0.9.0](https://github.com/ghostapp-ai/ghost/compare/v0.8.0...v0.9.0) (2026-02-20)
 
 ### 🚀 Features
