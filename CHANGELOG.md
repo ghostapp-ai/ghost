@@ -1,3 +1,29 @@
+## [0.11.0](https://github.com/ghostapp-ai/ghost/compare/v0.10.1...v0.11.0) (2026-02-20)
+
+### 🚀 Features
+
+* **agent:** add native ReAct agent engine with 104 tests ([0927c1f](https://github.com/ghostapp-ai/ghost/commit/0927c1fe48fa8e723ca0980ca877041ac858c3be))
+* **updater:** add frontend auto-update UI with progress tracking ([b4fb0d1](https://github.com/ghostapp-ai/ghost/commit/b4fb0d1bf26b251d04b594214b3e3d3b3e921500))
+* **updater:** add tauri-plugin-updater for in-app auto-updates ([220d242](https://github.com/ghostapp-ai/ghost/commit/220d24251b05a96407b5177ff9dab6da9e0a91d5))
+* **website:** add Astro Starlight docs site + AI agent automation ([0126732](https://github.com/ghostapp-ai/ghost/commit/012673263aa46b4fefb59ab32ddab148cf8a6b8a))
+
+### 🐛 Bug Fixes
+
+* **agent:** replace loop/match with while-let for clippy compliance ([bdce1e5](https://github.com/ghostapp-ai/ghost/commit/bdce1e5345789ee1bc28bef8cd2eef4ac0fe2b2a))
+* **ci:** add id-token: write permission for claude-code-action OIDC ([9f5365d](https://github.com/ghostapp-ai/ghost/commit/9f5365db45a3321912cfc663bb98dc39e8b130d4))
+* **ui:** resolve duplicate tray icon and add custom window controls ([d1141a5](https://github.com/ghostapp-ai/ghost/commit/d1141a53451525043a8abae5f2deb575eac5a95b))
+* **updater:** update pubkey after key regeneration with --ci flag ([e6e6051](https://github.com/ghostapp-ai/ghost/commit/e6e6051887991fdfb28e066d97768ff480d34e84))
+
+### ♻️ Code Refactoring
+
+* remove pro/ stubs and pro CI step CI action from public repo ([c048d27](https://github.com/ghostapp-ai/ghost/commit/c048d27ffd41e372806104b6fdbe06d6918df8ca))
+* replace Claude agents with Copilot-only architecture ([194db99](https://github.com/ghostapp-ai/ghost/commit/194db996e9313d7dbf08253f709db98aab061951))
+
+### 📚 Documentation
+
+* document auto-updater in ROADMAP and CLAUDE decision log ([333d444](https://github.com/ghostapp-ai/ghost/commit/333d444c51d351e40f94d573f1eb647cefb8865d))
+* **website:** auto-sync content from source files [skip ci] ([2d00863](https://github.com/ghostapp-ai/ghost/commit/2d008630debc4aec6fa78ac988e3d81d6a5ec33f))
+
 ## [0.2.0](https://github.com/ghostapp-ai/ghost/compare/v0.1.1...v0.2.0) (2026-02-20)
 
 ### 🚀 Features
