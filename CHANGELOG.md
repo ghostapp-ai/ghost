@@ -1,3 +1,24 @@
+## [0.11.2](https://github.com/ghostapp-ai/ghost/compare/v0.11.1...v0.11.2) (2026-02-20)
+
+### 🐛 Bug Fixes
+
+* **agent:** share LlamaBackend singleton between chat and agent ([aea604f](https://github.com/ghostapp-ai/ghost/commit/aea604f1463a49f7ee3ae18e2cd929bac2159bf4))
+* **ci:** fix cargo fmt + add lefthook pre-commit hooks ([927a4e3](https://github.com/ghostapp-ai/ghost/commit/927a4e36fd94fe775d2eb551b0634a5742586c6f))
+* **docs:** update supported versions in privacy documentation ([97a901a](https://github.com/ghostapp-ai/ghost/commit/97a901a6adf571cce563475dd2f011166b40ff93))
+
+### ⚡ Performance
+
+* **ci:** optimize CI pipeline — reduce build times by ~30% ([9d2c81a](https://github.com/ghostapp-ai/ghost/commit/9d2c81aae47a67ba559d6c0f0e407743445dea70))
+
+### ♻️ Code Refactoring
+
+* **website:** reposition as Agent OS category leader, remove competitor comparisons ([765f358](https://github.com/ghostapp-ai/ghost/commit/765f358c512f4a19794b4c4b183e058cea0d8859))
+
+### 📚 Documentation
+
+* **website:** auto-sync content from source files [skip ci] ([7b33b72](https://github.com/ghostapp-ai/ghost/commit/7b33b7262078b71f99478ff299a34d6b87a79e0e))
+* **website:** auto-sync content from source files [skip ci] ([79e09ce](https://github.com/ghostapp-ai/ghost/commit/79e09ceb7246c34f705be5039099438ff106865e))
+
 ## [0.11.1](https://github.com/ghostapp-ai/ghost/compare/v0.11.0...v0.11.1) (2026-02-20)
 
 ### 🐛 Bug Fixes
