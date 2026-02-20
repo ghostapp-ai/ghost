@@ -29,9 +29,10 @@ website/.astro/
 
 # Rust / Cargo
 src-tauri/target/
-pro/target/
-pro/Cargo.lock
 **/*.rs.bk
+
+# Pro overlay (private repo: ghostapp-ai/ghost-pro)
+pro/
 
 # Tauri build output & generated platform projects
 src-tauri/gen/schemas

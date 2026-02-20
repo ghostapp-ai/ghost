@@ -25,7 +25,6 @@ Use the `website-maintainer` custom agent for website tasks.
 src-tauri/src/     # Rust backend (indexer, db, embeddings, chat, agent, protocols)
 src/               # React frontend (components, hooks, lib)
 website/           # Astro Starlight documentation site
-pro/               # Proprietary Pro features (submodule)
 scripts/           # Build and maintenance scripts
 .github/agents/    # Custom Copilot agents
 .claude/agents/    # Claude Code agent definitions

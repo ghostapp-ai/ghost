@@ -453,7 +453,6 @@
 - [x] **Mobile CI/CD**: GitHub Actions for Android APK + iOS IPA builds
   - Android job: Java 17 + SDK 34 + NDK 27 + Gradle cache + APK signing (if keystore configured) + upload to release
   - iOS job: conditional on `IOS_BUILD_ENABLED` repo var + Apple Developer certificates
-  - Pro stub extracted to reusable composite action (removed — no longer needed with extensions trait pattern)
   - RPM bundle added to Linux builds
   - All jobs have timeouts, `workflow_dispatch` trigger added
 - [ ] **App Store assets**: screenshots, descriptions, privacy policies

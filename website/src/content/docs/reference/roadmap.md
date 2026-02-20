@@ -251,12 +251,12 @@ description: "Development roadmap and upcoming features for Ghost Agent OS."
 - [x] **Open source project configuration**
   - Migrated from `AngelAlexQC/ghost` to `ghostapp-ai/ghost` organization
   - Repository made PUBLIC for open source (MIT license)
-  - `ghost-pro` as private git submodule (`ghostapp-ai/ghost-pro`)
+  - Open-core architecture via `extensions.rs` trait (Grafana pattern — zero proprietary code in public repo)
   - Dynamic GitHub badges (release, CI, license, issues)
   - Community files: SUPPORT.md, FUNDING.yml, CODEOWNERS, issue/PR templates
   - package.json: full metadata (author, license, repo, keywords, homepage)
   - Cargo.toml: proper authors, license, repository, homepage, rust-version
-  - Vulnerability alerts + automated security fixes enabled on both repos
+  - Vulnerability alerts + automated security fixes enabled
   - Allow branch update, delete-branch-on-merge, squash merge defaults
 
 - [ ] **Performance optimization**
@@ -456,7 +456,6 @@ description: "Development roadmap and upcoming features for Ghost Agent OS."
 - [x] **Mobile CI/CD**: GitHub Actions for Android APK + iOS IPA builds
   - Android job: Java 17 + SDK 34 + NDK 27 + Gradle cache + APK signing (if keystore configured) + upload to release
   - iOS job: conditional on `IOS_BUILD_ENABLED` repo var + Apple Developer certificates
-  - Pro stub extracted to reusable composite action (`.github/actions/stub-pro/`)
   - RPM bundle added to Linux builds
   - All jobs have timeouts, `workflow_dispatch` trigger added
 - [ ] **App Store assets**: screenshots, descriptions, privacy policies
@@ -583,7 +582,7 @@ description: "Development roadmap and upcoming features for Ghost Agent OS."
 - [ ] Natural language queries: "show me what I worked on last Tuesday"
 - [ ] A2UI-rendered rich cards for different activity types
 
-### Premium Features (Ghost Pro — `ghost-pro` submodule)
+### Premium Features (Ghost Pro)
 - [ ] Vault encryption with ChaCha20-Poly1305 (`age` crate)
 - [ ] Encrypted sync between devices (optional, user-controlled)
 - [ ] Unlimited MCP server connections
@@ -595,7 +594,7 @@ description: "Development roadmap and upcoming features for Ghost Agent OS."
 
 ### Licensing System
 - [ ] License key validation (offline-capable, cryptographic)
-- [ ] Feature gating via `#[cfg(feature = "pro")]` in Rust
+- [ ] Feature gating via `PlatformExtensions` trait (extensions.rs)
 - [ ] Free tier: core search + chat + 3 MCP servers + 5 actions/day
 - [ ] Pro tier: everything unlimited + premium features
 
@@ -745,7 +744,7 @@ description: "Development roadmap and upcoming features for Ghost Agent OS."
 
 ## Business Model
 
-### Open Core (ghostapp-ai/ghost MIT + ghostapp-ai/ghost-pro proprietary)
+### Open Core (ghostapp-ai/ghost MIT + proprietary extensions overlay)
 
 | Feature | Free | Pro ($8/mo) | Teams ($15/user/mo) |
 |---------|------|-------------|---------------------|

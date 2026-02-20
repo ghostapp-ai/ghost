@@ -41,7 +41,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/stub-pro
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -79,7 +78,6 @@ jobs:
       RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/stub-pro
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -170,7 +168,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release.outputs.tag }}
-      - uses: ./.github/actions/stub-pro
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -268,7 +265,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release.outputs.tag }}
-      - uses: ./.github/actions/stub-pro
 
       # ── Java 17 (required by Android Gradle) ──
       - uses: actions/setup-java@v5
@@ -418,7 +414,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release.outputs.tag }}
-      - uses: ./.github/actions/stub-pro
 
       # ── Rust with iOS target ──
       - uses: dtolnay/rust-toolchain@stable
