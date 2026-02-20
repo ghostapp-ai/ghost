@@ -1,3 +1,13 @@
+## [0.4.0](https://github.com/ghostapp-ai/ghost/compare/v0.3.0...v0.4.0) (2026-02-19)
+
+### 🚀 Features
+
+* **chat:** enhance GPU support with runtime auto-detection and update model loading logic ([4e52d36](https://github.com/ghostapp-ai/ghost/commit/4e52d3631b4d6b08d8d7f757e008df863a096517))
+
+### 🐛 Bug Fixes
+
+* **chat:** cap model at 1.5B on CPU, add smart greeting and periodic re-indexing ([1232a3c](https://github.com/ghostapp-ai/ghost/commit/1232a3c23a449f214e1c7f01f04cdda8fdd0acb8))
+
 ## [0.3.0](https://github.com/ghostapp-ai/ghost/compare/v0.2.4...v0.3.0) (2026-02-19)
 
 ### 🚀 Features
