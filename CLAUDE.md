@@ -148,9 +148,10 @@ tracing-subscriber = "0.3"
 
 ```
 src/
-├── App.tsx              # Root component, unified Omnibox layout, search+chat state
+├── App.tsx              # Root component: onboarding → main UI routing, search+chat state
 ├── main.tsx             # React entry point
 ├── components/
+│   ├── Onboarding.tsx   # First-launch wizard: welcome → hardware → download → ready
 │   ├── GhostInput.tsx   # Unified Omnibox: auto-resize textarea, mode indicator, toggle
 │   ├── ChatMessages.tsx # Chat message list, download progress, empty states
 │   ├── DownloadProgress.tsx # Model download progress bar with shimmer animation
@@ -160,7 +161,7 @@ src/
 │   ├── SearchBar.tsx    # (Legacy) Search-only input — superseded by GhostInput
 │   ├── DebugPanel.tsx   # Collapsible log viewer with pause/resume
 │   ├── StatusBar.tsx    # Status pills: DB stats, AI, Vec, Chat model
-│   ├── Settings.tsx     # Settings panel with directory management
+│   ├── Settings.tsx     # Settings panel with 3 tabs (General, AI Models, Directories)
 │   └── VaultBrowser.tsx # (Future) File browser for indexed vault
 ├── hooks/
 │   ├── useSearch.ts     # Search query + results state
@@ -502,3 +503,11 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-19 | Git submodule for pro/ over monorepo | Clean separation: contributors don't need pro access, CI works without it, pro team gets own repo with own CI |
 | 2026-02-19 | Dynamic GitHub badges over static | shields.io endpoints auto-update: version from releases, CI status from workflow, license from repo metadata |
 | 2026-02-19 | GitHub org `ghostapp-ai` over personal `AngelAlexQC` | Professional identity, team scalability, separate billing, org-level security policies |
+| 2026-02-19 | Multi-step onboarding wizard over silent setup | Users need to see hardware detection + model download progress; builds trust by showing what Ghost does locally |
+| 2026-02-19 | `setup_complete` flag in Settings over separate state file | Single source of truth, survives upgrades via `#[serde(default)]`, no extra file management |
+| 2026-02-19 | DMG custom positioning over default macOS layout | Professional look: app on left, Applications on right, 660×400 window — matches premium Mac apps |
+| 2026-02-19 | WebView2 silent bootstrap (downloadBootstrapper) | Windows users with old Edge get WebView2 auto-installed silently — no manual steps, no error dialogs |
+| 2026-02-19 | RPM support alongside DEB + AppImage | Covers Fedora/RHEL users (~15% of Linux market), low effort since Tauri v2 supports it natively |
+| 2026-02-19 | System tray with TrayIconBuilder over manual tray API | Tauri v2's builder pattern is cleaner, handles menu events and tray clicks in one setup block |
+| 2026-02-19 | OneDrive cloud placeholder detection over blind indexing | `FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS` flag prevents downloading cloud-only files; metadata-only indexing is instant |
+| 2026-02-19 | Filesystem browser in Settings over file dialog only | Visual navigation lets users see cloud status, file sizes, and folder structure before adding watch dirs |

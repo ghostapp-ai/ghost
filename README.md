@@ -85,6 +85,25 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 - **Settings**: model, device, max_tokens, temperature — all configurable, all with sensible defaults
 - **RAM detection**: Linux (/proc/meminfo), macOS (sysctl), Windows (PowerShell Get-CimInstance)
 
+### First-Launch Experience & Installer (**Complete**)
+
+- **Onboarding wizard**: Multi-step setup shown only on first launch
+  - Welcome screen with Ghost branding
+  - Hardware auto-detection (CPU, RAM, GPU, SIMD)
+  - Recommended model display with specs (size, RAM requirements, parameters)
+  - One-click model download with real-time progress bar
+  - Setup complete summary with keyboard shortcut reminder
+  - Skip option for power users who want to configure later
+- **System tray icon**: Background presence with Show/Quit menu, left-click focus
+- **Professional installer configuration**:
+  - Windows: NSIS with language selector, custom icons, WebView2 silent bootstrap
+  - macOS: DMG with custom layout, minimum macOS 10.15
+  - Linux: DEB (Debian/Ubuntu), RPM (Fedora/RHEL), AppImage (universal)
+- **Filesystem browser**: Navigate directories visually from Settings
+- **OneDrive-aware indexing**: Detects cloud placeholders, indexes metadata only
+- **Zero-config**: Auto-discovers Documents, Desktop, Downloads, Pictures on first launch
+- **Settings persistence**: `setup_complete`, `launch_on_startup`, all chat preferences with serde defaults
+
 ### Phase 2 — The Memory
 
 - Browser history indexing via UI Automation
@@ -209,23 +228,24 @@ The installer will be generated in `src-tauri/target/release/bundle/`.
 ```
 ghost/
 ├── src/                    # Frontend (React/TypeScript)
-│   ├── components/         # UI components (SearchBar, ResultsList, Settings, StatusBar)
+│   ├── components/         # UI components (Onboarding, SearchBar, ResultsList, Settings, StatusBar)
 │   ├── hooks/              # Custom React hooks (useSearch, useHotkey)
 │   ├── lib/                # Tauri IPC wrappers + TypeScript types
 │   ├── styles/             # Global CSS (Tailwind v4 theme)
-│   └── App.tsx             # Root component with keyboard navigation
+│   └── App.tsx             # Root component (onboarding → main UI routing)
 ├── src-tauri/              # Backend (Rust)
 │   ├── src/
-│   │   ├── lib.rs          # Tauri commands: search, index, watcher, settings, window mgmt
+│   │   ├── lib.rs          # Tauri commands: search, index, watcher, settings, setup, window mgmt
 │   │   ├── main.rs         # Entry point
 │   │   ├── error.rs        # Error types (thiserror)
-│   │   ├── settings.rs     # Persistent settings (JSON)
+│   │   ├── settings.rs     # Persistent settings (JSON) — includes setup_complete, launch_on_startup
+│   │   ├── chat/           # Chat engine: native Candle GGUF + Ollama fallback + model registry
 │   │   ├── indexer/        # File watcher + text extraction + chunking
 │   │   ├── db/             # SQLite + sqlite-vec + FTS5 (schema + CRUD)
 │   │   ├── embeddings/     # Native Candle + Ollama embedding engines
 │   │   └── search/         # Hybrid search engine + RRF ranking
 │   ├── Cargo.toml          # Rust dependencies
-│   └── tauri.conf.json     # Tauri configuration
+│   └── tauri.conf.json     # Tauri configuration + cross-platform bundler config
 ├── branding/               # Brand assets (SVGs, PNGs, social, scripts)
 ├── ROADMAP.md              # Detailed development roadmap
 ├── CLAUDE.md               # Agent instructions for AI-assisted development
