@@ -52,12 +52,7 @@ jobs:
         with:
           bun-version: latest
       - name: Install frontend deps
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            bun install
-          else
-            bun install --frozen-lockfile
-          fi
+        run: bun install
       - name: Frontend type-check & build
         run: bun run build
 
@@ -71,7 +66,7 @@ jobs:
       - uses: taiki-e/install-action@cargo-audit
       - name: Security audit
         working-directory: src-tauri
-        run: cargo audit || true
+        run: cargo audit
 
   # ─── Test + Clippy (heavy compilation, sccache + mold) ──────────
   test:
@@ -195,7 +190,7 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: Mozilla-Actions/sccache-action@v0.0.9
       - name: Install frontend deps
-        run: bun install --frozen-lockfile
+        run: bun install
 
       # ── Windows: force dynamic CRT (/MD) for all C++ compiled by
       #    llama-cpp-sys-2 (both CMake and cc::Build code paths).
@@ -317,12 +312,7 @@ jobs:
           bun-version: latest
 
       - name: Install frontend deps
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            bun install
-          else
-            bun install --frozen-lockfile
-          fi
+        run: bun install
 
       # ── Initialize & build ──
       - name: Initialize Android project
@@ -441,10 +431,7 @@ jobs:
         with:
           bun-version: latest
       - name: Install frontend deps
-        run: bun install --frozen-lockfile
-
-      # Note: iOS/Desktop build jobs only run on release (push to main),
-      # so --frozen-lockfile is always correct here.
+        run: bun install
 
       # Detect whether Apple signing secrets are configured.
       # secrets context is NOT allowed in step `if:` or `run:` expressions,

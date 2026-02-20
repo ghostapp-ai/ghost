@@ -1,0 +1,15 @@
+# cargo-audit configuration
+# https://docs.rs/cargo-audit/latest/cargo_audit/
+
+[advisories]
+# Advisories to ignore (with justification)
+ignore = [
+    # RUSTSEC-2024-0429: Unsoundness in glib::VariantStrIter (patched in glib >= 0.20.0)
+    # glib 0.18.5 is a transitive dependency from Tauri's GTK3 stack:
+    #   tauri 2.x → wry → webkit2gtk → gtk 0.18 → glib 0.18.5
+    # The entire gtk3-rs ecosystem is UNMAINTAINED (no 0.18.6 backport exists).
+    # Cannot upgrade without Tauri migrating to gtk4-rs.
+    # Ghost does not use VariantStrIter directly. INFO-level advisory only.
+    # Tracking: https://github.com/tauri-apps/webkit2gtk-rs/issues/94
+    "RUSTSEC-2024-0429",
+]
