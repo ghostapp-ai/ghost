@@ -1,6 +1,6 @@
 [package]
 name = "ghost"
-version = "0.7.2"
+version = "0.8.0"
 description = "Private Local AI Superpowers for Your OS"
 authors = ["Ghost Contributors <https://github.com/ghostapp-ai>"]
 license = "MIT"
