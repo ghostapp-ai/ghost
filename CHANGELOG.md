@@ -1,3 +1,9 @@
+## [0.2.0](https://github.com/AngelAlexQC/ghost/compare/v0.1.1...v0.2.0) (2026-02-19)
+
+### 🚀 Features
+
+* **ci:** replace Release Please with semantic-release for fully automatic releases ([457b638](https://github.com/AngelAlexQC/ghost/commit/457b6384caff7e950f4516985a18f7a456446bcc))
+
 # Changelog
 
 ## [0.1.1](https://github.com/AngelAlexQC/ghost/compare/ghost-v0.1.0...ghost-v0.1.1) (2026-02-19)
