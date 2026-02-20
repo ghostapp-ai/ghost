@@ -103,7 +103,7 @@
       "endpoints": [
         "https://github.com/ghostapp-ai/ghost/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgxRTYwRUY1QzFFRUJENUIKUldSYnZlN0I5UTdtZ1JpalE5M0dFNXY4ZWkwLzYxK3U2dkNxMVNaT1VnZXltUWRIUEo5NzJjeTYK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ2NTA3Qjc1MUVDQkU2NEUKUldSTzVzc2VkWHRRUnFtOVdBZjNTdHJUQlJ1Z1hPdUYwRFpIK3BIeUNFaFVPRlhIbEY4Rkt1OG8K",
       "windows": {
         "installMode": "passive"
       }
