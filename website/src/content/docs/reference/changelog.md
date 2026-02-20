@@ -3,6 +3,12 @@ title: "Changelog"
 description: "Release notes and version history for Ghost Agent OS."
 ---
 
+## [0.10.1](https://github.com/ghostapp-ai/ghost/compare/v0.10.0...v0.10.1) (2026-02-20)
+
+### 🐛 Bug Fixes
+
+* **tls:** replace aws-lc-rs with ring to fix MSVC Windows build ([b157fe3](https://github.com/ghostapp-ai/ghost/commit/b157fe3d08671871cfd16cf2000857fe879c59b0))
+
 ## [0.10.0](https://github.com/ghostapp-ai/ghost/compare/v0.9.2...v0.10.0) (2026-02-20)
 
 ### 🚀 Features

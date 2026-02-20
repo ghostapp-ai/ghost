@@ -149,6 +149,17 @@ description: "Development roadmap and upcoming features for Ghost Agent OS."
   - Version sync across `package.json`, `Cargo.toml`, `tauri.conf.json` via custom script
   - No PRs to merge, no tags to create — just push code and it ships
 
+- [x] **In-app auto-updater (tauri-plugin-updater)**
+  - Signed updater artifacts generated via `createUpdaterArtifacts: true` in CI
+  - Endpoint: GitHub Releases `latest.json` (zero infrastructure)
+  - Silent background check on app launch (desktop only)
+  - Notification banner with version info, release notes, download progress
+  - Manual "Check for Updates" button in Settings → General
+  - Download + install + auto-restart flow with progress tracking
+  - Ed25519 keypair signing for secure update verification
+  - CI passes `TAURI_SIGNING_PRIVATE_KEY` to `tauri-action` for signing
+  - Windows: passive install mode (no user interaction needed)
+
 - [x] **Repository configuration & best practices**
   - Auto-delete merged branches
   - Auto-merge enabled for PRs
@@ -504,14 +515,17 @@ description: "Development roadmap and upcoming features for Ghost Agent OS."
 
 #### Agent Engine (Tool Calling)
 - [x] **ReAct Agent with hardware-adaptive model selection**
-  - `agent/` module: config, executor, tools, safety, memory, skills (7 files, ~2600 lines)
-  - Qwen3 model family via Ollama (0.6B→32B, Apache 2.0, native tool calling, 128K context)
+  - `agent/` module: config, executor, tools, safety, memory, skills (7 files, ~2800 lines)
+  - Qwen2.5-Instruct family via native llama-cpp-2 (0.5B→7B, Apache 2.0, ChatML format, GGUF)
   - Hardware-adaptive auto-selection: detect RAM → pick largest fitting model → dynamic context window
-  - 6 model tiers: 0.6B (<2GB), 1.7B (2-4GB), 4B (4-6GB), 8B (6-10GB), 14B (10-20GB), 32B (20GB+)
-  - Q4_K_M quantization, flash attention, KV cache quantization (q8_0/f16)
+  - 4 model tiers: 0.5B (1GB), 1.5B (2GB), 3B (4GB), 7B (8GB) — same models as chat engine (no double download)
+  - Q4_K_M quantization, runtime GPU auto-detection (Vulkan/CUDA/Metal)
   - All config auto-detected but user-overridable via Settings
-- [x] **ReAct (Reason + Act) execution loop**
-  - Ollama `/api/chat` with native `tools[]` field (no prompt injection)
+- [x] **Fully native ReAct (Reason + Act) execution loop — ZERO external dependencies**
+  - llama.cpp `apply_chat_template_with_tools_oaicompat()` with GBNF grammar-constrained generation
+  - Model's built-in Hermes 2 Pro tool-calling format + grammar ensures valid JSON tool calls
+  - `parse_response_oaicompat()` for native tool call parsing (no regex, no prompt injection)
+  - Lazy grammar sampling: grammar activates only when tool-call trigger tokens appear
   - Iterative loop: LLM reasons → calls tools → gets results → reasons again (max 10 iterations)
   - 6 built-in tools: ghost_search, ghost_read_file, ghost_list_directory, ghost_index_status, ghost_write_file, ghost_run_command
   - MCP external tools auto-collected from connected servers
@@ -695,7 +709,7 @@ description: "Development roadmap and upcoming features for Ghost Agent OS."
 | MCP Apps | blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps | Tools return interactive UI (iframes). Anthropic spec |
 | MCP Spec | modelcontextprotocol.io | v2025-11-25 spec. Linux Foundation / AAIF |
 | OpenClaw | github.com/nicepkg/OpenClaw | Model-agnostic agent infra. Skills.md format. 100K+ stars |
-| Ollama | ollama.com | Local LLM runtime. Supports Qwen2.5 tool calling |
+| Ollama | ollama.com | Optional fallback LLM runtime. Ghost runs natively without it |
 | nomic-embed-text | ollama.com/library/nomic-embed-text | 768 dims, surpasses ada-002, ~274MB |
 | uiautomation | crates.io/crates/uiautomation | Windows UI Automation wrapper for Rust |
 | notify | crates.io/crates/notify | Cross-platform filesystem watcher |
@@ -744,7 +758,7 @@ description: "Development roadmap and upcoming features for Ghost Agent OS."
 
 ## Business Model
 
-### Open Core (ghostapp-ai/ghost MIT + proprietary extensions overlay)
+### Open Core (Grafana pattern — extensions trait)
 
 | Feature | Free | Pro ($8/mo) | Teams ($15/user/mo) |
 |---------|------|-------------|---------------------|
