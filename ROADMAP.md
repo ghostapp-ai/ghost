@@ -4,7 +4,7 @@
 > Each phase has a clear business objective before moving to the next.
 > The search must be instant and reliable — nothing else matters until Phase 1 ships.
 >
-> **Market research completed**: See [docs/plans/2026-02-18-market-research.md](docs/plans/2026-02-18-market-research.md)
+> **Market research completed**.
 > Key insight: AI assistant market growing 44% CAGR to $21B by 2030. Rewind (dead), Raycast (Mac-only),
 > Microsoft Recall (privacy backlash) all validate our direction. MCP ecosystem (5,800+ servers) ready for integration.
 
@@ -255,10 +255,7 @@
 
 ## Phase 2 — "The Memory" (Weeks 11-18)
 
-**Goal**: 500 users → first paying users. Launch $5-8/mo Pro tier. Target: 50-100 paying.
-
-> Pricing adjusted after market research: Raycast charges $8/mo, ChatGPT $20/mo.
-> Ghost Pro at $5-8/mo undercuts both while offering unique local AI search.
+**Goal**: Grow user base and launch Ghost Pro tier.
 
 ### Technical Deliverables
 
@@ -292,12 +289,12 @@
 
 - [ ] **Licensing system**
   - License key validation (offline-capable)
-  - Free tier: core search + 3 watched directories
-  - Premium tier ($5-8/mo): unlimited directories, memory, encryption, sync
+  - Free tier: core search + limited watched directories
+  - Premium tier: unlimited directories, memory, encryption, sync
 
 ### Exit Criteria
 - [ ] Activity timeline shows accurate history
-- [ ] 50-100 paying users at $9/mo
+- [ ] Paying users onboarded
 - [ ] Encryption passes basic security review
 - [ ] Mac investigation started (WebKit compatibility testing)
 
@@ -305,7 +302,7 @@
 
 ## Phase 3 — "The Agent" (Weeks 19-30)
 
-**Goal**: Launch Ghost Pro at $15-20/mo. Target: 200-500 paying users ($3,000-10,000 MRR).
+**Goal**: Launch Ghost Agent capabilities with advanced Pro tier.
 
 ### Technical Deliverables
 
@@ -345,14 +342,13 @@
 ### Exit Criteria
 - [ ] Agent can reliably execute 5+ action types
 - [ ] Action Preview shows correct plan >95% of the time
-- [ ] 200+ paying users
-- [ ] MRR reaches $3,000+
+- [ ] Growing paid user base
 
 ---
 
 ## Phase 4 — "The Platform" (Months 8-12)
 
-**Goal**: $10,000+ MRR. Partnerships. Explore B2B/teams model.
+**Goal**: Partnerships and platform expansion. Explore B2B/teams model.
 
 ### Technical Deliverables
 
@@ -383,33 +379,7 @@
 ### Exit Criteria
 - [ ] 3-5 third-party skills published
 - [ ] Mac version stable
-- [ ] $10,000+ MRR
 - [ ] At least one B2B pilot customer
-
----
-
-## Pivot Signals
-
-If the primary consumer plan underperforms, these pivots use the same core technology:
-
-| Signal | Threshold | Pivot |
-| ------ | --------- | ----- |
-| Low installations | <200 in 60 days | **Pivot A**: Dev tools skin, distribute via VS Code Marketplace |
-| No retention | >70% churn after day 7 | Product problem, not marketing. Talk to users who stayed |
-| Low conversion | <1% free→paid in 3 months | **Pivot B**: Target SMBs for compliance ($200-500/mo/company) |
-| Platform blocked | Apple/Microsoft block accessibility APIs | Fallback to OCR. Focus on Linux/Windows corporate |
-
-### Pivot A — Dev Tools (Minimum Risk)
-
-Same product, different skin: semantic search across code, logs, docs, and project context. Compete with Sourcegraph/Cursor but 100% local. Distribute via VS Code Marketplace to 500k+ devs.
-
-### Pivot B — Compliance for SMBs (Higher Revenue)
-
-The indexing + search engine becomes a data discovery tool: detect PII, map sensitive data, generate audit trails. Sell to Data Protection Officers at $200-500/mo per company. 10x the revenue per customer.
-
-### Pivot C — MCP Infrastructure Provider (B2B Pure)
-
-Sell the local MCP server infrastructure to enterprises that want their AI agents to have context from employee PCs without sending data to the cloud. SaaS B2B at $2,000-10,000/year per company.
 
 ---
 
