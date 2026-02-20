@@ -26,6 +26,8 @@ dist-ssr
 
 # Rust / Cargo
 src-tauri/target/
+pro/target/
+pro/Cargo.lock
 **/*.rs.bk
 
 # Tauri build output & generated platform projects

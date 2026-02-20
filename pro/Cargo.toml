@@ -1,0 +1,18 @@
+[package]
+name = "ghost-pro"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Ghost Pro — proprietary features (encryption, sync, advanced models)"
+# This is a stub crate for the open-source build.
+# The real implementation lives in ghostapp-ai/ghost-pro (private).
+# Pro developers: clone ghost-pro and replace this directory, or use
+# [patch] in .cargo/config.toml to point to your local copy.
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+thiserror = "2"
+anyhow = "1"
