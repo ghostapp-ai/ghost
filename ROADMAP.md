@@ -4,9 +4,15 @@
 > Each phase has a clear business objective before moving to the next.
 > The search must be instant and reliable — nothing else matters until Phase 1 ships.
 >
-> **Market research completed**.
-> Key insight: AI assistant market growing 44% CAGR to $21B by 2030. Rewind (dead), Raycast (Mac-only),
-> Microsoft Recall (privacy backlash) all validate our direction. MCP ecosystem (5,800+ servers) ready for integration.
+> **Market research completed (Feb 2026)**.
+> Key insight: AI assistant market $3.35B (2025) → $24.53B (2034) at 24.8% CAGR. Rewind (dead), Raycast (Mac-only),
+> Microsoft Recall (privacy backlash) all validate our direction. MCP ecosystem (10,000+ servers) ready for integration.
+>
+> **Vision update (Feb 2026)**: Ghost evolves from "search bar" to **Agent OS** — a local-first Universal Protocol Hub
+> that speaks MCP + A2A + AG-UI + A2UI + WebMCP, connecting users to the entire AI agent ecosystem
+> while keeping all data private. Not replacing the file explorer — sitting above the OS as its intelligence layer.
+>
+> **Protocol stack**: MCP (tools) → A2A (agent-to-agent) → AG-UI (agent↔user runtime) → A2UI/MCP Apps (generative UI) → WebMCP (web agents)
 
 ---
 
@@ -264,161 +270,249 @@
 
 ---
 
-## Phase 1.5 — "MCP Bridge" (Weeks 8-10)
+## Phase 1.5 — "Protocol Bridge" (Weeks 8-12)
 
-**Goal**: Make Ghost accessible from any MCP-compatible AI client (Claude Desktop, Cursor, etc.). Instant ecosystem integration.
+**Goal**: Make Ghost a Universal Protocol Hub — both an MCP host AND client, with AG-UI runtime for interactive agent experiences. This is the competitive differentiator that no other desktop app offers.
 
-> Added after market research (Feb 2026). MCP ecosystem has 5,800+ servers. Being MCP-compatible
-> is a competitive differentiator that connects Ghost to the entire AI tool ecosystem immediately.
+> Added after market research + protocol landscape analysis (Feb 2026).
+> MCP ecosystem: 10,000+ servers. AG-UI: 12K+ GitHub stars, Rust SDK available.
+> A2UI: Google-backed generative UI spec. A2A: 50+ launch partners, Linux Foundation.
+> Being the first local desktop app to speak ALL agent protocols is a once-in-a-generation opportunity.
 
 ### Technical Deliverables
 
-- [ ] **Basic MCP server**
-  - HTTP server via `axum` on localhost (configurable port)
+#### MCP Server (Ghost as a tool for external AI clients)
+- [ ] **MCP Server via `rmcp` crate** (official Rust SDK, v0.15+)
+  - HTTP Streamable transport via axum on localhost (configurable port)
   - MCP protocol v2025-11-25 compliance
   - Tool: `ghost_search` — hybrid search across indexed files
   - Tool: `ghost_index_status` — report indexing stats
+  - Tool: `ghost_recent_files` — list recently modified indexed files
   - Resource: expose indexed documents metadata
+  - `#[tool]` macro for clean tool definitions
+  - Integration tested with Claude Desktop and Cursor
 
-- [ ] **Integration testing**
-  - Test with Claude Desktop as MCP client
-  - Test with Cursor as MCP client
-  - Documentation: "How to connect Ghost to Claude Desktop"
+#### MCP Client (Ghost connects to external MCP servers)
+- [ ] **MCP Client Host via `rmcp`**
+  - Configuration: `mcp_servers` array in settings.json
+  - Transport support: stdio (spawn child process) + HTTP Streamable
+  - Tool discovery: fetch and cache tool schemas from connected servers
+  - Tool invocation: call external MCP tools from Ghost chat
+  - Dynamic tool loading: add/remove servers without restart
+  - Free tier: 3 MCP server connections; Pro: unlimited
+  - Settings UI: MCP server management panel (add, test, remove)
+
+#### AG-UI Runtime (Agent ↔ User Interaction Protocol)
+- [ ] **AG-UI event system in Rust backend**
+  - Implement ~16 AG-UI event types (TEXT_MESSAGE_CONTENT, TOOL_CALL_START, STATE_DELTA, etc.)
+  - Bidirectional streaming: agent events → frontend, user actions → agent
+  - Tool lifecycle management: started → streaming → finished/failed
+  - Human-in-the-loop: approval gates for dangerous actions
+  - State synchronization between Rust agent and React UI
+- [ ] **AG-UI React client**
+  - Event stream consumer with real-time UI updates
+  - Tool progress indicators, streaming text display
+  - Action approval dialogs (human-in-the-loop)
+
+#### A2UI Renderer (Generative UI)
+- [ ] **A2UI JSON → React component renderer**
+  - Parse A2UI declarative JSON specs from agent responses
+  - Render native-feeling components: forms, tables, charts, date pickers
+  - Sandboxed execution: A2UI specs cannot access host APIs directly
+  - Theme integration with Ghost's dark UI
+- [ ] **MCP Apps support**
+  - Sandboxed iframe renderer for MCP App HTML content
+  - Communication bridge: MCP App ↔ Ghost host via postMessage
+  - Security: CSP headers, no external network access from sandbox
+
+#### Skills System
+- [ ] **Skills.md format support**
+  - Define agent capabilities in markdown files (OpenClaw-compatible)
+  - Skill discovery: scan `~/.ghost/skills/` directory
+  - Skill loading: register tools from skill definitions
+  - Community skills: shareable via Git repos
 
 ### Exit Criteria
-- [ ] Claude Desktop can search local files through Ghost MCP
-- [ ] <100ms overhead added by MCP layer
-- [ ] Setup guide published
+- [ ] Claude Desktop can search local files through Ghost MCP server
+- [ ] Ghost chat can invoke tools from at least 2 external MCP servers
+- [ ] AG-UI event stream renders streaming text + tool progress in React
+- [ ] A2UI renders at least 3 component types (form, table, text block)
+- [ ] <100ms overhead added by MCP protocol layer
+- [ ] Setup guide published for MCP server + client configuration
 
 ---
 
-## Phase 2 — "The Memory" (Weeks 11-18)
+## Phase 2 — "The Agent OS" (Weeks 13-22)
 
-**Goal**: Grow user base and launch Ghost Pro tier.
+**Goal**: Transform Ghost from a search tool into a true local Agent OS. Users interact with their computer through natural language. Growing paid user base.
 
 ### Technical Deliverables
 
+#### A2A Protocol (Agent-to-Agent Communication)
+- [ ] **Ghost Agent Card**
+  - Publish `/.well-known/agent.json` on localhost
+  - Advertise Ghost's capabilities (search, file ops, OS control)
+  - OAuth 2.0 / API key authentication for local agent-to-agent calls
+- [ ] **A2A Client**
+  - Discover and connect to other A2A-compatible agents (OpenClaw, NanoClaw instances)
+  - Task delegation: send tasks to specialized remote agents
+  - SSE streaming for long-running delegated tasks
+  - Task lifecycle: submitted → working → input-required → completed
+- [ ] **A2A Server**
+  - Accept tasks from external agents via JSON-RPC 2.0
+  - Expose Ghost tools as A2A skills
+  - Multi-agent orchestration: break complex requests into sub-tasks
+
+#### Tool Calling Engine
+- [ ] **LLM-driven tool selection**
+  - Qwen2.5-Instruct structured output for tool call arguments
+  - Tool schema injection into chat context (MCP tool list → system prompt)
+  - Multi-step planning: chain multiple tool calls for complex tasks
+  - Fallback: Ollama API `/api/chat` with tool calling for larger models
+
+#### OS Integration Layer
 - [ ] **Browser history indexing**
-  - Windows: read Chrome/Edge SQLite history DB
-  - Index page titles and URLs with timestamps
-  - Respect browser private/incognito mode
+  - Read Chrome/Edge/Firefox SQLite history DBs (Windows/macOS/Linux)
+  - Index page titles, URLs, timestamps
+  - Respect private/incognito mode flags
 
 - [ ] **App activity via UI Automation**
   - Windows: `uiautomation` Rust crate for reading control trees
-  - Capture active window title, focused control text
+  - macOS: `accessibility` crate for AXUIElement tree walking
+  - Linux: AT-SPI2 D-Bus interface for accessibility tree
+  - Capture: active window title, focused control text, app name
   - Activity timeline: "What was I doing at 3pm yesterday?"
   - <1% CPU overhead, sample every 5 seconds
 
 - [ ] **Clipboard history**
-  - Monitor clipboard changes
+  - Monitor clipboard changes cross-platform
   - Store text clips with timestamp and source app
   - Semantic search across clipboard history
-  - Privacy: configurable exclusion rules (e.g., password managers)
+  - Privacy: configurable exclusion rules (password managers, banking apps)
 
-- [ ] **Activity timeline UI**
-  - Chronological view of all indexed activity
-  - Filter by: date range, app, content type
-  - Natural language queries: "show me what I worked on last Tuesday"
-
-- [ ] **Premium features (paid tier)**
-  - Vault encryption with ChaCha20-Poly1305 (age crate)
-  - Encrypted sync between devices (optional, user-controlled)
-  - Access to more powerful local models (Qwen2.5-14B)
-  - Priority support
-
-- [ ] **Licensing system**
-  - License key validation (offline-capable)
-  - Free tier: core search + limited watched directories
-  - Premium tier: unlimited directories, memory, encryption, sync
-
-### Exit Criteria
-- [ ] Activity timeline shows accurate history
-- [ ] Paying users onboarded
-- [ ] Encryption passes basic security review
-- [ ] Mac investigation started (WebKit compatibility testing)
-
----
-
-## Phase 3 — "The Agent" (Weeks 19-30)
-
-**Goal**: Launch Ghost Agent capabilities with advanced Pro tier.
-
-### Technical Deliverables
-
-- [ ] **Local MCP Server**
-  - HTTP server via `axum` (Rust) exposing MCP protocol
-  - Tool definitions: file operations, app control, web search, clipboard
-  - Runs on localhost, <5MB RAM overhead
-
-- [ ] **LLM integration for tool calling**
-  - Ollama + Qwen2.5-7B Q4 for reasoning and tool selection
-  - Structured output parsing for tool call arguments
-  - Fallback: Claude API for complex tasks (user opt-in, paid tier)
-
-- [ ] **Agent actions**
+- [ ] **Agent actions (OS control)**
   - Open/focus applications
+  - Create/move/rename/delete files
   - Copy text to clipboard
-  - Create/edit files
-  - Search the web (via default browser)
   - Send keyboard shortcuts to active window
+  - Search and open URLs in default browser
 
 - [ ] **Action Preview (safety layer)**
-  - Before executing, Ghost shows what it will do
-  - Step-by-step action plan with confirmation
-  - Undo support for reversible actions
-  - Audit log of all executed actions
+  - Before executing, Ghost shows a plan via A2UI components
+  - Step-by-step action visualization with confirm/cancel
+  - Undo support for reversible actions (file ops)
+  - Audit log of all executed actions (local SQLite table)
 
-- [ ] **Chat interface**
-  - Streaming token display via Tauri events
-  - Context-aware: Ghost knows your recent files and activity
-  - Conversation history (stored locally)
+#### Micro-Agents (PicoClaw-inspired)
+- [ ] **Background task agents**
+  - Spawn lightweight background tasks that monitor conditions
+  - Example: "Watch this folder and organize new PDFs by date"
+  - Example: "Alert me when file X changes"
+  - Cron-like scheduling for recurring tasks
+  - Status dashboard showing active micro-agents
 
-- [ ] **Ghost Pro tier**
-  - Agent capabilities (tool calling + actions)
-  - Advanced models and longer context
-  - Team sharing features (shared vaults)
+#### Activity Timeline UI
+- [ ] Chronological view of all indexed activity
+- [ ] Filter by: date range, app, content type
+- [ ] Natural language queries: "show me what I worked on last Tuesday"
+- [ ] A2UI-rendered rich cards for different activity types
+
+### Premium Features (Ghost Pro — `ghost-pro` submodule)
+- [ ] Vault encryption with ChaCha20-Poly1305 (`age` crate)
+- [ ] Encrypted sync between devices (optional, user-controlled)
+- [ ] Unlimited MCP server connections
+- [ ] WebMCP browser agent (Phase 2.5)
+- [ ] A2A multi-agent orchestration
+- [ ] Advanced models (Qwen2.5-7B+, or custom model support)
+- [ ] OS automation: unlimited actions/day (free: 5/day)
+- [ ] Micro-agents (free: 1 active, Pro: unlimited)
+
+### Licensing System
+- [ ] License key validation (offline-capable, cryptographic)
+- [ ] Feature gating via `#[cfg(feature = "pro")]` in Rust
+- [ ] Free tier: core search + chat + 3 MCP servers + 5 actions/day
+- [ ] Pro tier: everything unlimited + premium features
 
 ### Exit Criteria
-- [ ] Agent can reliably execute 5+ action types
+- [ ] Agent can reliably execute 5+ action types on the OS
 - [ ] Action Preview shows correct plan >95% of the time
-- [ ] Growing paid user base
+- [ ] A2A discovery works with at least 1 external agent
+- [ ] Paying users onboarded
+- [ ] Encryption passes basic security review
+- [ ] Mac + Linux automation working alongside Windows
 
 ---
 
-## Phase 4 — "The Platform" (Months 8-12)
+## Phase 2.5 — "Web Agent" (Weeks 23-26)
 
-**Goal**: Partnerships and platform expansion. Explore B2B/teams model.
+**Goal**: Extend Ghost's reach to the web via WebMCP, enabling structured interactions with websites.
 
 ### Technical Deliverables
 
-- [ ] **Skills SDK**
-  - Documented API for creating MCP servers that integrate with Ghost
-  - NPM package: `@ghost/skills-sdk`
-  - Rust crate: `ghost-skills`
-  - Example skills: GitHub integration, Notion sync, Slack search
+- [ ] **WebMCP Consumer**
+  - Parse WebMCP tool contracts from website `navigator.modelContext` declarations
+  - Bridge: Ghost sends structured tool calls to browser extension
+  - Ghost browser extension (Chrome/Firefox) that reads WebMCP tool contracts
+  - Invoke website tools on behalf of the user (booking, forms, data entry)
 
-- [ ] **Third-party integrations**
-  - Obsidian vault indexing
-  - VS Code extension (Ghost as search backend, side panel)
-  - Slack message search
-  - Browser extension for page content indexing
-
-- [ ] **Mac port**
-  - macOS build with Tauri v2 (WebKit)
-  - Accessibility API via AXUIElement for UI automation
-  - Spotlight-like search bar behavior
-  - Code signing + notarization for distribution
-
-- [ ] **B2B/Teams features**
-  - Shared team vaults with role-based access
-  - Admin dashboard for managing team licenses
-  - Compliance features: audit trail, data retention policies
-  - SSO integration
+- [ ] **Browser Extension**
+  - Lightweight extension exposing current page's WebMCP tools to Ghost
+  - Communication via native messaging (Chrome Native Messaging API)
+  - Page context: current URL, page title, selected text → Ghost search context
+  - Ghost can request the extension to perform WebMCP tool calls
 
 ### Exit Criteria
-- [ ] 3-5 third-party skills published
-- [ ] Mac version stable
+- [ ] Ghost can read WebMCP tools from at least 3 websites
+- [ ] Browser extension communicates bidirectionally with Ghost desktop
+- [ ] User can ask "Book me a flight to Madrid" and Ghost interacts with a travel site
+
+---
+
+## Phase 3 — "The Platform" (Months 7-12)
+
+**Goal**: Partnerships, marketplace, and platform expansion. Explore B2B/teams model.
+
+### Technical Deliverables
+
+- [ ] **Skills Marketplace**
+  - Community-created skills with install/uninstall from Ghost UI
+  - Skills categories: productivity, development, data, creative, automation
+  - Revenue share: 70% creator / 30% Ghost (Pro feature to sell skills)
+  - NPM package: `@ghost/skills-sdk` for JavaScript skill development
+  - Rust crate: `ghost-skills` for native Rust skill development
+  - Example skills: GitHub integration, Notion sync, Slack search, calendar
+
+- [ ] **Third-party integrations**
+  - Obsidian vault indexing (direct SQLite reading)
+  - VS Code extension (Ghost as search backend, sidebar panel)
+  - Slack message search via MCP server
+  - Browser extension v2: page content indexing, reader mode
+
+- [ ] **Multi-agent orchestration**
+  - A2A agent team composition: assign specialized agents to sub-tasks
+  - Agent routing: analyze request → pick best agent(s) → coordinate results
+  - Visual agent workflow builder (A2UI-rendered)
+
+- [ ] **B2B/Teams features (Ghost Pro Teams)**
+  - Shared team vaults with role-based access control
+  - Admin dashboard: manage team licenses, usage analytics
+  - Compliance: audit trail, data retention policies, export controls
+  - SSO integration (SAML 2.0 / OIDC)
+  - Team-shared MCP server configurations
+  - Centralized skill management for team deployments
+
+- [ ] **Platform stability**
+  - Mac port fully tested (WebKit, Accessibility API)
+  - Linux Wayland support verified
+  - Performance profiling: cold start, search latency, memory footprint
+  - Crash recovery: auto-save state, graceful degradation
+
+### Exit Criteria
+- [ ] 10+ community skills published in marketplace
+- [ ] Mac version stable with full feature parity
 - [ ] At least one B2B pilot customer
+- [ ] A2A working with 3+ external agent platforms
+- [ ] $50K+ ARR from Pro + Teams subscriptions
 
 ---
 
@@ -428,13 +522,80 @@
 | -------- | --- | ----- |
 | Tauri v2 | tauri.app | v2.10.2 stable. Plugins: global-shortcut, fs, shell |
 | sqlite-vec | github.com/asg017/sqlite-vec | SIMD-accelerated KNN. Works with FTS5 |
+| rmcp | crates.io/crates/rmcp | Official Rust MCP SDK v0.15+. Client + Server. `#[tool]` macro |
+| AG-UI | github.com/CopilotKit/ag-ui | Agent↔User protocol. 12K+ stars. Rust SDK available |
+| A2UI | github.com/AgenturAI/a2ui | Google-backed declarative generative UI. JSON → native components |
+| A2A | google.github.io/A2A | Agent-to-Agent protocol. Agent Cards + JSON-RPC 2.0 + SSE. Linux Foundation |
+| WebMCP | developer.chrome.com/blog/webmcp-epp | W3C proposal. `navigator.modelContext` browser API |
+| MCP Apps | blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps | Tools return interactive UI (iframes). Anthropic spec |
+| MCP Spec | modelcontextprotocol.io | v2025-11-25 spec. Linux Foundation / AAIF |
+| OpenClaw | github.com/nicepkg/OpenClaw | Model-agnostic agent infra. Skills.md format. 100K+ stars |
 | Ollama | ollama.com | Local LLM runtime. Supports Qwen2.5 tool calling |
 | nomic-embed-text | ollama.com/library/nomic-embed-text | 768 dims, surpasses ada-002, ~274MB |
-| MCP Spec | modelcontextprotocol.io | v2025-11-25 spec. Linux Foundation / AAIF |
 | uiautomation | crates.io/crates/uiautomation | Windows UI Automation wrapper for Rust |
 | notify | crates.io/crates/notify | Cross-platform filesystem watcher |
 | candle | github.com/huggingface/candle | Rust ML framework, BERT/LLM inference |
 | all-MiniLM-L6-v2 | huggingface.co/sentence-transformers/all-MiniLM-L6-v2 | 384 dims, 23MB, excellent quality |
 | hf-hub | crates.io/crates/hf-hub | HuggingFace model download/cache |
-| mcp-desktop-automation | github.com/tanob/mcp-desktop-automation | Reference MCP server for desktop control |
-| Screenpipe | github.com/mediar-ai/screenpipe | Architecture reference (not code) |
+
+## Protocol Stack Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  USER (natural language via Ghost Omnibox)                       │
+└────────────────────┬────────────────────────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────────────────────────┐
+│  AG-UI Runtime (Agent ↔ User Interaction Layer)                 │
+│  ├── ~16 event types: text, tool calls, state, lifecycle        │
+│  ├── Bidirectional streaming (Rust ↔ React)                     │
+│  └── Human-in-the-loop approval gates                           │
+├─────────────────────────────────────────────────────────────────┤
+│  A2UI / MCP Apps (Generative UI Layer)                          │
+│  ├── A2UI: JSON → native React components (safe, sandboxed)     │
+│  └── MCP Apps: iframe-based interactive tool UIs                │
+├─────────────────────────────────────────────────────────────────┤
+│  MCP Host (Tool Layer — rmcp crate)                             │
+│  ├── MCP Server: Ghost tools exposed to Claude/Cursor/etc.      │
+│  ├── MCP Client: connects to 10,000+ external MCP servers       │
+│  └── Tool calling: LLM selects + invokes tools from schemas     │
+├─────────────────────────────────────────────────────────────────┤
+│  A2A (Agent Coordination Layer)                                 │
+│  ├── Agent Card at /.well-known/agent.json                      │
+│  ├── Task delegation to specialized agents                      │
+│  └── SSE streaming for long-running multi-agent tasks           │
+├─────────────────────────────────────────────────────────────────┤
+│  WebMCP (Web Agent Layer — Phase 2.5)                           │
+│  ├── Read tool contracts from websites                          │
+│  └── Browser extension bridge for structured web interactions   │
+├─────────────────────────────────────────────────────────────────┤
+│  OS Integration Layer                                           │
+│  ├── Filesystem: index, watch, CRUD (already implemented)       │
+│  ├── UI Automation: Windows + macOS + Linux accessibility       │
+│  ├── Clipboard history, browser history                         │
+│  └── App activity monitoring, micro-agents                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Business Model
+
+### Open Core (ghostapp-ai/ghost MIT + ghostapp-ai/ghost-pro proprietary)
+
+| Feature | Free | Pro ($8/mo) | Teams ($15/user/mo) |
+|---------|------|-------------|---------------------|
+| Local search (FTS5+vector) | ✅ | ✅ | ✅ |
+| Chat AI (Candle native) | ✅ | ✅ | ✅ |
+| MCP Server (Ghost as tool) | ✅ | ✅ | ✅ |
+| MCP Client (3 servers) | ✅ | — | — |
+| MCP Client (unlimited) | — | ✅ | ✅ |
+| A2UI Generative UI | Basic | Full | Full |
+| A2A Multi-agent | — | ✅ | ✅ |
+| WebMCP Browser Agent | — | ✅ | ✅ |
+| Skills Marketplace | Free only | Free + Premium | Free + Premium |
+| OS Automation (actions/day) | 5 | Unlimited | Unlimited |
+| Micro-agents | 1 active | Unlimited | Unlimited |
+| Vault encryption | — | ✅ | ✅ |
+| Cross-device sync | — | ✅ | ✅ |
+| Team vaults + SSO | — | — | ✅ |
+| Audit trail + compliance | — | — | ✅ |
+| Advanced models (7B+) | — | ✅ | ✅ |

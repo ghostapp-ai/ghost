@@ -5,7 +5,7 @@
 <h1 align="center">GHOST</h1>
 
 <p align="center">
-  <strong>Private Local AI Superpowers for Your OS</strong>
+  <strong>The Private Agent OS for Your Desktop</strong>
 </p>
 
 <p align="center">
@@ -27,9 +27,9 @@
 
 ---
 
-Ghost is a private, local-first AI assistant that lives in your OS. It indexes your files, understands your context, and helps you find anything — all without sending a single byte to the cloud.
+Ghost is a private, local-first **Agent OS** that lives in your desktop. It indexes your files, understands your context, connects to thousands of tools via open protocols (MCP, A2A, AG-UI, A2UI, WebMCP), and takes actions on your behalf — all without sending a single byte to the cloud.
 
-Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
+Think **Raycast + Semantic Search + Local AI Agent + Universal Protocol Hub** — but private by design.
 
 ## Why Ghost?
 
@@ -37,7 +37,8 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 - **Instant Search**: Hybrid keyword (FTS5) + semantic vector search across all your documents.
 - **Native AI**: In-process embedding inference via Candle — no Ollama or internet required after first model download.
 - **Lightweight**: <10MB installer, <40MB RAM idle, <500ms launch. 70% less RAM than Electron.
-- **Extensible**: MCP Server protocol for skills/plugins — compatible with the growing ecosystem of 10,000+ MCP servers.
+- **Protocol Hub**: MCP Server + Client, A2A multi-agent coordination, AG-UI streaming, A2UI generative UI — the most connected local agent.
+- **Extensible**: Skills.md plugin system + compatible with 10,000+ MCP servers + future Skills Marketplace.
 
 ## Features
 
@@ -104,48 +105,62 @@ Think **Raycast + Semantic Search + Local AI Agent** — but private by design.
 - **Zero-config**: Auto-discovers Documents, Desktop, Downloads, Pictures on first launch
 - **Settings persistence**: `setup_complete`, `launch_on_startup`, all chat preferences with serde defaults
 
-### Phase 2 — The Memory
+### Phase 1.5 — The Protocol Bridge *(In Progress)*
 
-- Browser history indexing via UI Automation
-- App activity timeline ("What was I doing last Tuesday?")
-- Clipboard history with semantic search
-- Premium features: sync, encryption, more powerful models
+- **MCP Server**: Expose Ghost tools (search, index, chat) to Claude, Cursor, VS Code, etc. via `rmcp` crate
+- **MCP Client**: Connect to external MCP servers (filesystem, GitHub, databases, 10,000+)
+- **AG-UI Runtime**: Bidirectional agent↔user streaming (~16 event types) for real-time interaction
+- **A2UI Renderer**: Generative UI from JSON schemas — forms, tables, charts rendered natively in React
+- **MCP Apps**: Interactive tool UIs in sandboxed iframes within Ghost conversations
+- **Skills.md**: OpenClaw-inspired plugin format — plain Markdown skill definitions
 
-### Phase 3 — The Agent
+### Phase 2 — The Agent OS
 
-- Local MCP Server with Qwen2.5-7B for tool calling
-- Actions: open apps, copy text, search web, create files
-- Action Preview: see what Ghost will do before it executes
-- Natural language OS control
+- **A2A Protocol**: Agent-to-Agent coordination — Ghost delegates to specialized agents
+- **Tool Calling Engine**: Qwen2.5-7B selects + invokes MCP tools from schemas
+- **OS Integration**: UI Automation (Windows), accessibility APIs, clipboard history, browser history
+- **Micro-agents**: Background agents (file organizer, meeting summarizer, email drafter)
+- Premium features: sync, encryption, advanced models, unlimited automations
 
-### Phase 4 — The Platform
+### Phase 2.5 — The Web Agent
 
-- Skills SDK for third-party MCP servers
-- Integrations: Obsidian, VS Code, Slack, browsers
-- Mac port
-- B2B/teams licensing
+- **WebMCP**: Read tool contracts from websites via W3C `navigator.modelContext` API
+- **Browser Extension**: Bridge between Ghost desktop agent and web-based tool contracts
+- Structured web interactions without scraping
+
+### Phase 3 — The Platform
+
+- Skills Marketplace: third-party skill distribution and monetization
+- Integrations: Obsidian, VS Code, Slack, Notion, browsers
+- Multi-agent orchestration: A2A task delegation between local agents
+- B2B/Teams: shared vaults, SSO, audit trails, compliance
 
 ## Architecture
 
-Ghost uses a 4-layer architecture where each layer is independently replaceable:
+Ghost uses a 6-layer **Agent OS** architecture where each layer is independently replaceable:
 
 ```text
-┌─────────────────────────────────────────────────┐
-│              Frontend (React/TypeScript)          │
-│  Search Bar │ Results │ Chat │ Settings │ Vault   │
-├─────────────────────────────────────────────────┤
-│                 Tauri v2 IPC Bridge               │
-├─────────────────────────────────────────────────┤
-│              Core Engine (Rust)                    │
-│  File Watcher │ Text Extractor │ Embedding Engine  │
-│  Vector DB │ HTTP Server │ Encryption              │
-├─────────────────────────────────────────────────┤
-│              AI Layer (Local — Zero Dependencies)  │
-│  Native: Candle + all-MiniLM-L6-v2 (384D)        │
-│  Fallback: Ollama + nomic-embed-text (768D)       │
-│  Future: Qwen2.5-7B (reasoning/tool calling)     │
-│  MCP Server (agent actions)                       │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│              Frontend (React/TypeScript)               │
+│  Omnibox │ Results │ Chat │ A2UI Renderer │ Settings  │
+├──────────────────────────────────────────────────────┤
+│         AG-UI Runtime (Agent ↔ User Streaming)        │
+│  ~16 event types │ Human-in-the-loop │ State sync      │
+├──────────────────────────────────────────────────────┤
+│              Tauri v2 IPC Bridge                       │
+├──────────────────────────────────────────────────────┤
+│              Protocol Hub (Rust — rmcp + custom)       │
+│  MCP Server │ MCP Client │ A2A │ WebMCP │ Skills       │
+├──────────────────────────────────────────────────────┤
+│              Core Engine (Rust)                        │
+│  File Watcher │ Text Extractor │ Embedding Engine      │
+│  Vector DB │ OS Automation │ Micro-agents              │
+├──────────────────────────────────────────────────────┤
+│              AI Layer (Local — Zero Dependencies)      │
+│  Native: Candle + all-MiniLM-L6-v2 (384D embeddings)  │
+│  Fallback: Ollama + nomic-embed-text (768D)            │
+│  Chat: Qwen2.5-Instruct GGUF (0.5B–7B, tool calling)  │
+└──────────────────────────────────────────────────────┘
 ```
 
 ### Hybrid Trigger System
@@ -167,11 +182,14 @@ The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Lay
 | Database           | SQLite + sqlite-vec + FTS5       | Single .db file, vectors + text + metadata         |
 | Native Embeddings  | Candle + all-MiniLM-L6-v2        | 384D, ~23MB, in-process, no external deps          |
 | Fallback Embeddings| Ollama + nomic-embed-text        | 768D, optional, higher quality for large models    |
-| LLM                | Ollama + Qwen2.5-7B Q4           | Tool calling, multilingual, 4GB VRAM               |
-| Agent              | MCP Server (TypeScript/Rust)     | Open standard, 10,000+ compatible servers          |
+| LLM / Chat         | Candle GGUF + Qwen2.5-Instruct   | Native inference, tool calling, 0.5B–7B tiers      |
+| MCP Protocol       | rmcp (official Rust SDK)         | Server + Client, `#[tool]` macro, 10,000+ servers  |
+| Agent Interaction  | AG-UI + A2UI                     | Real-time streaming + generative UI from JSON       |
+| Agent Coordination | A2A (Google)                     | Multi-agent task delegation, Agent Cards            |
+| Web Agent          | WebMCP (W3C)                     | Browser tool contracts, no scraping                 |
 | File Watcher       | notify (Rust crate)              | Cross-platform, async, <1% CPU                     |
 | Text Extraction    | lopdf + zip + calamine           | Pure Rust, no external dependencies                |
-| Encryption         | ChaCha20-Poly1305 (age crate)    | Modern, audited                                    |
+| Encryption         | ChaCha20-Poly1305 (age crate)    | Modern, audited (Pro)                              |
 
 ## Getting Started
 
@@ -243,7 +261,8 @@ ghost/
 │   │   ├── indexer/        # File watcher + text extraction + chunking
 │   │   ├── db/             # SQLite + sqlite-vec + FTS5 (schema + CRUD)
 │   │   ├── embeddings/     # Native Candle + Ollama embedding engines
-│   │   └── search/         # Hybrid search engine + RRF ranking
+│   │   ├── search/         # Hybrid search engine + RRF ranking
+│   │   └── protocols/      # (Phase 1.5) MCP server/client, A2A, AG-UI, A2UI, WebMCP
 │   ├── Cargo.toml          # Rust dependencies
 │   └── tauri.conf.json     # Tauri configuration + cross-platform bundler config
 ├── branding/               # Brand assets (SVGs, PNGs, social, scripts)
@@ -283,8 +302,12 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 - [Tauri](https://tauri.app/) — Desktop framework
 - [Ollama](https://ollama.com/) — Local LLM runtime
 - [sqlite-vec](https://github.com/asg017/sqlite-vec) — Vector search for SQLite
-- [nomic-embed-text](https://ollama.com/library/nomic-embed-text) — Embedding model
-- [MCP](https://modelcontextprotocol.io/) — Model Context Protocol (Linux Foundation / Agentic AI Foundation)
+- [Candle](https://github.com/huggingface/candle) — Rust ML framework for native AI inference
+- [rmcp](https://crates.io/crates/rmcp) — Official Rust MCP SDK
+- [MCP](https://modelcontextprotocol.io/) — Model Context Protocol (Linux Foundation / AAIF)
+- [A2A](https://google.github.io/A2A) — Agent-to-Agent Protocol (Google / Linux Foundation)
+- [AG-UI](https://github.com/CopilotKit/ag-ui) — Agent-User Interaction Protocol (CopilotKit)
+- [OpenClaw](https://github.com/nicepkg/OpenClaw) — Model-agnostic agent infrastructure
 
 ---
 
