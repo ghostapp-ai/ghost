@@ -26,6 +26,46 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Stub pro crate if submodule unavailable
+        run: |
+          if [ ! -f pro/Cargo.toml ]; then
+            mkdir -p pro/src/encryption pro/src/sync
+            cat > pro/Cargo.toml << 'EOF'
+          [package]
+          name = "ghost-pro"
+          version = "0.1.0"
+          edition = "2021"
+          publish = false
+
+          [dependencies]
+          serde = { version = "1", features = ["derive"] }
+          serde_json = "1"
+          tokio = { version = "1", features = ["full"] }
+          tracing = "0.1"
+          thiserror = "2"
+          anyhow = "1"
+          EOF
+            cat > pro/src/lib.rs << 'EOF'
+          pub mod encryption;
+          pub mod sync;
+          pub fn is_licensed() -> bool { false }
+          pub fn version() -> &'static str { "0.0.0-stub" }
+          pub async fn initialize() -> anyhow::Result<()> { Ok(()) }
+          EOF
+            cat > pro/src/encryption/mod.rs << 'EOF'
+          pub struct EncryptionEngine;
+          impl EncryptionEngine {
+              pub fn new() -> Self { Self }
+          }
+          EOF
+            cat > pro/src/sync/mod.rs << 'EOF'
+          pub struct SyncEngine;
+          impl SyncEngine {
+              pub fn new() -> Self { Self }
+          }
+          EOF
+          fi
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
