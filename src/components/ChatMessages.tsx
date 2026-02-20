@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import {
   Bot,
   User,
@@ -6,6 +6,7 @@ import {
   Loader2,
   Download,
   AlertCircle,
+  Clock,
 } from "lucide-react";
 import { DownloadProgressBar } from "./DownloadProgress";
 import type { ChatMessage, ChatStatus } from "../lib/types";
@@ -17,6 +18,69 @@ interface ChatMessagesProps {
   tokensInfo: string | null;
   error: string | null;
   onRetryDownload: () => void;
+}
+
+function getTimeGreeting(): { greeting: string; emoji: string } {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return { greeting: "Buenos días", emoji: "sunrise" };
+  if (hour >= 12 && hour < 18) return { greeting: "Buenas tardes", emoji: "sun" };
+  return { greeting: "Buenas noches", emoji: "moon" };
+}
+
+function getFormattedTime(): string {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function getFormattedDate(): string {
+  return new Date().toLocaleDateString("es", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+
+const TIPS = [
+  "Escribe ? para preguntar algo",
+  "Ctrl+Space para mostrar/ocultar",
+  "Ctrl+, para abrir configuración",
+  "Busca archivos escribiendo su nombre",
+  "Ctrl+D para ver los logs de depuración",
+];
+
+function SmartGreeting() {
+  const [time, setTime] = useState(getFormattedTime());
+  const { greeting } = getTimeGreeting();
+  const date = getFormattedDate();
+  const tip = TIPS[Math.floor(Math.random() * TIPS.length)];
+
+  useEffect(() => {
+    const id = setInterval(() => setTime(getFormattedTime()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center flex-1 gap-4">
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl bg-ghost-accent/10 flex items-center justify-center">
+          <Sparkles className="w-6 h-6 text-ghost-accent" />
+        </div>
+      </div>
+      <div className="text-center space-y-1.5">
+        <p className="text-base font-semibold text-ghost-text/80">
+          {greeting}
+        </p>
+        <div className="flex items-center justify-center gap-1.5 text-ghost-text-dim/40">
+          <Clock className="w-3 h-3" />
+          <span className="text-xs font-mono">{time}</span>
+          <span className="text-xs">·</span>
+          <span className="text-xs capitalize">{date}</span>
+        </div>
+      </div>
+      <p className="text-[11px] text-ghost-text-dim/30 max-w-60 text-center">
+        {tip}
+      </p>
+    </div>
+  );
 }
 
 export function ChatMessages({
@@ -50,19 +114,7 @@ export function ChatMessages({
       {messages.length === 0 && !isLoading && (
         <div className="flex flex-col items-center justify-center flex-1 text-ghost-text-dim/50 gap-3">
           {isAvailable ? (
-            <>
-              <div className="w-12 h-12 rounded-2xl bg-ghost-accent/10 flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-ghost-accent" />
-              </div>
-              <div className="text-center space-y-1">
-                <p className="text-sm font-medium text-ghost-text/70">
-                  Ghost Chat
-                </p>
-                <p className="text-xs text-ghost-text-dim/40 max-w-60">
-                  100% local, zero cloud. Escribe una pregunta arriba.
-                </p>
-              </div>
-            </>
+            <SmartGreeting />
           ) : status?.error ? (
             <>
               <div className="w-12 h-12 rounded-2xl bg-ghost-danger/10 flex items-center justify-center">
@@ -137,7 +189,7 @@ export function ChatMessages({
           </div>
           <div className="flex items-center gap-2 text-sm text-ghost-text-dim/60">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Pensando...
+            Generando...
           </div>
         </div>
       )}

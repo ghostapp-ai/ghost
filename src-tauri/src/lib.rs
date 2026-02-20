@@ -1124,6 +1124,54 @@ pub fn run() {
                 }
             });
 
+            // --- Periodic re-indexing (every 5 minutes) ---
+            // Catches new files that the watcher might miss (e.g., files added
+            // while Ghost was closed, or files in newly added subdirectories).
+            let state_for_reindex = app_state.clone();
+            tauri::async_runtime::spawn(async move {
+                // Wait 60 seconds before first re-index to let initial indexing finish
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
+                loop {
+                    interval.tick().await;
+                    let dirs = {
+                        state_for_reindex
+                            .settings
+                            .lock()
+                            .map(|s| s.watched_directories.clone())
+                            .unwrap_or_default()
+                    };
+                    if dirs.is_empty() {
+                        continue;
+                    }
+                    push_log(
+                        "info",
+                        format!("Periodic re-index: scanning {} directories", dirs.len()),
+                    );
+                    for dir_path in &dirs {
+                        let path = std::path::PathBuf::from(dir_path);
+                        if let Err(e) = crate::indexer::index_directory(
+                            &state_for_reindex.db,
+                            &state_for_reindex.embedding_engine,
+                            &path,
+                        )
+                        .await
+                        {
+                            tracing::warn!("Periodic re-index failed for {}: {}", dir_path, e);
+                        }
+                    }
+                    if let Ok(stats) = state_for_reindex.db.get_stats() {
+                        push_log(
+                            "info",
+                            format!(
+                                "Re-index complete: {} docs, {} chunks",
+                                stats.document_count, stats.chunk_count
+                            ),
+                        );
+                    }
+                }
+            });
+
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -89,17 +89,36 @@ pub fn find_model(id: &str) -> Option<&'static ModelProfile> {
     MODEL_REGISTRY.iter().find(|m| m.id == id)
 }
 
+/// Check if a GPU acceleration feature is actually compiled into this binary.
+fn gpu_feature_compiled() -> bool {
+    #[cfg(any(feature = "cuda", feature = "metal"))]
+    {
+        true
+    }
+    #[cfg(not(any(feature = "cuda", feature = "metal")))]
+    {
+        false
+    }
+}
+
 /// Recommend the best model that fits the available hardware.
 ///
-/// Strategy: pick the largest model that comfortably fits in available RAM,
-/// leaving a 512MB headroom for the OS and app.
+/// Strategy:
+/// - CPU-only (no GPU feature compiled): cap at 1.5B for interactive speed
+/// - GPU available and compiled: pick the largest that fits in RAM
+/// - Always leave 512MB headroom for the OS and app
 pub fn recommend_model(hardware: &HardwareInfo) -> &'static ModelProfile {
     let available = hardware.available_ram_mb;
+    let has_gpu = gpu_feature_compiled();
+
+    // CPU-only builds: cap at 1.5B for acceptable inference speed.
+    // 3B+ on CPU takes 10+ seconds per response which feels broken.
+    let max_quality_tier: u8 = if has_gpu { 4 } else { 2 };
 
     MODEL_REGISTRY
         .iter()
         .rev() // Start from largest
-        .find(|m| available >= m.min_ram_mb + 512) // 512MB headroom
+        .find(|m| available >= m.min_ram_mb + 512 && m.quality_tier <= max_quality_tier)
         .unwrap_or(&MODEL_REGISTRY[0]) // Fall back to smallest
 }
 
@@ -216,7 +235,13 @@ mod tests {
             available_ram_mb: 24000,
         };
         let model = recommend_model(&hw);
-        assert_eq!(model.id, "qwen2.5-7b");
+        // Without GPU feature compiled, caps at 1.5B for CPU speed
+        // With GPU feature, would select 7B
+        if gpu_feature_compiled() {
+            assert_eq!(model.id, "qwen2.5-7b");
+        } else {
+            assert_eq!(model.id, "qwen2.5-1.5b");
+        }
     }
 
     #[test]
