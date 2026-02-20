@@ -16,8 +16,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { AgUiEvent, AgUiRunState, ChatMessage } from "../lib/types";
+import type { AgUiEvent, AgUiRunState, ChatMessage, A2uiMessage } from "../lib/types";
 import { chatSendStreaming } from "../lib/tauri";
+import { computeRootIds } from "../components/A2UIRenderer";
 
 /**
  * AG-UI streaming chat hook.
@@ -80,6 +81,7 @@ export function useAgui() {
             activeToolCalls: new Map(),
             error: null,
             metadata: null,
+            a2uiSurfaces: new Map(),
           };
         }
 
@@ -167,12 +169,84 @@ export function useAgui() {
 
         case "CUSTOM": {
           if (!prev) return prev;
+
+          // Handle generation stats
           if (event.name === "generation_stats" && event.value) {
             return {
               ...prev,
               metadata: event.value as Record<string, unknown>,
             };
           }
+
+          // Handle A2UI messages transported via CUSTOM events
+          if (event.name === "a2ui" && event.value) {
+            const a2uiMsg = event.value as A2uiMessage;
+            const surfaces = new Map(prev.a2uiSurfaces);
+
+            if (a2uiMsg.createSurface) {
+              const cs = a2uiMsg.createSurface;
+              surfaces.set(cs.surfaceId, {
+                surfaceId: cs.surfaceId,
+                catalogId: cs.catalogId,
+                theme: cs.theme,
+                sendDataModel: cs.sendDataModel,
+                components: new Map(),
+                dataModel: {},
+                rootIds: [],
+              });
+            }
+
+            if (a2uiMsg.updateComponents) {
+              const uc = a2uiMsg.updateComponents;
+              const surface = surfaces.get(uc.surfaceId);
+              if (surface) {
+                const componentMap = new Map(surface.components);
+                for (const comp of uc.components) {
+                  componentMap.set(comp.id, comp);
+                }
+                const rootIds = computeRootIds(Array.from(componentMap.values()));
+                surfaces.set(uc.surfaceId, {
+                  ...surface,
+                  components: componentMap,
+                  rootIds,
+                });
+              }
+            }
+
+            if (a2uiMsg.updateDataModel) {
+              const udm = a2uiMsg.updateDataModel;
+              const surface = surfaces.get(udm.surfaceId);
+              if (surface) {
+                const dataModel = { ...surface.dataModel };
+                if (!udm.path || udm.path === "/") {
+                  // Replace entire data model
+                  surfaces.set(udm.surfaceId, {
+                    ...surface,
+                    dataModel: (udm.value ?? {}) as Record<string, unknown>,
+                  });
+                } else {
+                  // Set at specific path
+                  const parts = udm.path.replace(/^\//, "").split("/");
+                  let current: Record<string, unknown> = dataModel;
+                  for (let i = 0; i < parts.length - 1; i++) {
+                    if (current[parts[i]] === undefined || typeof current[parts[i]] !== "object") {
+                      current[parts[i]] = {};
+                    }
+                    current = current[parts[i]] as Record<string, unknown>;
+                  }
+                  current[parts[parts.length - 1]] = udm.value;
+                  surfaces.set(udm.surfaceId, { ...surface, dataModel });
+                }
+              }
+            }
+
+            if (a2uiMsg.deleteSurface) {
+              surfaces.delete(a2uiMsg.deleteSurface.surfaceId);
+            }
+
+            return { ...prev, a2uiSurfaces: surfaces };
+          }
+
           return prev;
         }
 

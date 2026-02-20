@@ -120,7 +120,7 @@ Think **Raycast + Semantic Search + Local AI Agent + Universal Protocol Hub** �
 - **MCP Server**: ✅ Expose Ghost tools (search, index, stats) to Claude, Cursor, VS Code via `rmcp` + HTTP streamable transport
 - **MCP Client**: ✅ Connect to external MCP servers (filesystem, GitHub, databases, 10,000+) via stdio + HTTP
 - **AG-UI Runtime**: ✅ Bidirectional agent↔user streaming (~16 event types) — event bus, SSE endpoint, `useAgui` React hook, streaming chat
-- **A2UI Renderer**: Generative UI from JSON schemas — forms, tables, charts rendered natively in React
+- **A2UI Renderer**: ✅ Google A2UI v0.9 generative UI — 17+ component types (Text, Button, TextField, Card, Row, Column, etc.) rendered natively in React/Tailwind with data binding
 - **MCP Apps**: Interactive tool UIs in sandboxed iframes within Ghost conversations
 - **Skills.md**: OpenClaw-inspired plugin format — plain Markdown skill definitions
 

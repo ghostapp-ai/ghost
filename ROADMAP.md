@@ -324,11 +324,17 @@
   - State synchronization between Rust agent and React UI
 
 #### A2UI Renderer (Generative UI)
-- [ ] **A2UI JSON → React component renderer**
-  - Parse A2UI declarative JSON specs from agent responses
-  - Render native-feeling components: forms, tables, charts, date pickers
-  - Sandboxed execution: A2UI specs cannot access host APIs directly
-  - Theme integration with Ghost's dark UI
+- [x] **A2UI JSON → React component renderer**
+  - Rust module `protocols/a2ui.rs` with full A2UI v0.9 types, serialization, component builders
+  - 8 unit tests for serialization, round-trip, component builders, child lists
+  - React `A2UIRenderer.tsx` maps A2UI JSON → native Tailwind components
+  - Standard catalog: Text (6 variants), Image, Icon, Video, Row, Column, Card, List, Tabs, Modal, Divider, Button (4 variants), TextField, CheckBox, ChoicePicker, Slider, DateTimeInput
+  - Data binding: JSON Pointer resolution, two-way binding for inputs
+  - Adjacency list → tree resolution with automatic root detection
+  - A2UI messages transported via AG-UI CUSTOM events over Tauri IPC
+  - `useAgui` hook processes A2UI createSurface/updateComponents/updateDataModel/deleteSurface
+  - Theme integration with Ghost's CSS custom properties
+  - +9.8 KB JS bundle cost (245.8 KB total, well within 500 KB budget)
 - [ ] **MCP Apps support**
   - Sandboxed iframe renderer for MCP App HTML content
   - Communication bridge: MCP App ↔ Ghost host via postMessage
@@ -345,7 +351,7 @@
 - [x] Claude Desktop can search local files through Ghost MCP server
 - [ ] Ghost chat can invoke tools from at least 2 external MCP servers
 - [x] AG-UI event stream renders streaming text + tool progress in React
-- [ ] A2UI renders at least 3 component types (form, table, text block)
+- [x] A2UI renders 17+ component types (Text, Button, TextField, CheckBox, Row, Column, Card, etc.)
 - [ ] <100ms overhead added by MCP protocol layer
 - [ ] Setup guide published for MCP server + client configuration
 
@@ -646,7 +652,7 @@
 | sqlite-vec | github.com/asg017/sqlite-vec | SIMD-accelerated KNN. Works with FTS5 |
 | rmcp | crates.io/crates/rmcp | Official Rust MCP SDK v0.15+. Client + Server. `#[tool]` macro |
 | AG-UI | github.com/CopilotKit/ag-ui | Agent↔User protocol. 12K+ stars. Rust SDK available |
-| A2UI | github.com/AgenturAI/a2ui | Google-backed declarative generative UI. JSON → native components |
+| A2UI | github.com/google/A2UI | Google-backed declarative generative UI. JSON → native components |
 | A2A | google.github.io/A2A | Agent-to-Agent protocol. Agent Cards + JSON-RPC 2.0 + SSE. Linux Foundation |
 | WebMCP | developer.chrome.com/blog/webmcp-epp | W3C proposal. `navigator.modelContext` browser API |
 | MCP Apps | blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps | Tools return interactive UI (iframes). Anthropic spec |

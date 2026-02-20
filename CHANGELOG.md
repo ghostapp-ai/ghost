@@ -1,3 +1,16 @@
+## [unreleased]
+
+### 🚀 Features
+
+* **protocols:** implement A2UI v0.9 generative UI — Rust types + React renderer + AG-UI integration
+  - Rust `protocols/a2ui.rs`: full A2UI v0.9 types, component builders, AG-UI bridge, 8 tests
+  - React `A2UIRenderer.tsx`: 17+ component types (Text, Button, TextField, Card, Row, Column, etc.)
+  - Data binding via JSON Pointers (RFC 6901) with two-way input support
+  - Adjacency list → tree resolution with automatic root detection
+  - A2UI surfaces transported via AG-UI CUSTOM events over Tauri IPC
+  - `useAgui` hook processes createSurface/updateComponents/updateDataModel/deleteSurface
+  - +9.8 KB JS bundle cost (245.8 KB total)
+
 ## [0.9.2](https://github.com/ghostapp-ai/ghost/compare/v0.9.1...v0.9.2) (2026-02-20)
 
 ### 🐛 Bug Fixes

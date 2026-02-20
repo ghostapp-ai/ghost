@@ -9,7 +9,8 @@ import {
   Clock,
 } from "lucide-react";
 import { DownloadProgressBar } from "./DownloadProgress";
-import type { ChatMessage, ChatStatus } from "../lib/types";
+import { A2UIRenderer } from "./A2UIRenderer";
+import type { ChatMessage, ChatStatus, A2uiSurfaceState, A2uiAction } from "../lib/types";
 
 interface ChatMessagesProps {
   messages: ChatMessage[];
@@ -22,6 +23,12 @@ interface ChatMessagesProps {
   onRetryDownload: () => void;
   /** Whether the app is running on a mobile device */
   isMobile?: boolean;
+  /** A2UI surfaces from the current AG-UI run. */
+  a2uiSurfaces?: Map<string, A2uiSurfaceState>;
+  /** Callback when an A2UI action is triggered. */
+  onA2uiAction?: (surfaceId: string, componentId: string, action: A2uiAction) => void;
+  /** Callback when an A2UI input value changes. */
+  onA2uiDataChange?: (surfaceId: string, path: string, value: unknown) => void;
 }
 
 function getTimeGreeting(): { greeting: string; emoji: string } {
@@ -104,6 +111,9 @@ export function ChatMessages({
   error,
   onRetryDownload,
   isMobile = false,
+  a2uiSurfaces,
+  onA2uiAction,
+  onA2uiDataChange,
 }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -214,6 +224,24 @@ export function ChatMessages({
               Generando...
             </div>
           )}
+        </div>
+      )}
+
+      {/* A2UI Generative UI Surfaces */}
+      {a2uiSurfaces && a2uiSurfaces.size > 0 && (
+        <div className="px-1">
+          <div className="flex items-start gap-2.5">
+            <div className="w-6 h-6 rounded-lg bg-ghost-accent/15 flex items-center justify-center shrink-0 mt-0.5">
+              <Sparkles className="w-3.5 h-3.5 text-ghost-accent" />
+            </div>
+            <div className="flex-1 max-w-[85%]">
+              <A2UIRenderer
+                surfaces={a2uiSurfaces}
+                onAction={onA2uiAction}
+                onDataChange={onA2uiDataChange}
+              />
+            </div>
+          </div>
         </div>
       )}
 

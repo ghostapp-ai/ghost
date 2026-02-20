@@ -229,4 +229,93 @@ export interface AgUiRunState {
   error: string | null;
   /** Generation metadata from CUSTOM event. */
   metadata: Record<string, unknown> | null;
+  /** A2UI surfaces received via CUSTOM events. */
+  a2uiSurfaces: Map<string, A2uiSurfaceState>;
+}
+
+// --- A2UI Protocol Types (Google A2UI v0.9) ---
+
+/** Top-level A2UI message envelope. */
+export interface A2uiMessage {
+  version: string;
+  createSurface?: A2uiCreateSurface;
+  updateComponents?: A2uiUpdateComponents;
+  updateDataModel?: A2uiUpdateDataModel;
+  deleteSurface?: A2uiDeleteSurface;
+}
+
+/** createSurface — initialize a new UI surface. */
+export interface A2uiCreateSurface {
+  surfaceId: string;
+  catalogId: string;
+  theme?: A2uiTheme;
+  sendDataModel?: boolean;
+}
+
+/** updateComponents — provide/update component definitions. */
+export interface A2uiUpdateComponents {
+  surfaceId: string;
+  components: A2uiComponent[];
+}
+
+/** updateDataModel — insert or replace data. */
+export interface A2uiUpdateDataModel {
+  surfaceId: string;
+  path?: string;
+  value?: unknown;
+}
+
+/** deleteSurface — remove a surface. */
+export interface A2uiDeleteSurface {
+  surfaceId: string;
+}
+
+/** A2UI theme properties. */
+export interface A2uiTheme {
+  primaryColor?: string;
+  iconUrl?: string;
+  agentDisplayName?: string;
+}
+
+/** A single A2UI component definition (adjacency list model). */
+export interface A2uiComponent {
+  id: string;
+  component: string;
+  child?: string;
+  children?: string[] | { path: string; componentId: string };
+  text?: string | { path: string } | { call: string; args: unknown };
+  label?: string | { path: string };
+  variant?: string;
+  value?: string | number | boolean | { path: string };
+  action?: A2uiAction;
+  url?: string | { path: string };
+  name?: string;
+  align?: string;
+  justify?: string;
+  weight?: number;
+  axis?: string;
+  options?: { label: string; value: string }[];
+  min?: number;
+  max?: number;
+  step?: number;
+  checks?: unknown[];
+  [key: string]: unknown;
+}
+
+/** A2UI action definition. */
+export interface A2uiAction {
+  event?: { name: string; context?: unknown };
+  functionCall?: unknown;
+}
+
+/** Runtime surface state — tracks components + data model. */
+export interface A2uiSurfaceState {
+  surfaceId: string;
+  catalogId: string;
+  theme?: A2uiTheme;
+  sendDataModel?: boolean;
+  components: Map<string, A2uiComponent>;
+  dataModel: Record<string, unknown>;
+  /** Root component IDs (components not referenced as children). */
+  rootIds: string[];
 }

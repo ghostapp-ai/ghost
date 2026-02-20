@@ -407,6 +407,7 @@ export default function App() {
             error={chatError}
             onRetryDownload={() => chatLoadModel().catch(() => {})}
             isMobile={platform.isMobile}
+            a2uiSurfaces={runState?.a2uiSurfaces}
           />
         )}
       </main>

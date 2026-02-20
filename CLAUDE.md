@@ -12,7 +12,7 @@
 - **Current phase**: Phase 1.7 — Multiplatform (backend ✅, frontend ✅, Android APK ✅, iOS needs macOS)
 - **Stack**: Tauri v2 (Rust backend) + React/TypeScript (frontend) + SQLite/sqlite-vec + Candle (native AI) + rmcp (MCP SDK)
 - **Repo**: `ghostapp-ai/ghost` (public, MIT) + `ghostapp-ai/ghost-pro` (private, proprietary submodule)
-- **Priority**: Multiplatform adaptation, then A2UI/A2A protocols.
+- **Priority**: MCP Apps, Skills.md, then A2A/WebMCP protocols.
 - **Protocol stack**: MCP (tools) → AG-UI (agent↔user streaming) → A2UI (generative UI) → A2A (multi-agent) → WebMCP (web agents)
 - **Platforms**: Desktop (Windows, macOS, Linux) + Mobile (Android, iOS) via Tauri v2 conditional compilation
 
@@ -89,7 +89,7 @@ src-tauri/src/
 │   ├── mcp_server.rs   # Ghost as MCP server (rmcp ServerHandler)
 │   ├── mcp_client.rs   # Ghost connects to external MCP servers (rmcp ClientHandler)
 │   ├── agui.rs         # AG-UI event system (~16 event types, bidirectional streaming)
-│   ├── a2ui.rs         # A2UI JSON → React component renderer bridge
+│   ├── a2ui.rs         # A2UI v0.9 generative UI (Google spec, JSON → React components)
 │   ├── a2a.rs          # (Phase 2) A2A Agent Card + task delegation
 │   ├── webmcp.rs       # (Phase 2.5) WebMCP browser bridge
 │   └── skills.rs       # Skills.md parser + skill registry
@@ -179,12 +179,11 @@ src/
 ├── components/
 │   ├── Onboarding.tsx   # First-launch wizard: welcome → hardware → download → ready
 │   ├── GhostInput.tsx   # Unified Omnibox: auto-resize textarea, mode indicator, toggle
-│   ├── ChatMessages.tsx # Chat message list, download progress, empty states
+│   ├── ChatMessages.tsx # Chat message list, download progress, empty states, A2UI surfaces
+│   ├── A2UIRenderer.tsx # A2UI v0.9 generative UI renderer — JSON → React/Tailwind components
 │   ├── DownloadProgress.tsx # Model download progress bar with shimmer animation
 │   ├── ResultsList.tsx  # Virtualized search results
 │   ├── ResultItem.tsx   # Single search result row
-│   ├── ChatPanel.tsx    # (Legacy) Standalone chat panel — superseded by Omnibox
-│   ├── SearchBar.tsx    # (Legacy) Search-only input — superseded by GhostInput
 │   ├── DebugPanel.tsx   # Collapsible log viewer with pause/resume
 │   ├── StatusBar.tsx    # Status pills: DB stats, AI, Vec, Chat model
 │   ├── Settings.tsx     # Settings panel with 3 tabs (General, AI Models, Directories)
@@ -582,3 +581,7 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-20 | Ad-hoc macOS signing (`-`) as CI default over no signing | aarch64 binaries MUST be signed or macOS shows "app is damaged". Ad-hoc (`codesign -s "-"`) satisfies Apple Silicon without an Apple Developer account. Real certificate used only when `APPLE_CERTIFICATE` secret is configured |
 | 2026-02-20 | iOS unsigned xcarchive over signed-only build | iOS has no ad-hoc equivalent (unlike macOS). xcodebuild `CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO` produces a distributable unsigned .xcarchive without any Apple Developer account. Users can sideload via AltStore/Sideloadly. Signed .ipa added on top when `APPLE_CERTIFICATE` secret is configured. Refs: tauri#14940 |
 | 2026-02-20 | `CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL` + `CXXFLAGS=/MD` for Windows CI | llama-cpp-sys-2 builds llama.cpp via CMake; CMake Release defaults to `/MT` (libcpmt.lib) while Rust uses `/MD` (msvcprt.lib) → LNK2005. Env vars `CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL` (forwarded automatically by llama-cpp-sys-2 build script) and `CFLAGS/CXXFLAGS=/MD` (for cc::Build) force consistent dynamic CRT across all compiled code |
+| 2026-02-21 | A2UI v0.9 (Google) over custom generative UI | Open standard (Apache 2.0, 11K+ stars), 17+ component types, data binding via JSON Pointers, transport-agnostic. Ghost is among the first React implementors — only Lit/Angular/Flutter existed before |
+| 2026-02-21 | A2UI via AG-UI CUSTOM events over dedicated transport | A2UI is transport-agnostic by design. AG-UI CUSTOM events already support arbitrary JSON payloads via Tauri IPC — zero new infrastructure needed |
+| 2026-02-21 | Adjacency list → tree resolution on frontend | A2UI uses flat component lists with ID references. Frontend `computeRootIds()` resolves trees — more flexible than server-side tree building, supports incremental component updates |
+| 2026-02-21 | Two-way data binding via JSON Pointers (RFC 6901) | A2UI v0.9 spec uses JSON Pointers for data model paths. `resolvePointer()` in renderer + `onDataChange` callbacks enable reactive input components without external state management |
