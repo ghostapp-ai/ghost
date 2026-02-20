@@ -1,0 +1,30 @@
+# Cargo build configuration for Ghost
+# Optimizes compile times in CI and local development
+
+# NOTE: Linker flags (mold/lld) are set via CARGO_TARGET_*_RUSTFLAGS
+# environment variables in CI to avoid breaking builds where those
+# linkers are not installed. Set locally if you have mold/lld.
+
+[profile.release]
+# Thin LTO: ~2-5x faster than fat LTO, still good optimization
+lto = "thin"
+# Fewer codegen units = better optimization (default=16, min=1)
+codegen-units = 4
+# Strip debug info from release binaries → smaller artifacts
+strip = true
+# Balanced optimization level
+opt-level = 2
+
+[profile.dev]
+# Fast dev builds
+opt-level = 0
+# Speed up incremental builds on macOS
+split-debuginfo = "unpacked"
+
+[profile.dev.package."*"]
+# Optimize dependencies even in dev mode (they rarely change, compiles once)
+opt-level = 2
+
+[net]
+# Use git CLI for fetching (faster than libgit2 in CI)
+git-fetch-with-cli = true
