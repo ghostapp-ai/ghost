@@ -12,10 +12,6 @@ updates:
       - "dependencies"
       - "rust"
     open-pull-requests-limit: 5
-    # Ignore major version bumps that could break the build
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
 
   # Frontend dependencies (package.json)
   - package-ecosystem: "npm"
@@ -29,22 +25,8 @@ updates:
       - "dependencies"
       - "frontend"
     open-pull-requests-limit: 5
-    # Block major bumps — React 18→19, Vite 6→7, TS 5→6 etc. need manual migration
-    ignore:
-      - dependency-name: "react"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "react-dom"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@types/react"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@types/react-dom"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "vite"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "typescript"
-        update-types: ["version-update:semver-major"]
     groups:
-      # Group minor+patch React ecosystem updates into one PR
+      # Group React ecosystem updates into one PR (including majors)
       react-ecosystem:
         patterns:
           - "react"
