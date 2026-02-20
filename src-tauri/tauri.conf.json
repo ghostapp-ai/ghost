@@ -10,6 +10,12 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "trayIcon": {
+      "id": "main",
+      "iconPath": "icons/32x32.png",
+      "tooltip": "Ghost — AI Assistant",
+      "menuOnLeftClick": false
+    },
     "windows": [
       {
         "label": "main",
@@ -48,7 +54,23 @@
     "windows": {
       "nsis": {
         "displayLanguageSelector": true,
-        "installMode": "currentUser"
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "icons/128x128.png",
+        "sidebarImage": "icons/128x128.png"
+      },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "frameworks": [],
+      "dmg": {
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 },
+        "windowSize": { "width": 660, "height": 400 }
       }
     },
     "linux": {
@@ -57,10 +79,17 @@
           "libwebkit2gtk-4.1-0",
           "libgtk-3-0"
         ],
-        "section": "utils"
+        "section": "utils",
+        "priority": "optional"
       },
       "appimage": {
         "bundleMediaFramework": false
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3"
+        ]
       }
     }
   }
