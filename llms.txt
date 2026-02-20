@@ -1,42 +1,63 @@
-# Ghost — Private Local AI Assistant
+# Ghost — The Private Agent OS
 
-> Ghost is a private, local-first AI assistant for desktop (Windows, macOS, Linux).
-> It indexes local files, provides hybrid semantic + keyword search, and evolves
-> into an AI agent that can take actions on your OS — all without sending data to the cloud.
+> Ghost is a private, local-first **Agent OS** for desktop (Windows, macOS, Linux) and mobile (Android, iOS).
+> It indexes local files, provides hybrid semantic + keyword search, connects to 10,000+ tools via
+> open protocols (MCP, A2A, AG-UI, A2UI, WebMCP), and evolves into a full AI agent that takes
+> actions on your behalf — all without sending data to the cloud.
 
 ## Key Facts
 
-- **License**: MIT (open source core) + proprietary Pro tier
-- **Stack**: Tauri v2 (Rust backend) + React/TypeScript (frontend) + SQLite/sqlite-vec + Candle (native AI)
-- **Privacy**: 100% local. Zero telemetry. Zero cloud dependencies.
-- **Current Version**: 0.2.x
-- **Platforms**: Windows (x64), macOS (ARM64 + Intel), Linux (DEB, RPM, AppImage)
+- **License**: MIT (open source core) + planned Pro tier
+- **Stack**: Tauri v2 (Rust backend) + React 18/TypeScript (frontend) + SQLite/sqlite-vec + Candle (native ML) + rmcp (MCP SDK)
+- **Privacy**: 100% local. Zero telemetry. Zero cloud dependencies. Zero analytics.
+- **Current Version**: 0.11.0
+- **Platforms**: Windows (x64), macOS (ARM64 + Intel), Linux (DEB, RPM, AppImage), Android (APK)
+- **Installer Size**: <10MB
+- **RAM Usage**: <40MB idle
+- **Cold Start**: <500ms
 
 ## Architecture
 
-Ghost uses a 4-layer architecture:
+Ghost uses a 6-layer Agent OS architecture:
 
-1. **Frontend**: React/TypeScript with Tailwind CSS v4
-2. **IPC Bridge**: Tauri v2 command system
-3. **Core Engine (Rust)**: File watcher, text extractor, embedding engine, vector DB, search
-4. **AI Layer (Local)**:
-   - Native: Candle + all-MiniLM-L6-v2 (384D embeddings, ~23MB)
-   - Fallback: Ollama + nomic-embed-text (768D)
-   - Chat: Qwen2.5-Instruct GGUF (0.5B–7B, auto-selected by RAM)
+1. **Frontend**: React 18 / TypeScript strict + Tailwind CSS v4 (Omnibox, Results, Chat, A2UI Renderer, Settings)
+2. **AG-UI Runtime**: Bidirectional agent↔user streaming (~16 event types via CopilotKit protocol)
+3. **IPC Bridge**: Tauri v2 command system (type-safe invoke)
+4. **Agent Engine**: ReAct loop with native llama.cpp grammar-constrained tool calling, 3-tier safety, conversation memory
+5. **Protocol Hub**: MCP Server + Client (rmcp), A2A (Google), AG-UI (CopilotKit), A2UI (Google), WebMCP (W3C)
+6. **Core Engine + AI Layer**: File watcher, text extraction, Candle embeddings (all-MiniLM-L6-v2 384D), Qwen2.5-Instruct GGUF (0.5B–7B), sqlite-vec, FTS5
 
 ## Core Features
 
-- **Hybrid Search**: FTS5 keyword + sqlite-vec KNN vector search combined via Reciprocal Rank Fusion (RRF)
-- **Native AI Inference**: In-process BERT embeddings via Candle — no Ollama, no GPU, no internet required after first model download
+- **Hybrid Search**: FTS5 keyword (<5ms) + sqlite-vec KNN vector search (<500ms) combined via Reciprocal Rank Fusion (RRF, k=60)
+- **Native AI Inference**: In-process Candle BERT embeddings — no Ollama, no GPU, no internet required after first model download (~23MB)
+- **Native Chat**: Qwen2.5-Instruct GGUF (0.5B/1.5B/3B/7B) via Candle — hardware-aware auto-selection by RAM
+- **Agent Engine**: ReAct (Reason + Act) loop, native llama.cpp tool calling with GBNF grammar constraints
+- **MCP Protocol Hub**: Server (expose Ghost tools) + Client (connect to 10,000+ external MCP servers) via rmcp
+- **AG-UI Streaming**: ~16 event types, SSE endpoint, Tauri IPC events, useAgui React hook
+- **A2UI Renderer**: Google A2UI v0.9 — 17+ component types rendered as React/Tailwind with data binding
+- **Skills System**: SKILL.md parser with YAML frontmatter, trigger matching, SkillRegistry
 - **Spotlight-like UX**: Ctrl/Cmd+Space floating window, auto-hide, keyboard-first
 - **File Indexing**: PDF, DOCX, XLSX, TXT, Markdown, 50+ code file types
-- **Chat**: Native GGUF inference with hardware-aware model auto-selection
-- **Zero-config**: Auto-discovers user directories on first launch
+- **Zero-config**: Auto-discovers user directories, auto-selects AI models by hardware
+
+## Open Protocols
+
+| Protocol | Standard | Purpose |
+| --- | --- | --- |
+| MCP | Linux Foundation / AAIF | Tool integration (10,000+ servers) |
+| AG-UI | CopilotKit (MIT) | Agent↔user real-time streaming |
+| A2UI | Google (Apache 2.0) | Generative UI from JSON |
+| A2A | Google / Linux Foundation | Multi-agent coordination |
+| WebMCP | W3C incubation | Browser tool contracts |
 
 ## Links
 
+- Website: https://ghostapp-ai.github.io/ghost
 - Repository: https://github.com/ghostapp-ai/ghost
 - Releases: https://github.com/ghostapp-ai/ghost/releases
 - Issues: https://github.com/ghostapp-ai/ghost/issues
 - Discussions: https://github.com/ghostapp-ai/ghost/discussions
 - Roadmap: https://github.com/ghostapp-ai/ghost/blob/main/ROADMAP.md
+- Contributing: https://github.com/ghostapp-ai/ghost/blob/main/CONTRIBUTING.md
+- Security: https://github.com/ghostapp-ai/ghost/blob/main/SECURITY.md

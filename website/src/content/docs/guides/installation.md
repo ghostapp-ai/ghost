@@ -1,25 +1,50 @@
 ---
-title: Installation
-description: Download and install Ghost on Windows, macOS, Linux, or Android.
+title: "Download & Install"
+description: "Download Ghost for Windows, macOS, Linux, or Android. No external dependencies, no GPU, no cloud account required."
 ---
 
-## Download Pre-Built Binaries
+## Download Ghost
 
-Download the latest release from [**GitHub Releases**](https://github.com/ghostapp-ai/ghost/releases/latest):
+Download the latest release from [**GitHub Releases**](https://github.com/ghostapp-ai/ghost/releases/latest). No Ollama, no GPU, no internet required after first launch.
 
-| Platform | File | Notes |
-|----------|------|-------|
-| **Windows** (64-bit) | `ghost_x.x.x_x64-setup.exe` | NSIS installer, no admin required |
-| **macOS** (Apple Silicon) | `ghost_x.x.x_aarch64.dmg` | M1/M2/M3/M4 Macs |
-| **macOS** (Intel) | `ghost_x.x.x_x64.dmg` | Intel-based Macs |
-| **Linux** (Debian/Ubuntu) | `ghost_x.x.x_amd64.deb` | DEB package |
-| **Linux** (Fedora/RHEL) | `ghost_x.x.x_x86_64.rpm` | RPM package |
-| **Linux** (Universal) | `ghost_x.x.x_amd64.AppImage` | No install needed |
-| **Android** (ARM64) | `Ghost_x.x.x_android-aarch64.apk` | Min SDK 24 |
+### Desktop
 
-:::note
-No external dependencies required. Ghost ships with native AI inference — no Ollama, no GPU, no internet needed after installation.
+| Platform | Download | Details |
+| --- | --- | --- |
+| **Windows** x64 | [`ghost_x.x.x_x64-setup.exe`](https://github.com/ghostapp-ai/ghost/releases/latest) | NSIS installer · No admin required · WebView2 auto-bootstrap |
+| **macOS** Apple Silicon | [`ghost_x.x.x_aarch64.dmg`](https://github.com/ghostapp-ai/ghost/releases/latest) | M1/M2/M3/M4 · DMG with drag-to-install |
+| **macOS** Intel | [`ghost_x.x.x_x64.dmg`](https://github.com/ghostapp-ai/ghost/releases/latest) | Intel-based Macs · macOS 10.15+ |
+| **Linux** DEB | [`ghost_x.x.x_amd64.deb`](https://github.com/ghostapp-ai/ghost/releases/latest) | Debian · Ubuntu · Pop!_OS · Mint |
+| **Linux** RPM | [`ghost_x.x.x_x86_64.rpm`](https://github.com/ghostapp-ai/ghost/releases/latest) | Fedora · RHEL · CentOS · openSUSE |
+| **Linux** Universal | [`ghost_x.x.x_amd64.AppImage`](https://github.com/ghostapp-ai/ghost/releases/latest) | Any distro · No install needed |
+
+### Mobile
+
+| Platform | Download | Details |
+| --- | --- | --- |
+| **Android** ARM64 | [`Ghost_x.x.x_android-aarch64.apk`](https://github.com/ghostapp-ai/ghost/releases/latest) | Min SDK 24 · Tauri v2 WebView |
+| **iOS** | *Coming soon* | xcarchive ready · Requires macOS build |
+
+:::note[Zero Dependencies]
+Ghost ships with native AI inference via Candle. No Ollama, no GPU, no internet needed after installation. The first launch downloads a ~23MB embedding model once.
 :::
+
+## Linux Quick Install
+
+```bash
+# Debian/Ubuntu
+wget https://github.com/ghostapp-ai/ghost/releases/latest/download/ghost_0.11.0_amd64.deb
+sudo dpkg -i ghost_0.11.0_amd64.deb
+
+# Fedora/RHEL
+wget https://github.com/ghostapp-ai/ghost/releases/latest/download/ghost_0.11.0_x86_64.rpm
+sudo rpm -i ghost_0.11.0_x86_64.rpm
+
+# AppImage (any distro)
+wget https://github.com/ghostapp-ai/ghost/releases/latest/download/ghost_0.11.0_amd64.AppImage
+chmod +x ghost_0.11.0_amd64.AppImage
+./ghost_0.11.0_amd64.AppImage
+```
 
 ## Build from Source
 

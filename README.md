@@ -1,150 +1,89 @@
 <p align="center">
-  <img src="public/ghost-logo.svg" width="120" alt="Ghost Logo" />
+  <img src="public/ghost-logo.svg" width="100" alt="Ghost Logo" />
 </p>
 
-<h1 align="center">GHOST</h1>
+<h1 align="center">Ghost</h1>
 
 <p align="center">
-  <strong>The Private Agent OS for Desktop & Mobile</strong>
-</p>
-
-<p align="center">
-  <a href="#features">Features</a> &bull;
-  <a href="#architecture">Architecture</a> &bull;
-  <a href="#getting-started">Getting Started</a> &bull;
-  <a href="#roadmap">Roadmap</a> &bull;
-  <a href="#contributing">Contributing</a>
+  <strong>The Private Agent OS for Desktop & Mobile</strong><br/>
+  <sub>Index files · Run AI agents · Connect to 10,000+ tools — all without sending data to the cloud</sub>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ghostapp-ai/ghost/releases/latest"><img src="https://img.shields.io/github/v/release/ghostapp-ai/ghost?style=flat-square&color=blue" alt="Release" /></a>
-  <a href="https://github.com/ghostapp-ai/ghost/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ghostapp-ai/ghost?style=flat-square&color=green" alt="License" /></a>
+  <a href="https://ghostapp-ai.github.io/ghost">Website</a> ·
+  <a href="https://ghostapp-ai.github.io/ghost/guides/installation/">Download</a> ·
+  <a href="#features">Features</a> ·
+  <a href="https://ghostapp-ai.github.io/ghost/architecture/overview/">Architecture</a> ·
+  <a href="ROADMAP.md">Roadmap</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ghostapp-ai/ghost/releases/latest"><img src="https://img.shields.io/github/v/release/ghostapp-ai/ghost?style=flat-square&color=7c3aed&label=latest" alt="Release" /></a>
+  <a href="https://github.com/ghostapp-ai/ghost/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ghostapp-ai/ghost?style=flat-square&color=10b981" alt="License" /></a>
   <a href="https://github.com/ghostapp-ai/ghost/actions/workflows/ghost.yml"><img src="https://img.shields.io/github/actions/workflow/status/ghostapp-ai/ghost/ghost.yml?branch=main&style=flat-square&label=CI" alt="CI" /></a>
+  <a href="https://github.com/ghostapp-ai/ghost/stargazers"><img src="https://img.shields.io/github/stars/ghostapp-ai/ghost?style=flat-square&color=f59e0b" alt="Stars" /></a>
   <a href="https://github.com/ghostapp-ai/ghost/issues"><img src="https://img.shields.io/github/issues/ghostapp-ai/ghost?style=flat-square" alt="Issues" /></a>
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android-lightgrey?style=flat-square" alt="Platform" />
-  <img src="https://img.shields.io/badge/privacy-100%25%20local-brightgreen?style=flat-square" alt="Privacy" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
+  <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" />
+  <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
+  <img src="https://img.shields.io/badge/Android-34A853?style=flat-square&logo=android&logoColor=white" alt="Android" />
+  <img src="https://img.shields.io/badge/Privacy-100%25_Local-7c3aed?style=flat-square" alt="Privacy" />
 </p>
 
 ---
 
-Ghost is a private, local-first **Agent OS** for desktop and mobile. It indexes your files, understands your context, connects to thousands of tools via open protocols (MCP, A2A, AG-UI, A2UI, WebMCP), and takes actions on your behalf — all without sending a single byte to the cloud.
+Ghost is a private, local-first **Agent OS** for desktop and mobile. It indexes your files, understands your context, connects to thousands of tools via open protocols, and takes actions on your behalf — without sending a single byte to the cloud.
 
-Think **Raycast + Semantic Search + Local AI Agent + Universal Protocol Hub** — but private by design.
+**Your data should never leave your machine to get things done.**
 
-## Why Ghost?
-
-- **100% Local**: Your data never leaves your machine. Zero telemetry, zero cloud dependencies.
-- **Instant Search**: Hybrid keyword (FTS5) + semantic vector search across all your documents.
-- **Native AI**: In-process embedding inference via Candle — no Ollama or internet required after first model download.
-- **Lightweight**: <10MB installer, <40MB RAM idle, <500ms launch. 70% less RAM than Electron.
-- **Protocol Hub**: MCP Server + Client, A2A multi-agent coordination, AG-UI streaming, A2UI generative UI — the most connected local agent.
-- **Extensible**: Skills.md plugin system + compatible with 10,000+ MCP servers + future Skills Marketplace.
+Ghost runs AI natively on your hardware — no cloud APIs, no GPU requirements, no external dependencies. From semantic search to agentic tool calling, everything happens locally.
 
 ## Features
 
-### Phase 0 — Foundation (**Complete**)
+### Search — Instant & Intelligent
 
-- Tauri v2 desktop shell with React/TypeScript frontend
-- Rust core engine with `thiserror` error handling + `tracing` logging
-- SQLite + sqlite-vec (via FFI auto-extension) for unified storage (documents, vectors, text)
-- FTS5 keyword search + sqlite-vec KNN vector search with RRF hybrid ranking
-- **Native AI inference**: Candle (HuggingFace Rust ML) with all-MiniLM-L6-v2 (384D, ~23MB) — works on any CPU, zero external dependencies
-- **Fallback chain**: Native → Ollama → FTS5-only keyword search
-- Hardware detection: CPU cores, AVX2/NEON SIMD, GPU backend (CUDA/Metal/Vulkan)
-- File watcher (`notify` + `notify-debouncer-mini`) for real-time document indexing
-- Text extraction: PDF (lopdf), DOCX (zip), XLSX (calamine), TXT, Markdown, code files
-- 27 unit tests passing, zero compiler warnings
+- **<5ms keyword search** (FTS5) + **<500ms semantic search** (sqlite-vec KNN) fused via [Reciprocal Rank Fusion](https://plg.uwaterloo.ca/~gplatt/tutorials/tutcomb.pdf)
+- Native **all-MiniLM-L6-v2** embeddings (384D, ~23MB) via Candle — zero external dependencies
+- Fallback chain: Native Candle → Ollama (768D) → keyword-only
+- Real-time file watcher for PDF, DOCX, XLSX, TXT, Markdown, and 50+ code formats
 
-### Phase 1 — The Search Bar (**Complete**)
+### AI — Native & Hardware-Adaptive
 
-- **Spotlight-like floating window**: `Ctrl/Cmd+Space` global shortcut, decorationless, always-on-top, transparent
-- Auto-hide on focus loss, Escape to dismiss, draggable title region
-- Dark ghost-themed UI with Tailwind CSS v4
-- Debounced search input (150ms) with loading skeletons
-- Virtualized results list (`@tanstack/react-virtual`) with file type icons
-- **Open files**: Enter key or double-click opens files with system default app
-- Keyboard navigation: arrow keys, Enter to open, Esc to dismiss
-- Settings panel: watched directory management, persistent settings (JSON)
-- **Zero-config auto-indexing**: auto-discovers user directories (Documents, Desktop, Downloads, Pictures) on first launch — like Spotlight/Alfred
-- Cross-platform directory detection via `dirs` crate (XDG, Windows Known Folders, macOS standard paths)
-- Auto-start file watcher on launch with saved directories
-- **Reliable window dragging**: programmatic `startDragging()` fallback for Linux/Wayland compatibility
-- 50+ source code extensions indexed (rs, py, js, ts, go, java, cpp, etc.)
-- Status bar: document count, AI engine status, vector search status, chat model status
-- Cross-platform CI/CD: Windows, macOS (ARM64 + Intel), Linux installers
-- 27 tests, zero warnings, ~203KB JS bundle
+- Auto-detects CPU/RAM/GPU → selects optimal **Qwen2.5-Instruct GGUF** (0.5B–7B, Q4_K_M)
+- **ReAct agent**: Reason → Act → Observe with grammar-constrained tool calling and 3-tier safety
+- Zero-config: detect hardware → select model → download from HuggingFace Hub → load in background
+- Graceful fallback: Native GGUF → Ollama HTTP → offline mode
 
-### Native Chat Engine (**Complete**)
+### Protocols — Open & Interoperable
 
-- **Hardware-aware auto-selection**: Detects CPU cores, RAM, GPU at startup → recommends largest fitting model
-- **Model registry**: Qwen2.5-Instruct GGUF family (0.5B/1.5B/3B/7B) with Q4_K_M quantization
-- **Zero-config flow**: detect hardware → pick model → auto-download from HuggingFace Hub → background load
-- **Device selection**: CPU (default), CUDA (`--features cuda`), Metal (`--features metal`)
-- **Chat UI**: Tab-based interface (Search ↔ Chat), message bubbles, model status, loading states
-- **Debug panel**: Collapsible log viewer with pause/resume and color-coded levels (Ctrl+D)
-- **Fallback chain**: Native Candle GGUF → Ollama HTTP API → offline
-- **Settings**: model, device, max_tokens, temperature — all configurable, all with sensible defaults
-- **RAM detection**: Linux (/proc/meminfo), macOS (sysctl), Windows (PowerShell Get-CimInstance)
+Ghost speaks every major agent protocol — no vendor lock-in, no proprietary APIs.
 
-### First-Launch Experience & Installer (**Complete**)
+| Protocol | Status | What it does |
+|----------|--------|--------------|
+| **MCP** | ✅ Server + Client | Expose Ghost tools + connect to 10,000+ external servers via `rmcp` |
+| **AG-UI** | ✅ Runtime | Bidirectional agent↔user streaming — ~16 event types, SSE endpoint |
+| **A2UI** | ✅ Renderer | Generative UI — 17+ component types rendered natively as React/Tailwind |
+| **Skills** | ✅ Registry | YAML frontmatter skill definitions + trigger matching |
+| **A2A** | 🔜 Next | Multi-agent coordination via Agent Cards + JSON-RPC 2.0 |
+| **WebMCP** | 🔜 Planned | W3C browser bridge for structured web interactions |
 
-- **Onboarding wizard**: Multi-step setup shown only on first launch
-  - Welcome screen with Ghost branding
-  - Hardware auto-detection (CPU, RAM, GPU, SIMD)
-  - Recommended model display with specs (size, RAM requirements, parameters)
-  - One-click model download with real-time progress bar
-  - Setup complete summary with keyboard shortcut reminder
-  - Skip option for power users who want to configure later
-- **System tray icon**: Background presence with Show/Quit menu, left-click focus
-- **Professional installer configuration**:
-  - Windows: NSIS with language selector, custom icons, WebView2 silent bootstrap
-  - macOS: DMG with custom layout, minimum macOS 10.15
-  - Linux: DEB (Debian/Ubuntu), RPM (Fedora/RHEL), AppImage (universal)
-- **Filesystem browser**: Navigate directories visually from Settings
-- **OneDrive-aware indexing**: Detects cloud placeholders, indexes metadata only
-- **Zero-config**: Auto-discovers Documents, Desktop, Downloads, Pictures on first launch
-- **Settings persistence**: `setup_complete`, `launch_on_startup`, all chat preferences with serde defaults
+### Platforms — One Codebase, Five Targets
 
-### Phase 1.7 — Multiplatform (**Complete**)
+- **Windows** (NSIS) · **macOS** (DMG × 2) · **Linux** (DEB/RPM/AppImage) · **Android** (APK/AAB) · **iOS** (ready)
+- **<10MB installer** · **<40MB RAM** idle · **<500ms** cold start
+- Conditional compilation (`#[cfg(desktop)]` / `#[cfg(mobile)]`) — single Rust codebase
+- Onboarding wizard, system tray, zero-config file discovery
 
-- **Android APK**: Full Tauri v2 mobile build (39MB APK, 16MB AAB for aarch64)
-- **Conditional compilation**: `#[cfg(desktop)]` / `#[cfg(mobile)]` for platform-specific code
-- **TLS migration**: 100% rustls — zero OpenSSL, Android NDK cross-compilation safe
-- **Desktop-only gating**: llama-cpp-2, file watcher, system tray, global shortcuts, MCP stdio
-- **Responsive frontend**: all components adapted with `isMobile` prop, 44px+ touch targets, safe areas
-- **Platform detection**: `usePlatform()` hook for runtime UI adaptation
-- **iOS ready**: backend + frontend fully adapted, scaffold requires macOS
+### Roadmap
 
-### Phase 1.5 — The Protocol Bridge *(In Progress)*
+See [**ROADMAP.md →**](ROADMAP.md) for the full development plan.
 
-- **MCP Server**: ✅ Expose Ghost tools (search, index, stats) to Claude, Cursor, VS Code via `rmcp` + HTTP streamable transport
-- **MCP Client**: ✅ Connect to external MCP servers (filesystem, GitHub, databases, 10,000+) via stdio + HTTP
-- **AG-UI Runtime**: ✅ Bidirectional agent↔user streaming (~16 event types) — event bus, SSE endpoint, `useAgui` React hook, streaming chat
-- **A2UI Renderer**: ✅ Google A2UI v0.9 generative UI — 17+ component types (Text, Button, TextField, Card, Row, Column, etc.) rendered natively in React/Tailwind with data binding
-- **Skills.md**: ✅ SKILL.md parser with YAML frontmatter, trigger matching, SkillRegistry, tool schemas — OpenClaw-compatible
-- **Agent Engine**: ✅ ReAct (Reason + Act) agent with native llama.cpp inference, grammar-constrained tool calling, 3-tier safety, conversation memory, hardware-adaptive Qwen2.5-Instruct (0.5B–7B)
-- **MCP Apps**: Interactive tool UIs in sandboxed iframes within Ghost conversations
-
-### Phase 2 — The Agent OS
-
-- **A2A Protocol**: Agent-to-Agent coordination — Ghost delegates to specialized agents
-- **Tool Calling Engine**: Qwen2.5-7B selects + invokes MCP tools from schemas
-- **OS Integration**: UI Automation (Windows), accessibility APIs, clipboard history, browser history
-- **Micro-agents**: Background agents (file organizer, meeting summarizer, email drafter)
-- Premium features: sync, encryption, advanced models, unlimited automations
-
-### Phase 2.5 — The Web Agent
-
-- **WebMCP**: Read tool contracts from websites via W3C `navigator.modelContext` API
-- **Browser Extension**: Bridge between Ghost desktop agent and web-based tool contracts
-- Structured web interactions without scraping
-
-### Phase 3 — The Platform
-
-- Skills Marketplace: third-party skill distribution and monetization
-- Integrations: Obsidian, VS Code, Slack, Notion, browsers
-- Multi-agent orchestration: A2A task delegation between local agents
-- B2B/Teams: shared vaults, SSO, audit trails, compliance
+- **Next**: A2A multi-agent coordination, MCP Apps, OS UI automation
+- **Then**: WebMCP browser bridge, Skills Marketplace, B2B/Teams
 
 ## Architecture
 
@@ -191,113 +130,66 @@ The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Lay
 
 ### Tech Stack
 
-| Component          | Technology                       | Why                                                |
-| ------------------ | -------------------------------- | -------------------------------------------------- |
-| Shell/UI           | Tauri v2 + React/TypeScript      | <10MB installer, native performance                |
-| Database           | SQLite + sqlite-vec + FTS5       | Single .db file, vectors + text + metadata         |
-| Native Embeddings  | Candle + all-MiniLM-L6-v2        | 384D, ~23MB, in-process, no external deps          |
-| Fallback Embeddings| Ollama + nomic-embed-text        | 768D, optional, higher quality for large models    |
-| LLM / Chat         | Candle GGUF + Qwen2.5-Instruct   | Native inference, tool calling, 0.5B–7B tiers      |
-| Agent Engine       | llama.cpp GGUF + ReAct loop      | Hardware-adaptive (0.5B–7B), grammar-constrained tool calling |
-| Safety Layer       | 3-tier risk classification       | Safe/Moderate/Dangerous, human-in-the-loop         |
-| Skills System      | SKILL.md + YAML frontmatter      | OpenClaw-compatible, trigger matching, extensible   |
-| MCP Protocol       | rmcp (official Rust SDK)         | Server + Client, `#[tool]` macro, 10,000+ servers  |
-| Agent Interaction  | AG-UI + A2UI                     | Real-time streaming + generative UI from JSON       |
-| Agent Coordination | A2A (Google)                     | Multi-agent task delegation, Agent Cards            |
-| Web Agent          | WebMCP (W3C)                     | Browser tool contracts, no scraping                 |
-| File Watcher       | notify (Rust crate)              | Cross-platform, async, <1% CPU                     |
-| Text Extraction    | lopdf + zip + calamine           | Pure Rust, no external dependencies                |
-| Encryption         | ChaCha20-Poly1305 (age crate)    | Modern, audited (Pro)                              |
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Shell | Tauri v2 + React 18 | <10MB installer, native perf, 5 platforms |
+| Database | SQLite + sqlite-vec + FTS5 | Vectors + text + metadata in one `.db` |
+| Embeddings | Candle + all-MiniLM-L6-v2 | 384D, ~23MB, in-process, zero deps |
+| Chat / Agent | Candle GGUF + Qwen2.5-Instruct | 0.5B–7B tiers, tool calling, ReAct |
+| Protocols | rmcp · AG-UI · A2UI · A2A | MCP server+client, streaming, gen UI |
+| Extraction | lopdf · zip · calamine | PDF, DOCX, XLSX — pure Rust |
 
-## Getting Started
+## Download
 
-### Download & Install
+Get the latest release from [**Releases**](https://github.com/ghostapp-ai/ghost/releases/latest) or the [**website**](https://ghostapp-ai.github.io/ghost/guides/installation/):
 
-Download the latest release for your platform from [**GitHub Releases**](https://github.com/ghostapp-ai/ghost/releases/latest):
+| Platform | Format | Notes |
+|----------|--------|-------|
+| **Windows** x64 | `.exe` (NSIS) | No admin required, WebView2 auto-bootstrap |
+| **macOS** Apple Silicon | `.dmg` | M1 / M2 / M3 / M4 |
+| **macOS** Intel | `.dmg` | x64, macOS ≥ 10.15 |
+| **Linux** x64 | `.deb` `.rpm` `.AppImage` | Debian, Fedora, universal |
+| **Android** ARM64 | `.apk` `.aab` | Min SDK 24, Tauri v2 WebView |
 
-| Platform | File | Notes |
-|----------|------|-------|
-| **Windows** (64-bit) | `ghost_x.x.x_x64-setup.exe` | NSIS installer, no admin required |
-| **macOS** (Apple Silicon) | `ghost_x.x.x_aarch64.dmg` | M1/M2/M3/M4 Macs |
-| **macOS** (Intel) | `ghost_x.x.x_x64.dmg` | Intel-based Macs |
-| **Linux** (64-bit) | `ghost_x.x.x_amd64.deb` | Debian/Ubuntu |
-| **Linux** (64-bit) | `ghost_x.x.x_amd64.AppImage` | Universal Linux |
+> **No external dependencies.** Ghost ships with native AI — no Ollama, no GPU, no internet after first install.
 
-| **Android** (ARM64) | `app-universal-release.apk` | Tauri v2 WebView, min SDK 24 |
+## Build from Source
 
-> **No external dependencies required.** Ghost ships with native AI inference — no Ollama, no GPU, no internet needed after installation.
-
-### Build from Source
-
-#### Prerequisites
-
-- [Rust](https://rustup.rs/) (latest stable)
-- [Node.js](https://nodejs.org/) >= 18 or [Bun](https://bun.sh/) >= 1.0
-- [Ollama](https://ollama.com/) (optional — Ghost uses native AI by default)
-- Platform-specific Tauri v2 dependencies ([see guide](https://v2.tauri.app/start/prerequisites/))
-
-### Installation
+**Prerequisites**: [Rust](https://rustup.rs/) (stable) · [Bun](https://bun.sh/) ≥ 1.0 (or Node ≥ 18) · [Tauri v2 deps](https://v2.tauri.app/start/prerequisites/)
 
 ```bash
-# Clone the repo
-git clone https://github.com/ghostapp-ai/ghost.git
-cd ghost
-
-# Install frontend dependencies
+git clone https://github.com/ghostapp-ai/ghost.git && cd ghost
 bun install
-
-# (Optional) Pull Ollama model for higher-quality 768D embeddings
-# ollama pull nomic-embed-text
-
-# Run in development mode (native AI model downloads on first run ~23MB)
-bun run tauri dev
+bun run tauri dev          # Dev mode — native model downloads ~23MB on first run
+bun run tauri build        # Production build → src-tauri/target/release/bundle/
 ```
 
-### Build for Production
-
 ```bash
-# Desktop
-bun run tauri build
-
-# Android (requires Android SDK + NDK 27+)
+# Android (requires SDK + NDK 27+)
 bun run tauri android build --target aarch64
 ```
 
-The desktop installer will be generated in `src-tauri/target/release/bundle/`.
-The Android APK will be in `src-tauri/gen/android/app/build/outputs/apk/`.
+Optionally install [Ollama](https://ollama.com/) and pull `nomic-embed-text` for higher-quality 768D embeddings.
 
 ## Project Structure
 
 ```
-ghost/
-├── src/                    # Frontend (React/TypeScript)
-│   ├── components/         # UI components (Onboarding, GhostInput, ResultsList, Settings, StatusBar)
-│   ├── hooks/              # Custom React hooks (useSearch, useHotkey, usePlatform)
-│   ├── lib/                # Tauri IPC wrappers + TypeScript types + mode detection
-│   ├── styles/             # Global CSS (Tailwind v4 theme, safe areas, touch targets)
-│   └── App.tsx             # Root component (onboarding → main UI routing, platform-aware)
-├── src-tauri/              # Backend (Rust)
-│   ├── src/
-│   │   ├── lib.rs          # Tauri commands: search, index, watcher, settings, platform info
-│   │   ├── main.rs         # Entry point
-│   │   ├── error.rs        # Error types (thiserror)
-│   │   ├── settings.rs     # Persistent settings (JSON)
-│   │   ├── chat/           # Chat engine: native Candle GGUF (desktop) + Ollama fallback
-│   │   ├── indexer/        # File watcher (desktop) + text extraction + chunking
-│   │   ├── db/             # SQLite + sqlite-vec + FTS5 (cross-platform FFI types)
-│   │   ├── embeddings/     # Native Candle + Ollama engines + hardware detection
-│   │   ├── search/         # Hybrid search engine + RRF ranking
-│   │   └── protocols/      # MCP server/client, AG-UI, A2A, A2UI, WebMCP
-│   ├── gen/android/        # Generated Android Gradle project (Tauri v2)
-│   ├── capabilities/       # Platform-split permissions (default, desktop, mobile)
-│   ├── Cargo.toml          # Rust deps (target-specific for desktop/mobile)
-│   └── tauri.conf.json     # Tauri configuration + bundler config
-├── branding/               # Brand assets (SVGs, PNGs, social, scripts)
-├── ROADMAP.md              # Detailed development roadmap
-├── CLAUDE.md               # Agent instructions for AI-assisted development
-├── CONTRIBUTING.md         # Contribution guidelines
-├── SECURITY.md             # Security policy & vulnerability disclosure
-└── package.json            # Frontend dependencies
+src/                  # React 18 + TypeScript frontend
+  components/         # Onboarding, GhostInput, ChatMessages, A2UIRenderer, Settings …
+  hooks/              # useSearch, useAgui, usePlatform, useHotkey
+  lib/                # Tauri IPC wrappers, types, mode detection
+
+src-tauri/src/        # Rust backend
+  indexer/            # File watcher + text extraction + chunking
+  db/                 # SQLite · sqlite-vec · FTS5
+  embeddings/         # Native Candle + Ollama fallback + hardware detection
+  search/             # Hybrid search + RRF ranking
+  chat/               # Candle GGUF inference + model registry
+  agent/              # ReAct executor + tools + safety + memory + skills
+  protocols/          # MCP server/client · AG-UI · A2UI · A2A · WebMCP
+
+website/              # Astro Starlight documentation (GitHub Pages)
+branding/             # Icons, social, brand guidelines
 ```
 
 ## Roadmap
@@ -314,30 +206,19 @@ See [ROADMAP.md](ROADMAP.md) for the detailed development plan with phases, mile
 
 ## Contributing
 
-Ghost is currently in early development. Contributions are welcome!
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding conventions, and PR guidelines.
-
-For security vulnerabilities, see [SECURITY.md](SECURITY.md).
+Contributions welcome! Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup and conventions. Security issues → [SECURITY.md](SECURITY.md).
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+[MIT](LICENSE) — free and open source.
 
 ## Acknowledgments
 
-- [Tauri](https://tauri.app/) — Desktop framework
-- [Ollama](https://ollama.com/) — Local LLM runtime
-- [sqlite-vec](https://github.com/asg017/sqlite-vec) — Vector search for SQLite
-- [Candle](https://github.com/huggingface/candle) — Rust ML framework for native AI inference
-- [rmcp](https://crates.io/crates/rmcp) — Official Rust MCP SDK
-- [MCP](https://modelcontextprotocol.io/) — Model Context Protocol (Linux Foundation / AAIF)
-- [A2A](https://google.github.io/A2A) — Agent-to-Agent Protocol (Google / Linux Foundation)
-- [AG-UI](https://github.com/CopilotKit/ag-ui) — Agent-User Interaction Protocol (CopilotKit)
-- [OpenClaw](https://github.com/nicepkg/OpenClaw) — Model-agnostic agent infrastructure
+[Tauri](https://tauri.app/) · [Candle](https://github.com/huggingface/candle) · [sqlite-vec](https://github.com/asg017/sqlite-vec) · [rmcp](https://crates.io/crates/rmcp) · [Ollama](https://ollama.com/) · [MCP](https://modelcontextprotocol.io/) · [A2A](https://google.github.io/A2A) · [AG-UI](https://github.com/CopilotKit/ag-ui) · [OpenClaw](https://github.com/nicepkg/OpenClaw)
 
 ---
 
 <p align="center">
-  <strong>Your data. Your machine. Your ghost.</strong>
+  <strong>Your data · Your machine · Your ghost</strong><br>
+  <a href="https://ghostapp-ai.github.io/ghost">Website</a> · <a href="https://github.com/ghostapp-ai/ghost/releases/latest">Download</a> · <a href="https://github.com/ghostapp-ai/ghost/discussions">Discussions</a>
 </p>

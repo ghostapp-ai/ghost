@@ -1,17 +1,17 @@
 ---
 title: Ghost — The Private Agent OS
-description: Local-first AI that indexes your files, connects to 10,000+ tools, and takes actions on your behalf — without sending data to the cloud.
+description: "Ghost is a private, local-first Agent OS for desktop and mobile. Index your files, connect to 10,000+ tools via open protocols, and run AI agents — all without sending data to the cloud. Available for Windows, macOS, Linux, and Android."
 template: splash
 hero:
-  tagline: "Your data. Your machine. Your ghost."
+  tagline: "Your data never leaves your machine. Ghost runs AI locally — search, chat, and automate without the cloud."
   image:
     file: ../../assets/ghost-icon.svg
   actions:
-    - text: Get Started
+    - text: Download Ghost
       link: /ghost/guides/installation/
       icon: right-arrow
       variant: primary
-    - text: View on GitHub
+    - text: Star on GitHub
       link: https://github.com/ghostapp-ai/ghost
       icon: external
       variant: minimal
@@ -19,96 +19,142 @@ hero:
 
 import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
+<a href="https://github.com/ghostapp-ai/ghost/releases/latest" class="eyebrow-banner">
+  <span class="badge">NEW</span>
+  v0.11 — Agent Engine + A2UI Generative UI + Skills System →
+</a>
+
 <div class="stats-row">
   <span class="stat-badge"><strong>100%</strong> Local</span>
-  <span class="stat-badge"><strong>&lt;500ms</strong> Launch</span>
-  <span class="stat-badge"><strong>&lt;40MB</strong> RAM</span>
+  <span class="stat-badge"><strong>&lt;500ms</strong> Cold Start</span>
+  <span class="stat-badge"><strong>&lt;40MB</strong> RAM Idle</span>
   <span class="stat-badge"><strong>&lt;10MB</strong> Installer</span>
-  <span class="stat-badge"><strong>5 Platforms</strong></span>
-  <span class="stat-badge"><strong>MIT</strong> License</span>
+  <span class="stat-badge"><strong>5</strong> Platforms</span>
+  <span class="stat-badge"><strong>MIT</strong> Licensed</span>
 </div>
 
-## Why Ghost?
+<hr class="section-divider" />
 
-<CardGrid stagger>
-  <Card title="100% Private" icon="lock-small">
-    Zero telemetry. Zero cloud dependencies. All AI inference runs locally on your machine. Your data never leaves your device.
+## Your Data Stays on Your Machine
+
+Ghost is built from the ground up around a single principle: **your files, your queries, your conversations — all processed locally.** No telemetry. No cloud APIs. No accounts. No data ever leaves your hardware.
+
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="metric-value">&lt;5ms</div>
+    <div class="metric-label">Keyword Search (FTS5)</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">&lt;500ms</div>
+    <div class="metric-label">Semantic Search (Vector)</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">&lt;10%</div>
+    <div class="metric-label">Background CPU</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">0 bytes</div>
+    <div class="metric-label">Sent to Cloud</div>
+  </div>
+</div>
+
+<hr class="section-divider" />
+
+## Search That Understands Meaning
+
+Ghost combines **FTS5 keyword search** with **sqlite-vec vector search**, fused through Reciprocal Rank Fusion. Type a filename and get instant results. Ask a question and get semantically relevant documents. Both happen locally, in milliseconds.
+
+<CardGrid>
+  <Card title="Hybrid Search" icon="magnifier">
+    Keyword + semantic results fused via RRF — fast and accurate without cloud APIs.
   </Card>
-  <Card title="Instant Search" icon="magnifier">
-    Hybrid keyword (FTS5) + semantic vector search across all your documents. Search results in under 5ms.
+  <Card title="Native Embeddings" icon="seti:config">
+    all-MiniLM-L6-v2 runs in-process via Candle. No GPU, no Ollama, no internet after setup.
   </Card>
-  <Card title="Native AI" icon="star">
-    In-process embedding and chat inference via Candle — no Ollama, no GPU, no internet required after first model download.
+  <Card title="50+ File Types" icon="document">
+    PDF, DOCX, XLSX, TXT, Markdown, and source code — indexed automatically in real time.
   </Card>
-  <Card title="Protocol Hub" icon="puzzle">
-    MCP Server + Client, A2A multi-agent coordination, AG-UI streaming, A2UI generative UI — the most connected local agent.
-  </Card>
-  <Card title="Agent Engine" icon="rocket">
-    ReAct (Reason + Act) loop with Qwen3 via Ollama, native tool calling, 3-tier safety, conversation memory.
-  </Card>
-  <Card title="Cross-Platform" icon="laptop">
-    Windows, macOS (ARM + Intel), Linux (DEB/RPM/AppImage), Android APK, iOS (xcarchive). One codebase.
+  <Card title="Zero Config" icon="rocket">
+    Auto-discovers Documents, Desktop, Downloads, Pictures on first launch and starts indexing.
   </Card>
 </CardGrid>
 
-## Architecture
+<hr class="section-divider" />
 
-```
-┌──────────────────────────────────────────────────────┐
-│              Frontend (React/TypeScript)               │
-│  Omnibox │ Results │ Chat │ A2UI Renderer │ Settings  │
-├──────────────────────────────────────────────────────┤
-│         AG-UI Runtime (Agent ↔ User Streaming)        │
-├──────────────────────────────────────────────────────┤
-│              Tauri v2 IPC Bridge                       │
-├──────────────────────────────────────────────────────┤
-│              Agent Engine (ReAct Loop)                 │
-│  Executor │ Tools │ Safety │ Memory │ Skills           │
-├──────────────────────────────────────────────────────┤
-│              Protocol Hub (Rust — rmcp + custom)       │
-│  MCP Server │ MCP Client │ A2A │ WebMCP │ Skills       │
-├──────────────────────────────────────────────────────┤
-│              Core Engine (Rust)                        │
-│  File Watcher │ Text Extractor │ Embedding Engine      │
-├──────────────────────────────────────────────────────┤
-│              AI Layer (Local — Zero Dependencies)      │
-│  Candle BERT │ Qwen2.5 GGUF │ Qwen3 Ollama            │
-└──────────────────────────────────────────────────────┘
-```
+## AI That Runs on Your Hardware
 
-## Open Protocol Stack
+Ghost auto-detects your CPU, RAM, and GPU to select the optimal model. Qwen2.5-Instruct GGUF (0.5B–7B) loads in background — no manual configuration, no external servers.
+
+The **ReAct agent** reasons, calls tools, observes results, and iterates — with grammar-constrained output and a 3-tier safety system (Safe / Moderate / Dangerous) that keeps you in control.
+
+<CardGrid>
+  <Card title="Hardware-Adaptive" icon="setting">
+    Detects hardware → picks the best model → downloads once → loads instantly on every launch.
+  </Card>
+  <Card title="ReAct Agent Loop" icon="random">
+    Reason → Act → Observe. Multi-step tool calling with grammar constraints for reliable output.
+  </Card>
+  <Card title="3-Tier Safety" icon="approve-check">
+    Safe (auto-approve), Moderate (logged), Dangerous (requires confirmation). You decide.
+  </Card>
+  <Card title="Conversation Memory" icon="comment">
+    Agent remembers context across turns. Full history searchable via FTS5 in SQLite.
+  </Card>
+</CardGrid>
+
+<hr class="section-divider" />
+
+## The Protocol Stack
+
+Ghost implements 5 open protocols to connect with the entire AI ecosystem — locally.
 
 <div class="protocol-stack">
-  <div class="protocol-layer">🌐 <strong>WebMCP</strong> — W3C browser tool contracts (Phase 2.5)</div>
-  <div class="protocol-layer">🤝 <strong>A2A</strong> — Google Agent-to-Agent multi-agent coordination</div>
-  <div class="protocol-layer">🎨 <strong>A2UI</strong> — Google generative UI (17+ component types)</div>
-  <div class="protocol-layer">📡 <strong>AG-UI</strong> — CopilotKit agent↔user streaming (~16 events)</div>
-  <div class="protocol-layer">🔧 <strong>MCP</strong> — Model Context Protocol (10,000+ servers)</div>
+  <div class="protocol-layer">🌐 <strong>WebMCP</strong> — W3C browser tool contracts · navigator.modelContext API</div>
+  <div class="protocol-layer">🤝 <strong>A2A</strong> — Agent-to-Agent coordination · JSON-RPC 2.0 · Agent Cards</div>
+  <div class="protocol-layer">🎨 <strong>A2UI</strong> — Generative UI · 17+ component types · data binding</div>
+  <div class="protocol-layer">📡 <strong>AG-UI</strong> — Agent↔User streaming · ~16 event types · bidirectional</div>
+  <div class="protocol-layer">🔧 <strong>MCP</strong> — Model Context Protocol · 10,000+ servers · rmcp SDK</div>
 </div>
 
-## Download
+<hr class="section-divider" />
+
+## One Codebase. Five Platforms.
+
+Built with Tauri v2 and Rust. Conditional compilation (`#[cfg(desktop)]` / `#[cfg(mobile)]`) — no feature flags, no separate codebases. A single project that compiles to every major platform.
 
 <div class="download-grid">
   <a href="https://github.com/ghostapp-ai/ghost/releases/latest" class="download-btn">
-    🪟 Windows x64
+    <span class="platform-icon">⊞</span>
+    <span class="platform-name">Windows</span>
+    <span class="platform-detail">x64 · NSIS installer</span>
   </a>
   <a href="https://github.com/ghostapp-ai/ghost/releases/latest" class="download-btn">
-    🍎 macOS (ARM64)
+    <span class="platform-icon"></span>
+    <span class="platform-name">macOS</span>
+    <span class="platform-detail">Apple Silicon · DMG</span>
   </a>
   <a href="https://github.com/ghostapp-ai/ghost/releases/latest" class="download-btn">
-    🐧 Linux x64
+    <span class="platform-icon"></span>
+    <span class="platform-name">macOS Intel</span>
+    <span class="platform-detail">x64 · DMG</span>
   </a>
   <a href="https://github.com/ghostapp-ai/ghost/releases/latest" class="download-btn">
-    🤖 Android APK
+    <span class="platform-icon">🐧</span>
+    <span class="platform-name">Linux</span>
+    <span class="platform-detail">DEB · RPM · AppImage</span>
+  </a>
+  <a href="https://github.com/ghostapp-ai/ghost/releases/latest" class="download-btn">
+    <span class="platform-icon">🤖</span>
+    <span class="platform-name">Android</span>
+    <span class="platform-detail">ARM64 · APK</span>
   </a>
 </div>
 
-<div class="auto-generated-notice">
-  🤖 This website is automatically maintained by the <strong>Ghost Web Agent</strong> — a GitHub Actions workflow that syncs content from the source code, generates documentation, and deploys on every push to main.
-</div>
+<hr class="section-divider" />
 
-<LinkCard
-  title="Read the full documentation"
-  description="Installation guides, architecture deep-dives, and API reference."
-  href="/ghost/guides/introduction/"
-/>
+<div class="cta-section">
+  <h2>Your data. Your machine. Your ghost.</h2>
+  <p>Open source, MIT licensed, and built for people who believe privacy is not optional.</p>
+  <a href="/ghost/guides/installation/" class="cta-btn">Get Started →</a>
+  <a href="https://github.com/ghostapp-ai/ghost" class="cta-btn-secondary">View Source</a>
+</div>

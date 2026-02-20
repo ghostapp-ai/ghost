@@ -10,7 +10,7 @@ export default defineConfig({
     starlight({
       title: "Ghost",
       description:
-        "The Private Agent OS for Desktop & Mobile — local-first AI that never sends your data to the cloud.",
+        "Ghost is a private, local-first Agent OS for desktop and mobile. Run AI agents, search files semantically, and connect to thousands of tools — all without sending data to the cloud.",
       logo: {
         src: "./src/assets/ghost-icon.svg",
         replacesTitle: false,
@@ -21,9 +21,15 @@ export default defineConfig({
           label: "GitHub",
           href: "https://github.com/ghostapp-ai/ghost",
         },
+        {
+          icon: "x.com",
+          label: "X / Twitter",
+          href: "https://x.com/ghostapp_ai",
+        },
       ],
       favicon: "/favicon.svg",
       head: [
+        // Open Graph
         {
           tag: "meta",
           attrs: {
@@ -34,8 +40,171 @@ export default defineConfig({
         {
           tag: "meta",
           attrs: {
+            property: "og:image:width",
+            content: "1200",
+          },
+        },
+        {
+          tag: "meta",
+          attrs: {
+            property: "og:image:height",
+            content: "630",
+          },
+        },
+        {
+          tag: "meta",
+          attrs: {
+            property: "og:type",
+            content: "website",
+          },
+        },
+        {
+          tag: "meta",
+          attrs: {
+            property: "og:site_name",
+            content: "Ghost — The Private Agent OS",
+          },
+        },
+        {
+          tag: "meta",
+          attrs: {
+            property: "og:locale",
+            content: "en_US",
+          },
+        },
+        // Twitter Card
+        {
+          tag: "meta",
+          attrs: {
             name: "twitter:card",
             content: "summary_large_image",
+          },
+        },
+        {
+          tag: "meta",
+          attrs: {
+            name: "twitter:site",
+            content: "@ghostapp_ai",
+          },
+        },
+        {
+          tag: "meta",
+          attrs: {
+            name: "twitter:creator",
+            content: "@ghostapp_ai",
+          },
+        },
+        // SEO meta
+        {
+          tag: "meta",
+          attrs: {
+            name: "keywords",
+            content:
+              "ghost,agent os,local ai,private ai,mcp,desktop ai,semantic search,vector search,tauri,rust,on-device ai,open source,privacy first,local first,agentic,tool calling,protocol hub",
+          },
+        },
+        {
+          tag: "meta",
+          attrs: {
+            name: "author",
+            content: "ghostapp-ai",
+          },
+        },
+        {
+          tag: "meta",
+          attrs: {
+            name: "robots",
+            content: "index, follow",
+          },
+        },
+        // JSON-LD Structured Data — SoftwareApplication
+        {
+          tag: "script",
+          attrs: {
+            type: "application/ld+json",
+          },
+          content: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: "Ghost",
+            applicationCategory: "UtilitiesApplication",
+            applicationSubCategory: "AI Agent",
+            operatingSystem: "Windows, macOS, Linux, Android",
+            description:
+              "Ghost is a private, local-first Agent OS for desktop and mobile. Index files, run AI agents, connect to 10,000+ tools via open protocols — all without sending data to the cloud.",
+            url: "https://ghostapp-ai.github.io/ghost",
+            downloadUrl:
+              "https://github.com/ghostapp-ai/ghost/releases/latest",
+            softwareVersion: "0.11.0",
+            license: "https://opensource.org/licenses/MIT",
+            featureList:
+              "Hybrid search (FTS5 + vector), Native AI inference, ReAct agent engine, MCP protocol hub, AG-UI streaming, A2UI generative UI, Skills system, Zero telemetry, Cross-platform",
+            author: {
+              "@type": "Organization",
+              name: "ghostapp-ai",
+              url: "https://github.com/ghostapp-ai",
+            },
+            offers: {
+              "@type": "Offer",
+              price: "0",
+              priceCurrency: "USD",
+            },
+            image:
+              "https://ghostapp-ai.github.io/ghost/og-card.png",
+          }),
+        },
+        // JSON-LD — Organization for brand knowledge graph
+        {
+          tag: "script",
+          attrs: {
+            type: "application/ld+json",
+          },
+          content: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "ghostapp-ai",
+            url: "https://ghostapp-ai.github.io/ghost",
+            logo: "https://ghostapp-ai.github.io/ghost/og-card.png",
+            sameAs: [
+              "https://github.com/ghostapp-ai",
+              "https://x.com/ghostapp_ai",
+            ],
+          }),
+        },
+        // JSON-LD — WebSite for sitelinks search box
+        {
+          tag: "script",
+          attrs: {
+            type: "application/ld+json",
+          },
+          content: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "Ghost — The Private Agent OS",
+            url: "https://ghostapp-ai.github.io/ghost",
+            description:
+              "Documentation and downloads for Ghost, the private local-first Agent OS.",
+            publisher: {
+              "@type": "Organization",
+              name: "ghostapp-ai",
+              url: "https://github.com/ghostapp-ai",
+            },
+          }),
+        },
+        // Theme color for mobile browsers
+        {
+          tag: "meta",
+          attrs: {
+            name: "theme-color",
+            content: "#7c3aed",
+          },
+        },
+        // Canonical (helps avoid duplicate content with GitHub Pages)
+        {
+          tag: "link",
+          attrs: {
+            rel: "canonical",
+            href: "https://ghostapp-ai.github.io/ghost/",
           },
         },
       ],

@@ -40,9 +40,9 @@
       "icons/icon.ico"
     ],
     "category": "Utility",
-    "shortDescription": "Private Local AI Superpowers for Your OS",
-    "longDescription": "Ghost is a private, local-first AI assistant that indexes your files, provides hybrid semantic + keyword search, and runs entirely on your machine. Zero telemetry, zero cloud dependencies.",
-    "copyright": "Copyright © 2026 Ghost Contributors",
+    "shortDescription": "The Private Agent OS — Local AI for Desktop & Mobile",
+    "longDescription": "Ghost is a private, local-first Agent OS that indexes your files, provides hybrid semantic + keyword search, connects to 10,000+ tools via MCP, and runs AI agents — all without sending data to the cloud. Powered by Tauri v2, Candle ML, and open protocols (MCP, A2A, AG-UI, A2UI).",
+    "copyright": "Copyright © 2026 ghostapp-ai Contributors",
     "license": "MIT",
     "licenseFile": "../LICENSE",
     "windows": {

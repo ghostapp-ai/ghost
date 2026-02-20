@@ -2,10 +2,13 @@
   "name": "ghost",
   "private": false,
   "version": "0.11.0",
-  "description": "Private Local AI Superpowers for Your OS",
-  "author": "ghostapp-ai",
+  "description": "The Private Agent OS — local-first AI that indexes files, runs agents, and connects to 10,000+ tools via MCP without sending data to the cloud",
+  "author": {
+    "name": "ghostapp-ai",
+    "url": "https://github.com/ghostapp-ai"
+  },
   "license": "MIT",
-  "homepage": "https://github.com/ghostapp-ai/ghost",
+  "homepage": "https://ghostapp-ai.github.io/ghost",
   "repository": {
     "type": "git",
     "url": "https://github.com/ghostapp-ai/ghost.git"
@@ -13,25 +16,49 @@
   "bugs": {
     "url": "https://github.com/ghostapp-ai/ghost/issues"
   },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/ghostapp-ai"
+  },
   "keywords": [
-    "ai",
-    "desktop-app",
+    "ghost",
+    "agent-os",
+    "ai-agent",
     "local-first",
     "privacy-first",
+    "desktop-app",
     "semantic-search",
     "vector-search",
+    "hybrid-search",
     "tauri",
+    "tauri-v2",
     "rust",
+    "react",
+    "typescript",
     "ollama",
     "llm",
     "mcp",
+    "model-context-protocol",
+    "a2a",
+    "ag-ui",
+    "a2ui",
     "embeddings",
+    "candle",
+    "gguf",
+    "qwen",
     "cross-platform",
-    "spotlight-alternative",
-    "raycast-alternative",
-    "productivity",
     "sqlite",
-    "open-source"
+    "sqlite-vec",
+    "fts5",
+    "open-source",
+    "productivity",
+    "on-device-ai",
+    "agentic",
+    "skills-system",
+    "file-search",
+    "knowledge-base",
+    "react-loop",
+    "tool-calling"
   ],
   "type": "module",
   "scripts": {
