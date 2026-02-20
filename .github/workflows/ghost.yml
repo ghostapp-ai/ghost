@@ -48,20 +48,33 @@ jobs:
             cat > pro/src/lib.rs << 'EOF'
           pub mod encryption;
           pub mod sync;
-          pub fn is_licensed() -> bool { false }
-          pub fn version() -> &'static str { "0.0.0-stub" }
-          pub async fn initialize() -> anyhow::Result<()> { Ok(()) }
+
+          pub fn is_licensed() -> bool {
+              false
+          }
+
+          pub fn version() -> &'static str {
+              "0.0.0-stub"
+          }
+
+          pub async fn initialize() -> anyhow::Result<()> {
+              Ok(())
+          }
           EOF
             cat > pro/src/encryption/mod.rs << 'EOF'
           pub struct EncryptionEngine;
           impl EncryptionEngine {
-              pub fn new() -> Self { Self }
+              pub fn new() -> Self {
+                  Self
+              }
           }
           EOF
             cat > pro/src/sync/mod.rs << 'EOF'
           pub struct SyncEngine;
           impl SyncEngine {
-              pub fn new() -> Self { Self }
+              pub fn new() -> Self {
+                  Self
+              }
           }
           EOF
           fi
