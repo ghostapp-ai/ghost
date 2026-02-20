@@ -9,9 +9,10 @@
 
 **Ghost** is a private, local-first AI assistant for desktop (Windows → macOS → Linux). It indexes local files, provides hybrid semantic + keyword search, and evolves into an AI agent that can take actions on the user's OS — all without sending data to the cloud.
 
-- **Current phase**: Phase 0 — Foundation
-- **Stack**: Tauri v2 (Rust backend) + React/TypeScript (frontend) + SQLite/sqlite-vec + Ollama
-- **Priority**: Make search instant and reliable. Nothing else matters until Phase 1 ships.
+- **Current phase**: Phase 1 — The Search Bar (Complete) → preparing Phase 1.5 (MCP Bridge)
+- **Stack**: Tauri v2 (Rust backend) + React/TypeScript (frontend) + SQLite/sqlite-vec + Candle (native AI)
+- **Repo**: `ghostapp-ai/ghost` (public, MIT) + `ghostapp-ai/ghost-pro` (private, proprietary submodule)
+- **Priority**: Open source launch, then MCP Bridge integration.
 
 ---
 
@@ -497,3 +498,7 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-19 | semantic-release over Release Please | 100% automatic: no PRs to merge, no manual steps. Push conventional commits → CI → semantic-release bumps version + CHANGELOG + tag + GitHub Release + cross-platform builds |
 | 2026-02-19 | `@semantic-release/exec` + custom script for version sync | `scripts/update-versions.sh` updates `package.json`, `Cargo.toml`, `tauri.conf.json` — avoids npm plugin dependency issues with bun |
 | 2026-02-19 | Repository best practices via GitHub API | Auto-delete branches, auto-merge, squash merge defaults, vulnerability alerts, security fixes, topic tags |
+| 2026-02-19 | Open Core: ghostapp-ai/ghost (public MIT) + ghost-pro (private submodule) | GitLab/Grafana model: core is fully open, pro/ crate has proprietary license, loaded via `--features pro` Cargo flag |
+| 2026-02-19 | Git submodule for pro/ over monorepo | Clean separation: contributors don't need pro access, CI works without it, pro team gets own repo with own CI |
+| 2026-02-19 | Dynamic GitHub badges over static | shields.io endpoints auto-update: version from releases, CI status from workflow, license from repo metadata |
+| 2026-02-19 | GitHub org `ghostapp-ai` over personal `AngelAlexQC` | Professional identity, team scalability, separate billing, org-level security policies |
