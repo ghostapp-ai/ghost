@@ -3,6 +3,7 @@ mod db;
 mod embeddings;
 mod error;
 mod indexer;
+mod protocols;
 mod search;
 mod settings;
 
@@ -30,6 +31,7 @@ pub struct AppState {
     pub chat_engine: chat::ChatEngine,
     pub hardware: HardwareInfo,
     pub settings: std::sync::Mutex<Settings>,
+    pub mcp_client: protocols::mcp_client::McpClientManager,
 }
 
 /// A structured log entry for the debug panel.
@@ -379,6 +381,130 @@ async fn is_pro() -> bool {
     {
         false
     }
+}
+
+// --- MCP Protocol Commands ---
+
+/// Get MCP server status (whether it's running and on what address).
+#[tauri::command]
+async fn get_mcp_server_status(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let config = state
+        .settings
+        .lock()
+        .map(|s| s.mcp_server.clone())
+        .unwrap_or_default();
+
+    Ok(serde_json::json!({
+        "enabled": config.enabled,
+        "host": config.host,
+        "port": config.port,
+        "url": format!("http://{}:{}/mcp", config.host, config.port),
+    }))
+}
+
+/// List all configured external MCP servers and their connection status.
+#[tauri::command]
+async fn list_mcp_servers(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<protocols::mcp_client::ConnectedServer>, String> {
+    Ok(state.mcp_client.list_servers().await)
+}
+
+/// Connect to an external MCP server by name.
+#[tauri::command]
+async fn connect_mcp_server(
+    name: String,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<protocols::mcp_client::ConnectedServer, String> {
+    let entry = {
+        let settings = state.settings.lock().map_err(|e| e.to_string())?;
+        settings
+            .mcp_servers
+            .iter()
+            .find(|s| s.name == name)
+            .cloned()
+            .ok_or_else(|| format!("MCP server '{}' not found in settings", name))?
+    };
+    Ok(state.mcp_client.connect(&entry).await)
+}
+
+/// Disconnect from an external MCP server.
+#[tauri::command]
+async fn disconnect_mcp_server(
+    name: String,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    state
+        .mcp_client
+        .disconnect(&name)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Call a tool on a connected external MCP server.
+#[tauri::command]
+async fn call_mcp_tool(
+    server_name: String,
+    tool_name: String,
+    arguments: Option<serde_json::Value>,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<String, String> {
+    state
+        .mcp_client
+        .call_tool(&server_name, &tool_name, arguments)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Get all available tools from all connected MCP servers.
+#[tauri::command]
+async fn list_mcp_tools(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let tools = state.mcp_client.all_tools().await;
+    let result: Vec<serde_json::Value> = tools
+        .iter()
+        .map(|(server, tool)| {
+            serde_json::json!({
+                "server": server,
+                "name": tool.name,
+                "description": tool.description,
+            })
+        })
+        .collect();
+    Ok(result)
+}
+
+/// Add a new MCP server entry to settings.
+#[tauri::command]
+async fn add_mcp_server_entry(
+    entry: protocols::McpServerEntry,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+    // Avoid duplicates
+    settings.mcp_servers.retain(|s| s.name != entry.name);
+    settings.mcp_servers.push(entry);
+    settings
+        .save(&get_app_data_dir().join("settings.json"))
+        .map_err(|e| e.to_string())
+}
+
+/// Remove an MCP server entry from settings.
+#[tauri::command]
+async fn remove_mcp_server_entry(
+    name: String,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    // Disconnect first
+    let _ = state.mcp_client.disconnect(&name).await;
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+    settings.mcp_servers.retain(|s| s.name != name);
+    settings
+        .save(&get_app_data_dir().join("settings.json"))
+        .map_err(|e| e.to_string())
 }
 
 // --- Filesystem Browsing Commands ---
@@ -828,6 +954,7 @@ pub fn run() {
         chat_engine,
         hardware,
         settings: std::sync::Mutex::new(settings),
+        mcp_client: protocols::mcp_client::McpClientManager::new(),
     });
 
     tauri::Builder::default()
@@ -874,6 +1001,15 @@ pub fn run() {
             get_root_directories,
             add_watch_directory,
             remove_watch_directory,
+            // MCP Protocol
+            get_mcp_server_status,
+            list_mcp_servers,
+            connect_mcp_server,
+            disconnect_mcp_server,
+            call_mcp_tool,
+            list_mcp_tools,
+            add_mcp_server_entry,
+            remove_mcp_server_entry,
         ])
         .setup(move |app| {
             // --- System Tray ---
@@ -927,6 +1063,58 @@ pub fn run() {
                 });
 
             tracing::info!("Global shortcut registered: CmdOrCtrl+Space");
+
+            // --- Start MCP Server ---
+            let mcp_state = app_state.clone();
+            let mcp_config = mcp_state
+                .settings
+                .lock()
+                .map(|s| s.mcp_server.clone())
+                .unwrap_or_default();
+
+            tauri::async_runtime::spawn(async move {
+                match protocols::start_mcp_server(mcp_state.clone(), &mcp_config).await {
+                    Ok(addr) => {
+                        push_log("info", format!("MCP server started on {}", addr));
+                        tracing::info!("MCP server started on {}", addr);
+                    }
+                    Err(e) => {
+                        push_log("warn", format!("MCP server failed to start: {}", e));
+                        tracing::warn!("MCP server failed to start: {}", e);
+                    }
+                }
+
+                // Connect to configured external MCP servers
+                let mcp_servers = mcp_state
+                    .settings
+                    .lock()
+                    .map(|s| s.mcp_servers.clone())
+                    .unwrap_or_default();
+
+                for entry in &mcp_servers {
+                    if entry.enabled {
+                        let result = mcp_state.mcp_client.connect(entry).await;
+                        if result.connected {
+                            push_log(
+                                "info",
+                                format!(
+                                    "MCP client connected to '{}' ({} tools)",
+                                    result.name,
+                                    result.tools.len(),
+                                ),
+                            );
+                        } else if let Some(err) = &result.error {
+                            push_log(
+                                "warn",
+                                format!(
+                                    "MCP client failed to connect to '{}': {}",
+                                    result.name, err
+                                ),
+                            );
+                        }
+                    }
+                }
+            });
 
             // --- Background model loading ---
             // Don't block app startup — load the chat model in a background task
