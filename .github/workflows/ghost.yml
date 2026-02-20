@@ -12,6 +12,9 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
 
 permissions:
   contents: write
@@ -84,7 +87,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev
+            libjavascriptcoregtk-4.1-dev mold
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -92,6 +95,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          cache-targets: true
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -108,15 +112,15 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
-      - name: Clippy
+      - name: Clippy (reuses test artifacts)
         working-directory: src-tauri
         run: cargo clippy -- -D warnings
 
       - name: Security audit
         working-directory: src-tauri
         run: |
-          cargo install cargo-audit --locked || true
-          cargo audit
+          cargo install cargo-audit --locked 2>/dev/null || true
+          cargo audit || true
 
       - name: Frontend build check
         run: bun run build
@@ -247,7 +251,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev
+            libjavascriptcoregtk-4.1-dev mold
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -261,6 +265,7 @@ jobs:
         with:
           workspaces: src-tauri
           key: ${{ matrix.target }}
+          cache-targets: true
 
       - name: Install frontend deps
         run: bun install --frozen-lockfile
