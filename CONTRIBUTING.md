@@ -19,7 +19,7 @@ Be respectful, constructive, and professional. We're building privacy-first soft
 
 ```bash
 # Clone the repo
-git clone https://github.com/AngelAlexQC/ghost.git
+git clone https://github.com/ghostapp-ai/ghost.git
 cd ghost
 
 # Install frontend dependencies
@@ -98,7 +98,7 @@ Read [CLAUDE.md](CLAUDE.md) for the complete architecture guide, conventions, an
 ## Areas for Contribution
 
 ### Good First Issues
-Look for issues labeled [`good first issue`](https://github.com/AngelAlexQC/ghost/labels/good%20first%20issue).
+Look for issues labeled [`good first issue`](https://github.com/ghostapp-ai/ghost/labels/good%20first%20issue).
 
 ### Current Priorities
 Check [ROADMAP.md](ROADMAP.md) for the current phase and what needs to be done.

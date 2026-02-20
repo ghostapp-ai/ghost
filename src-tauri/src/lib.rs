@@ -6,6 +6,10 @@ mod indexer;
 mod search;
 mod settings;
 
+// Pro features (only compiled when `pro` feature flag is enabled)
+#[cfg(feature = "pro")]
+use ghost_pro;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -360,6 +364,21 @@ async fn clear_logs() -> Result<(), String> {
     Ok(())
 }
 
+// --- Pro Edition Commands ---
+
+/// Check if this build includes Ghost Pro features
+#[tauri::command]
+async fn is_pro() -> bool {
+    #[cfg(feature = "pro")]
+    {
+        ghost_pro::is_licensed()
+    }
+    #[cfg(not(feature = "pro"))]
+    {
+        false
+    }
+}
+
 // --- Settings Commands ---
 
 #[tauri::command]
@@ -397,6 +416,16 @@ pub fn run() {
         "info",
         format!("Starting Ghost v{}", env!("CARGO_PKG_VERSION")),
     );
+
+    // Log edition info
+    #[cfg(feature = "pro")]
+    {
+        push_log("info", format!("Edition: Ghost Pro v{}", ghost_pro::version()));
+    }
+    #[cfg(not(feature = "pro"))]
+    {
+        push_log("info", "Edition: Ghost Community (open source)".to_string());
+    }
 
     // --- Step 1: Detect hardware ---
     let hardware = HardwareInfo::detect();
@@ -520,6 +549,8 @@ pub fn run() {
             // Settings
             get_settings,
             save_settings,
+            // Pro
+            is_pro,
         ])
         .setup(move |app| {
             // Register global shortcut: Ctrl+Space (or Cmd+Space on macOS)

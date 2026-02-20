@@ -7,8 +7,11 @@
 # Frontend
 /src/ @AngelAlexQC
 
-# CI/CD
+# CI/CD & Automation
 /.github/ @AngelAlexQC
 
 # Documentation
 /*.md @AngelAlexQC
+
+# Pro features (submodule — separate repo)
+/pro/ @AngelAlexQC

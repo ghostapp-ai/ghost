@@ -155,3 +155,10 @@ export async function saveSettings(newSettings: Settings): Promise<void> {
 export async function openFile(path: string): Promise<void> {
   return openPath(path);
 }
+
+// --- Pro Edition ---
+
+/** Check if this build includes Ghost Pro features. */
+export async function isPro(): Promise<boolean> {
+  return invoke<boolean>("is_pro");
+}

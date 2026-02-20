@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Documentation
-    url: https://github.com/AngelAlexQC/ghost/blob/main/README.md
+    url: https://github.com/ghostapp-ai/ghost/blob/main/README.md
     about: Read the documentation before opening an issue
   - name: Roadmap
-    url: https://github.com/AngelAlexQC/ghost/blob/main/ROADMAP.md
+    url: https://github.com/ghostapp-ai/ghost/blob/main/ROADMAP.md
     about: Check the roadmap — your feature might already be planned
