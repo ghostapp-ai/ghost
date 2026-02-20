@@ -479,9 +479,9 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-18 | cargo audit in CI pipeline | Security scanning for Rust dependencies on every push/PR |
 | 2026-02-18 | Custom Ghost branding over default Tauri icons | Distinctive identity, professional look for store listings |
 | 2026-02-18 | Phase 1.5 MCP Bridge before Phase 2 | Market research: 5,800+ MCP servers, instant ecosystem access, competitive differentiator |
-| 2026-02-18 | Open Core monetization model | Market research: Raycast ($8/mo, $47.8M funding) + GitLab/Grafana validate open core for dev tools |
-| 2026-02-18 | Pro tier at $5-8/mo (not $9) | Undercut Raycast ($8/mo), well below ChatGPT ($20/mo), accessible for target market |
-| 2026-02-18 | No screen recording (differentiate from Screenpipe) | Screenpipe/Recall do surveillance; Ghost does search. Different value prop, avoids privacy backlash |
+| 2026-02-18 | Open Core monetization model | GitLab/Grafana validate open core for dev tools. Free core + paid Pro tier |
+| 2026-02-18 | Competitive Pro tier pricing | Priced accessibly below major competitors to maximize adoption |
+| 2026-02-18 | No screen recording (differentiate from Screenpipe) | Ghost focuses on search, not surveillance. Different value prop, avoids privacy backlash |
 | 2026-02-18 | Qwen2.5-Instruct GGUF for native chat | Apache 2.0, ChatML format, 4 size tiers (0.5B–7B), Q4_K_M quantization, great quality/size ratio |
 | 2026-02-18 | Per-request model reload over KV cache clear | quantized_qwen2 KV cache is private with no public clear method; OS page cache makes reload ~0.5-3s |
 | 2026-02-18 | Auto model selection over manual config | Zero-config UX: detect RAM → pick largest fitting model → background download; still configurable |
