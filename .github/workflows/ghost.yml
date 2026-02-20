@@ -189,7 +189,7 @@ jobs:
         with:
           components: clippy
 
-      - uses: Mozilla-Actions/sccache-action@v0.5
+      - uses: Mozilla-Actions/sccache-action@v0.0.9
 
       - uses: taiki-e/install-action@cargo-nextest
 
@@ -349,7 +349,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - uses: Mozilla-Actions/sccache-action@v0.5
+      - uses: Mozilla-Actions/sccache-action@v0.0.9
 
       - name: Install frontend deps
         run: bun install --frozen-lockfile
