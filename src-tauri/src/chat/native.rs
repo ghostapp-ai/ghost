@@ -4,7 +4,7 @@
 //! Runtime GPU auto-detection: Vulkan (NVIDIA/AMD/Intel), Metal (macOS), CUDA.
 //! Falls back to CPU transparently if no GPU is available.
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::llama_backend::LlamaBackend;
@@ -17,6 +17,26 @@ use super::models::ModelProfile;
 use super::ChatMessage;
 use super::DownloadProgress;
 use crate::error::{GhostError, Result};
+
+/// Global singleton for the llama.cpp backend.
+///
+/// `LlamaBackend::init()` can only be called ONCE per process (uses an AtomicBool guard).
+/// Both the chat engine and the agent executor share this single instance.
+/// Wrapped in `Arc` so it can be cloned into structs that need a reference.
+static LLAMA_BACKEND: OnceLock<Arc<LlamaBackend>> = OnceLock::new();
+
+/// Get or initialize the global llama.cpp backend.
+///
+/// Thread-safe: the first caller initializes, subsequent callers get the cached instance.
+/// This MUST be used instead of `LlamaBackend::init()` directly.
+pub fn get_or_init_backend() -> Result<Arc<LlamaBackend>> {
+    let backend = LLAMA_BACKEND.get_or_init(|| {
+        let b = LlamaBackend::init()
+            .expect("Failed to initialize llama.cpp backend");
+        Arc::new(b)
+    });
+    Ok(Arc::clone(backend))
+}
 
 /// Default sampling parameters.
 const DEFAULT_TEMPERATURE: f32 = 0.7;
@@ -74,9 +94,8 @@ impl NativeChatEngine {
             });
         }
 
-        // Initialize llama.cpp backend
-        let backend = LlamaBackend::init()
-            .map_err(|e| GhostError::Chat(format!("Failed to init llama.cpp backend: {}", e)))?;
+        // Get or initialize the global llama.cpp backend singleton
+        let backend = get_or_init_backend()?;
 
         // Detect GPU capabilities
         let has_gpu = backend.supports_gpu_offload();
@@ -111,7 +130,7 @@ impl NativeChatEngine {
         );
 
         Ok(Self {
-            backend: Arc::new(backend),
+            backend,
             model,
             model_id: profile.id.to_string(),
             model_name: profile.name.to_string(),
@@ -445,6 +464,52 @@ impl NativeChatEngine {
             }
 
             std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_or_init_backend_succeeds() {
+        let result = get_or_init_backend();
+        assert!(result.is_ok(), "get_or_init_backend() should succeed");
+    }
+
+    #[test]
+    fn test_get_or_init_backend_returns_same_instance() {
+        let b1 = get_or_init_backend().expect("first call");
+        let b2 = get_or_init_backend().expect("second call");
+        // Arc::ptr_eq checks they point to the exact same allocation
+        assert!(
+            Arc::ptr_eq(&b1, &b2),
+            "Multiple calls must return the same Arc<LlamaBackend> instance"
+        );
+    }
+
+    #[test]
+    fn test_get_or_init_backend_concurrent() {
+        use std::thread;
+
+        let handles: Vec<_> = (0..8)
+            .map(|_| {
+                thread::spawn(|| {
+                    get_or_init_backend().expect("concurrent init should succeed")
+                })
+            })
+            .collect();
+
+        let backends: Vec<Arc<LlamaBackend>> =
+            handles.into_iter().map(|h| h.join().unwrap()).collect();
+
+        // All threads must get the same instance
+        for b in &backends[1..] {
+            assert!(
+                Arc::ptr_eq(&backends[0], b),
+                "All concurrent callers must get the same Arc<LlamaBackend>"
+            );
         }
     }
 }

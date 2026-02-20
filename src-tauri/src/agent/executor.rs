@@ -22,8 +22,6 @@ use serde_json::json;
 #[cfg(desktop)]
 use llama_cpp_2::context::params::LlamaContextParams;
 #[cfg(desktop)]
-use llama_cpp_2::llama_backend::LlamaBackend;
-#[cfg(desktop)]
 use llama_cpp_2::llama_batch::LlamaBatch;
 #[cfg(desktop)]
 use llama_cpp_2::model::params::LlamaModelParams;
@@ -487,8 +485,8 @@ impl AgentExecutor {
     ) -> Result<LlmResponse, GhostError> {
         let gen_start = Instant::now();
 
-        // 1. Init backend + load model
-        let backend = LlamaBackend::init()
+        // 1. Get the global shared backend (initialized once, shared with chat engine)
+        let backend = crate::chat::native::get_or_init_backend()
             .map_err(|e| GhostError::Agent(format!("Failed to init llama.cpp backend: {}", e)))?;
 
         let has_gpu = backend.supports_gpu_offload();
