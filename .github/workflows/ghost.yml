@@ -418,6 +418,14 @@ jobs:
       - name: Install frontend deps
         run: bun install --frozen-lockfile
 
+      # Detect whether Apple signing secrets are configured.
+      # secrets context is NOT allowed in step `if:` conditions,
+      # so we expose it as an env var and check that instead.
+      - name: Detect Apple certificate
+        env:
+          APPLE_CERT_RAW: ${{ secrets.APPLE_CERTIFICATE }}
+        run: echo "HAS_APPLE_CERT=${{ secrets.APPLE_CERTIFICATE != '' }}" >> "$GITHUB_ENV"
+
       # ── Generate Xcode project ──
       - name: Initialize iOS project
         run: bun run tauri ios init
@@ -463,7 +471,7 @@ jobs:
 
       # ── Install Apple certs (only if configured) ──
       - name: Install Apple certificates
-        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
+        if: env.HAS_APPLE_CERT == 'true'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -498,7 +506,7 @@ jobs:
 
       # ── Export signed IPA from the .xcarchive (only if certs configured) ──
       - name: Export signed IPA
-        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
+        if: env.HAS_APPLE_CERT == 'true'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -532,7 +540,7 @@ jobs:
 
       # ── Upload signed IPA to release (only if signing succeeded) ──
       - name: Upload IPA to release
-        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
+        if: env.HAS_APPLE_CERT == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
