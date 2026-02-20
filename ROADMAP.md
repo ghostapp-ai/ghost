@@ -146,6 +146,17 @@
   - Version sync across `package.json`, `Cargo.toml`, `tauri.conf.json` via custom script
   - No PRs to merge, no tags to create — just push code and it ships
 
+- [x] **In-app auto-updater (tauri-plugin-updater)**
+  - Signed updater artifacts generated via `createUpdaterArtifacts: true` in CI
+  - Endpoint: GitHub Releases `latest.json` (zero infrastructure)
+  - Silent background check on app launch (desktop only)
+  - Notification banner with version info, release notes, download progress
+  - Manual "Check for Updates" button in Settings → General
+  - Download + install + auto-restart flow with progress tracking
+  - Ed25519 keypair signing for secure update verification
+  - CI passes `TAURI_SIGNING_PRIVATE_KEY` to `tauri-action` for signing
+  - Windows: passive install mode (no user interaction needed)
+
 - [x] **Repository configuration & best practices**
   - Auto-delete merged branches
   - Auto-merge enabled for PRs
