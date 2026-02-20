@@ -1,3 +1,9 @@
+## [0.7.1](https://github.com/ghostapp-ai/ghost/compare/v0.7.0...v0.7.1) (2026-02-20)
+
+### 🐛 Bug Fixes
+
+* **ci:** use ad-hoc macOS signing when no Apple Developer cert configured ([e3b9af0](https://github.com/ghostapp-ai/ghost/commit/e3b9af05bdcc4c8929cb797374b908275f65a639))
+
 ## [0.7.0](https://github.com/ghostapp-ai/ghost/compare/v0.6.0...v0.7.0) (2026-02-20)
 
 ### 🚀 Features
