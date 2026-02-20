@@ -1,0 +1,84 @@
+# Auto-label PRs based on changed files
+# https://github.com/actions/labeler
+
+# Rust backend
+"area: backend":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src-tauri/src/**"
+          - "src-tauri/Cargo.toml"
+          - "src-tauri/build.rs"
+
+# React frontend
+"area: frontend":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/**"
+          - "index.html"
+          - "vite.config.ts"
+          - "tsconfig*.json"
+
+# Protocols
+"area: protocols":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src-tauri/src/protocols/**"
+
+# Search & indexing
+"area: search":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src-tauri/src/search/**"
+          - "src-tauri/src/indexer/**"
+          - "src-tauri/src/embeddings/**"
+          - "src-tauri/src/db/**"
+
+# Agent engine
+"area: agent":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src-tauri/src/agent/**"
+
+# Chat engine
+"area: chat":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src-tauri/src/chat/**"
+
+# Documentation website
+"area: website":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "website/**"
+
+# CI/CD
+"area: ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/actions/**"
+
+# Mobile
+"area: mobile":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src-tauri/gen/android/**"
+          - "src-tauri/capabilities/mobile.json"
+
+# Documentation files
+"type: docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "*.md"
+          - "website/**/*.md"
+          - "website/**/*.mdx"
+
+# Dependencies
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "package.json"
+          - "bun.lockb"
+          - "src-tauri/Cargo.toml"
+          - "src-tauri/Cargo.lock"
+          - "website/package.json"

@@ -1,0 +1,50 @@
+# Automatic release notes categorization
+# https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
+
+changelog:
+  exclude:
+    labels:
+      - status: duplicate
+      - status: wont-fix
+      - status: stale
+    authors:
+      - dependabot
+      - dependabot[bot]
+      - github-actions[bot]
+
+  categories:
+    - title: "💥 Breaking Changes"
+      labels:
+        - breaking-change
+
+    - title: "✨ New Features"
+      labels:
+        - type: feature
+
+    - title: "🐛 Bug Fixes"
+      labels:
+        - type: bug
+
+    - title: "⚡ Performance"
+      labels:
+        - type: performance
+
+    - title: "🔒 Security"
+      labels:
+        - type: security
+
+    - title: "📚 Documentation"
+      labels:
+        - type: docs
+
+    - title: "♻️ Refactoring"
+      labels:
+        - type: refactor
+
+    - title: "📦 Dependencies"
+      labels:
+        - dependencies
+
+    - title: "🔧 Other Changes"
+      labels:
+        - "*"

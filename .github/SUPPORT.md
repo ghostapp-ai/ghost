@@ -2,17 +2,20 @@
 
 ## Getting Help
 
-- **Documentation**: Read the [README](https://github.com/ghostapp-ai/ghost/blob/main/README.md) and [Architecture Guide](https://github.com/ghostapp-ai/ghost/blob/main/CLAUDE.md)
-- **Roadmap**: Check what's planned in [ROADMAP.md](https://github.com/ghostapp-ai/ghost/blob/main/ROADMAP.md)
-- **Discussions**: Ask questions in [GitHub Discussions](https://github.com/ghostapp-ai/ghost/discussions)
-- **Bugs**: Report bugs via [GitHub Issues](https://github.com/ghostapp-ai/ghost/issues/new?template=bug_report.md)
-- **Features**: Request features via [GitHub Issues](https://github.com/ghostapp-ai/ghost/issues/new?template=feature_request.md)
+| Resource | Link |
+|----------|------|
+| **Documentation** | [ghostapp-ai.github.io/ghost](https://ghostapp-ai.github.io/ghost) |
+| **Installation** | [Install Guide](https://ghostapp-ai.github.io/ghost/guides/installation/) |
+| **Roadmap** | [ROADMAP.md](https://github.com/ghostapp-ai/ghost/blob/main/ROADMAP.md) |
+| **Discussions** | [GitHub Discussions](https://github.com/ghostapp-ai/ghost/discussions) |
+| **Bug Reports** | [New Issue → Bug](https://github.com/ghostapp-ai/ghost/issues/new?template=bug_report.yml) |
+| **Feature Requests** | [New Issue → Feature](https://github.com/ghostapp-ai/ghost/issues/new?template=feature_request.yml) |
 
 ## Before Opening an Issue
 
 1. Search [existing issues](https://github.com/ghostapp-ai/ghost/issues) to avoid duplicates
 2. Check [ROADMAP.md](https://github.com/ghostapp-ai/ghost/blob/main/ROADMAP.md) — your feature might already be planned
-3. Include your OS, Ghost version, and AI backend (Native/Ollama/Offline)
+3. Include your OS, Ghost version, and AI backend (Native / Ollama / Offline)
 
 ## Security Vulnerabilities
 

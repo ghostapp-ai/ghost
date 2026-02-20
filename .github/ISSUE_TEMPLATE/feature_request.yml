@@ -1,0 +1,121 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for Ghost
+title: "[Feature]: "
+labels: ["type: feature", "status: needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for your feature suggestion! Please describe the problem you're trying to solve and your proposed solution.
+
+        **Before submitting:**
+        - Search [existing issues](https://github.com/ghostapp-ai/ghost/issues) and feature requests
+        - Review the [roadmap](https://github.com/ghostapp-ai/ghost/blob/main/ROADMAP.md) — it might already be planned
+        - Consider starting a [discussion](https://github.com/ghostapp-ai/ghost/discussions) first
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? Why is it needed?
+      placeholder: |
+        Describe the problem you're experiencing or the gap you've identified.
+        Focus on the problem, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see.
+      placeholder: |
+        How would this feature work? What would the user experience be?
+        Be as specific as possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What other approaches have you considered or tried?
+      placeholder: |
+        - Current workarounds you're using
+        - Other tools that solve similar problems
+        - Why those alternatives don't fully address the need
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of Ghost does this relate to?
+      options:
+        - Search & Indexing
+        - Chat & AI
+        - Agent & Tools
+        - Protocols (MCP, AG-UI, A2UI, A2A)
+        - UI / UX
+        - Mobile (Android / iOS)
+        - Settings / Configuration
+        - Documentation / Website
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How important is this to you?
+      options:
+        - "Nice to have"
+        - "Important — workarounds exist but are painful"
+        - "Critical — blocking my use of Ghost"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: privacy-impact
+    attributes:
+      label: Privacy Impact
+      description: Does this feature require network access or external services?
+      options:
+        - "No — fully local (preferred)"
+        - "Yes — requires network (describe below)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Willing to contribute?
+      description: Would you help implement this feature?
+      options:
+        - "Yes, I'd like to implement this"
+        - "Yes, with guidance from maintainers"
+        - "No, but I can help test it"
+        - "No, just suggesting"
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Screenshots, mockups, links, or references
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and feature requests
+          required: true
+        - label: I described the problem, not just the solution
+          required: true
+        - label: I checked the project roadmap (ROADMAP.md)
+          required: false

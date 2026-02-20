@@ -1,40 +1,39 @@
+<!--
+  PR title must follow Conventional Commits: <type>(<scope>): <description>
+  Examples: feat(search): add PDF preview · fix(agent): handle timeout · docs(website): add install guide
+-->
+
 ## Description
 
-Brief description of changes.
-
-## Type of Change
-
-- [ ] Bug fix (non-breaking change fixing an issue)
-- [ ] New feature (non-breaking change adding functionality)
-- [ ] Breaking change (fix or feature causing existing functionality to change)
-- [ ] Refactor (code change that neither fixes a bug nor adds a feature)
-- [ ] Documentation update
-- [ ] Performance improvement
-- [ ] CI/CD or tooling change
+<!-- What does this PR do and why? -->
 
 ## Related Issues
 
-Closes #(issue number)
+<!-- Link related issues: "Closes #123", "Fixes #456", "Refs #789" -->
 
-## Changes Made
+## Type of Change
 
-- Change 1
-- Change 2
+- [ ] 🐛 Bug fix
+- [ ] ✨ New feature
+- [ ] 💥 Breaking change
+- [ ] ♻️ Refactor
+- [ ] 📚 Documentation
+- [ ] ⚡ Performance
+- [ ] 🔧 CI/CD or tooling
 
 ## Privacy Checklist
 
 - [ ] No telemetry, analytics, or external network calls added
-- [ ] No tracking pixels or third-party SDKs that phone home
 - [ ] All data processing happens locally
 - [ ] Any cloud access is opt-in and clearly documented
 
 ## Testing
 
-- [ ] Rust tests pass: `cd src-tauri && cargo test`
-- [ ] No clippy warnings: `cd src-tauri && cargo clippy -- -D warnings`
-- [ ] Frontend compiles: `bun run build`
-- [ ] Tested on: [OS version]
+- [ ] `cd src-tauri && cargo test`
+- [ ] `cd src-tauri && cargo clippy -- -D warnings`
+- [ ] `bun run build`
+- [ ] Platform tested: <!-- e.g., Windows 11, Ubuntu 24.04, macOS 15 -->
 
 ## Screenshots
 
-If applicable, add screenshots of UI changes.
+<!-- If applicable, add screenshots of UI changes. -->

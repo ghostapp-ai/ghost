@@ -1,0 +1,124 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in Ghost
+title: "[Bug]: "
+labels: ["type: bug", "status: needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please fill out the form below so we can diagnose and fix the issue.
+
+        **Before submitting:**
+        - Search [existing issues](https://github.com/ghostapp-ai/ghost/issues) to avoid duplicates
+        - Check the [documentation](https://ghostapp-ai.github.io/ghost) for known solutions
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe the bug...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the behavior.
+      placeholder: |
+        1. Open Ghost
+        2. Click on '...'
+        3. Type '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What you expected to happen.
+      placeholder: Describe what you expected...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened.
+      placeholder: Describe what actually happened...
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "## Environment"
+
+  - type: input
+    id: ghost-version
+    attributes:
+      label: Ghost Version
+      description: "Run Ghost → Settings → About, or check the release you downloaded"
+      placeholder: "e.g., 0.11.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Ubuntu / Debian
+        - Fedora / RHEL
+        - Arch Linux
+        - Other Linux
+        - Android
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ai-backend
+    attributes:
+      label: AI Backend
+      description: Which AI engine is Ghost using?
+      options:
+        - Native (Candle — default)
+        - Ollama
+        - Offline (no AI)
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: "Paste any relevant error messages or log output"
+      placeholder: Paste logs here...
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: "If applicable, add screenshots to help explain the problem"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues to ensure this hasn't been reported
+          required: true
+        - label: I am running the latest version of Ghost
+          required: false
