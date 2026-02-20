@@ -420,10 +420,16 @@ impl AgUiEventBus {
 /// 4. [Optional] TOOL_CALL_START → TOOL_CALL_ARGS → TOOL_CALL_END
 /// 5. STEP_FINISHED("thinking")
 /// 6. RUN_FINISHED or RUN_ERROR
+///
+/// NOTE: This is the legacy simple runner (no tool calling).
+/// The new `agent::executor::AgentExecutor` handles the full ReAct loop.
+/// Kept as fallback for simple non-agentic chat if needed.
+#[allow(dead_code)]
 pub struct AgentRunner {
     state: Arc<AppState>,
 }
 
+#[allow(dead_code)]
 impl AgentRunner {
     pub fn new(state: Arc<AppState>) -> Self {
         Self { state }

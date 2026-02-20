@@ -31,6 +31,9 @@ pub enum GhostError {
 
     #[error("Chat error: {0}")]
     Chat(String),
+
+    #[error("Agent error: {0}")]
+    Agent(String),
 }
 
 impl serde::Serialize for GhostError {

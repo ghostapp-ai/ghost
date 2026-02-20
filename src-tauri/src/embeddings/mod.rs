@@ -50,6 +50,24 @@ pub struct EmbeddingEngine {
 }
 
 impl EmbeddingEngine {
+    /// Create an engine with no backend (FTS5 keyword search only).
+    /// Useful for tests and mobile builds.
+    pub fn none() -> Self {
+        Self {
+            native: None,
+            ollama: ollama::OllamaEngine::new(),
+            active_backend: AiBackend::None,
+            hardware: hardware::HardwareInfo {
+                cpu_cores: 1,
+                has_avx2: false,
+                has_neon: false,
+                gpu_backend: None,
+                total_ram_mb: 0,
+                available_ram_mb: 0,
+            },
+        }
+    }
+
     /// Initialize the engine: try native first, fall back to Ollama.
     pub async fn initialize() -> Self {
         // Ensure TLS provider is installed (needed for Ollama health check & HF Hub downloads).

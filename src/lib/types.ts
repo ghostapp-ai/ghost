@@ -319,3 +319,76 @@ export interface A2uiSurfaceState {
   /** Root component IDs (components not referenced as children). */
   rootIds: string[];
 }
+
+// --- Agent Types ---
+
+/** A conversation with metadata. */
+export interface Conversation {
+  id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  summary: string | null;
+}
+
+/** A single message in a conversation. */
+export interface AgentMessage {
+  id: number;
+  conversation_id: number;
+  role: string;
+  content: string;
+  created_at: string;
+  tool_calls: string | null;
+  tool_result: string | null;
+  model: string | null;
+}
+
+/** Agent-specific configuration. */
+export interface AgentConfig {
+  agent_model: string;
+  max_iterations: number;
+  max_tokens: number;
+  context_window: number;
+  temperature: number;
+  auto_approve_safe: boolean;
+  skills_dir: string;
+}
+
+/** An agent model tier with hardware requirements. */
+export interface AgentModelTier {
+  model_id: string;
+  name: string;
+  min_ram_mb: number;
+  recommended_ctx: number;
+  tool_calling_reliable: boolean;
+  quality: number;
+  approx_usage_mb: number;
+  is_recommended: boolean;
+}
+
+/** Response from get_agent_model_tiers command. */
+export interface AgentModelTiersResponse {
+  tiers: AgentModelTier[];
+  recommended_model: string;
+  recommended_ctx: number;
+  available_ram_mb: number;
+}
+
+/** A loaded skill definition. */
+export interface Skill {
+  name: string;
+  description: string;
+  triggers: string[];
+  instructions: string;
+  source: string;
+  enabled: boolean;
+  tools: SkillTool[];
+}
+
+/** A tool defined within a skill. */
+export interface SkillTool {
+  name: string;
+  description: string;
+  parameters: unknown;
+}

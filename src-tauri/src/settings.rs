@@ -37,6 +37,9 @@ pub struct Settings {
     /// External MCP server connections.
     #[serde(default)]
     pub mcp_servers: Vec<crate::protocols::McpServerEntry>,
+    /// Agent configuration (model selection, safety, skills).
+    #[serde(default)]
+    pub agent_config: crate::agent::config::AgentConfig,
 }
 
 fn default_chat_model() -> String {
@@ -65,6 +68,7 @@ impl Default for Settings {
             launch_on_startup: false,
             mcp_server: Default::default(),
             mcp_servers: Vec::new(),
+            agent_config: Default::default(),
         }
     }
 }
@@ -122,6 +126,7 @@ mod tests {
             launch_on_startup: false,
             mcp_server: Default::default(),
             mcp_servers: Vec::new(),
+            agent_config: Default::default(),
         };
         settings.save(&tmp).unwrap();
 

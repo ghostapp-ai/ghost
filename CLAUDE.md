@@ -11,7 +11,7 @@
 
 - **Current phase**: Phase 1.7 — Multiplatform (backend ✅, frontend ✅, Android APK ✅, iOS needs macOS)
 - **Stack**: Tauri v2 (Rust backend) + React/TypeScript (frontend) + SQLite/sqlite-vec + Candle (native AI) + rmcp (MCP SDK)
-- **Repo**: `ghostapp-ai/ghost` (public, MIT) + `ghostapp-ai/ghost-pro` (private, proprietary submodule)
+- **Repo**: `ghostapp-ai/ghost` (public, MIT)
 - **Priority**: MCP Apps, Skills.md, then A2A/WebMCP protocols.
 - **Protocol stack**: MCP (tools) → AG-UI (agent↔user streaming) → A2UI (generative UI) → A2A (multi-agent) → WebMCP (web agents)
 - **Platforms**: Desktop (Windows, macOS, Linux) + Mobile (Android, iOS) via Tauri v2 conditional compilation
@@ -93,6 +93,14 @@ src-tauri/src/
 │   ├── a2a.rs          # (Phase 2) A2A Agent Card + task delegation
 │   ├── webmcp.rs       # (Phase 2.5) WebMCP browser bridge
 │   └── skills.rs       # Skills.md parser + skill registry
+├── agent/              # (Phase 1.5+) Agent Engine — ReAct loop + tool calling
+│   ├── mod.rs          # Shared types (ToolCall, OllamaTool, AgentRunResult, ExecutedToolCall)
+│   ├── config.rs       # AgentConfig, hardware-adaptive model tiers (Qwen3 0.6B-32B)
+│   ├── executor.rs     # ReAct loop: Ollama /api/chat with tools[] + AG-UI streaming
+│   ├── tools.rs        # Tool registry (6 built-in + MCP external), execution engine
+│   ├── safety.rs       # 3-tier risk classification (Safe/Moderate/Dangerous)
+│   ├── memory.rs       # Conversation persistence (SQLite + FTS5 search)
+│   └── skills.rs       # SKILL.md parser (YAML frontmatter), SkillRegistry, trigger matching
 └── automation/         # (Phase 2+) OS UI automation
     ├── mod.rs
     ├── windows.rs      # uiautomation crate wrapper
@@ -526,8 +534,8 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-19 | semantic-release over Release Please | 100% automatic: no PRs to merge, no manual steps. Push conventional commits → CI → semantic-release bumps version + CHANGELOG + tag + GitHub Release + cross-platform builds |
 | 2026-02-19 | `@semantic-release/exec` + custom script for version sync | `scripts/update-versions.sh` updates `package.json`, `Cargo.toml`, `tauri.conf.json` — avoids npm plugin dependency issues with bun |
 | 2026-02-19 | Repository best practices via GitHub API | Auto-delete branches, auto-merge, squash merge defaults, vulnerability alerts, security fixes, topic tags |
-| 2026-02-19 | Open Core: ghostapp-ai/ghost (public MIT) + ghost-pro (private submodule) | GitLab/Grafana model: core is fully open, pro/ crate has proprietary license, loaded via `--features pro` Cargo flag |
-| 2026-02-19 | Git submodule for pro/ over monorepo | Clean separation: contributors don't need pro access, CI works without it, pro team gets own repo with own CI |
+| 2026-02-19 | Open Core via extensions trait (Grafana pattern) | Public repo has zero proprietary code. `extensions.rs` defines `PlatformExtensions` trait with community defaults. Pro overlay lives in separate private repo |
+| 2026-02-19 | Extensions trait over git submodule | Zero trace of proprietary code in public repo. No broken submodules, no stubs, no feature flags. Pro is a build-time overlay |
 | 2026-02-19 | Dynamic GitHub badges over static | shields.io endpoints auto-update: version from releases, CI status from workflow, license from repo metadata |
 | 2026-02-19 | GitHub org `ghostapp-ai` over personal `AngelAlexQC` | Professional identity, team scalability, separate billing, org-level security policies |
 | 2026-02-19 | Multi-step onboarding wizard over silent setup | Users need to see hardware detection + model download progress; builds trust by showing what Ghost does locally |
@@ -585,3 +593,14 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-21 | A2UI via AG-UI CUSTOM events over dedicated transport | A2UI is transport-agnostic by design. AG-UI CUSTOM events already support arbitrary JSON payloads via Tauri IPC — zero new infrastructure needed |
 | 2026-02-21 | Adjacency list → tree resolution on frontend | A2UI uses flat component lists with ID references. Frontend `computeRootIds()` resolves trees — more flexible than server-side tree building, supports incremental component updates |
 | 2026-02-21 | Two-way data binding via JSON Pointers (RFC 6901) | A2UI v0.9 spec uses JSON Pointers for data model paths. `resolvePointer()` in renderer + `onDataChange` callbacks enable reactive input components without external state management |
+| 2026-02-21 | Qwen2.5-Instruct for agent + chat (shared GGUF) | Same 4-tier family (0.5B/1.5B/3B/7B) for both chat and agent. Zero double download. Hermes 2 Pro tool calling format built into llama.cpp chat templates. Apache 2.0, Q4_K_M quantization |
+| 2026-02-21 | ReAct loop over single-shot tool calling | Multi-iteration Reason+Act loop: LLM reasons → calls tools → gets results → reasons again. Max 10 iterations. Allows complex multi-step tasks vs one-shot tool selection |
+| 2026-02-21 | Native llama-cpp-2 grammar-constrained tool calling over Ollama HTTP | Zero external deps. `apply_chat_template_with_tools_oaicompat()` + GBNF grammar ensures valid JSON tool calls. `parse_response_oaicompat()` handles Hermes 2 Pro/Llama 3.x/Functionary formats natively. No HTTP, no server, no network after first model download |
+| 2026-02-21 | 3-tier safety over binary safe/unsafe | Safe (auto-approve reads), Moderate (log, sensitive paths), Dangerous (require approval, write/exec). Granular control without blocking basic operations |
+| 2026-02-21 | serde_yaml 0.9 for SKILL.md frontmatter | Standard YAML parsing for `---` delimited frontmatter in skill files. Well-maintained, 0.9 API stable, small dependency |
+| 2026-02-21 | AgentConfig in Settings over separate config file | Single source of truth, `#[serde(default)]` for all fields, backward compatible. "auto" model selection as default |
+| 2026-02-21 | 4 Qwen2.5 agent tiers over 6 Qwen3 tiers | Qwen2.5-Instruct (0.5B/1.5B/3B/7B) already in chat model registry — shares HF Hub cache. Qwen3 tiers were Ollama-specific tags, not applicable to native GGUF |
+| 2026-02-21 | Conversation memory in SQLite over file-based | Reuse existing SQLite infrastructure. FTS5 search across conversations. Transactional integrity. CASCADE deletes. Proper indexing |
+| 2026-02-21 | Lazy grammar sampling over strict grammar | `ChatTemplateResult.grammar_lazy` + trigger words/tokens activates grammar only when model starts a tool call. Free text generation until trigger → then constrained JSON. Better for mixed text + tool responses |
+| 2026-02-21 | Per-run model load over shared model instance | Agent may use different model than chat. Blocking task isolation avoids cross-thread model sharing complexity. OS page cache makes reload ~0.5-3s. Future optimization: cache model in AgentExecutor |
+| 2026-02-21 | `parse_response_oaicompat()` over manual regex parsing | llama.cpp's C++ parser handles Hermes 2 Pro, Llama 3.x, Functionary, and other tool formats natively. Zero-maintenance, format-agnostic. Returns OpenAI-compatible JSON |

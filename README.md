@@ -121,8 +121,9 @@ Think **Raycast + Semantic Search + Local AI Agent + Universal Protocol Hub** �
 - **MCP Client**: ✅ Connect to external MCP servers (filesystem, GitHub, databases, 10,000+) via stdio + HTTP
 - **AG-UI Runtime**: ✅ Bidirectional agent↔user streaming (~16 event types) — event bus, SSE endpoint, `useAgui` React hook, streaming chat
 - **A2UI Renderer**: ✅ Google A2UI v0.9 generative UI — 17+ component types (Text, Button, TextField, Card, Row, Column, etc.) rendered natively in React/Tailwind with data binding
+- **Skills.md**: ✅ SKILL.md parser with YAML frontmatter, trigger matching, SkillRegistry, tool schemas — OpenClaw-compatible
+- **Agent Engine**: ✅ ReAct (Reason + Act) agent with native llama.cpp inference, grammar-constrained tool calling, 3-tier safety, conversation memory, hardware-adaptive Qwen2.5-Instruct (0.5B–7B)
 - **MCP Apps**: Interactive tool UIs in sandboxed iframes within Ghost conversations
-- **Skills.md**: OpenClaw-inspired plugin format — plain Markdown skill definitions
 
 ### Phase 2 — The Agent OS
 
@@ -159,6 +160,9 @@ Ghost uses a 6-layer **Agent OS** architecture where each layer is independently
 ├──────────────────────────────────────────────────────┤
 │              Tauri v2 IPC Bridge                       │
 ├──────────────────────────────────────────────────────┤
+│              Agent Engine (ReAct Loop)                 │
+│  Executor │ Tools │ Safety │ Memory │ Skills           │
+├──────────────────────────────────────────────────────┤
 │              Protocol Hub (Rust — rmcp + custom)       │
 │  MCP Server │ MCP Client │ A2A │ WebMCP │ Skills       │
 ├──────────────────────────────────────────────────────┤
@@ -169,7 +173,8 @@ Ghost uses a 6-layer **Agent OS** architecture where each layer is independently
 │              AI Layer (Local — Zero Dependencies)      │
 │  Native: Candle + all-MiniLM-L6-v2 (384D embeddings)  │
 │  Fallback: Ollama + nomic-embed-text (768D)            │
-│  Chat: Qwen2.5-Instruct GGUF (0.5B–7B, tool calling)  │
+│  Chat: Qwen2.5-Instruct GGUF (0.5B–7B, native)       │
+│  Agent: Qwen2.5-Instruct GGUF (0.5B–7B, tool calling) │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -180,7 +185,7 @@ Ghost uses a two-speed architecture to feel instant without burning CPU:
 | Layer            | When      | Speed       | Resource Usage   |
 | ---------------- | --------- | ----------- | ---------------- |
 | **Fast Layer**   | Always    | <10ms       | 0% GPU, <1% CPU  |
-| **Smart Layer**  | On demand | 200-2000ms  | Activates Ollama |
+| **Smart Layer**  | On demand | 200-2000ms  | Activates native AI |
 
 The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Layer activates only when the user asks a natural language question, requests an action, or a new file needs indexing.
 
@@ -193,6 +198,9 @@ The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Lay
 | Native Embeddings  | Candle + all-MiniLM-L6-v2        | 384D, ~23MB, in-process, no external deps          |
 | Fallback Embeddings| Ollama + nomic-embed-text        | 768D, optional, higher quality for large models    |
 | LLM / Chat         | Candle GGUF + Qwen2.5-Instruct   | Native inference, tool calling, 0.5B–7B tiers      |
+| Agent Engine       | llama.cpp GGUF + ReAct loop      | Hardware-adaptive (0.5B–7B), grammar-constrained tool calling |
+| Safety Layer       | 3-tier risk classification       | Safe/Moderate/Dangerous, human-in-the-loop         |
+| Skills System      | SKILL.md + YAML frontmatter      | OpenClaw-compatible, trigger matching, extensible   |
 | MCP Protocol       | rmcp (official Rust SDK)         | Server + Client, `#[tool]` macro, 10,000+ servers  |
 | Agent Interaction  | AG-UI + A2UI                     | Real-time streaming + generative UI from JSON       |
 | Agent Coordination | A2A (Google)                     | Multi-agent task delegation, Agent Cards            |

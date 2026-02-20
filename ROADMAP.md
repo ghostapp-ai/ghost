@@ -248,12 +248,12 @@
 - [x] **Open source project configuration**
   - Migrated from `AngelAlexQC/ghost` to `ghostapp-ai/ghost` organization
   - Repository made PUBLIC for open source (MIT license)
-  - `ghost-pro` as private git submodule (`ghostapp-ai/ghost-pro`)
+  - Open-core architecture via `extensions.rs` trait (Grafana pattern — zero proprietary code in public repo)
   - Dynamic GitHub badges (release, CI, license, issues)
   - Community files: SUPPORT.md, FUNDING.yml, CODEOWNERS, issue/PR templates
   - package.json: full metadata (author, license, repo, keywords, homepage)
   - Cargo.toml: proper authors, license, repository, homepage, rust-version
-  - Vulnerability alerts + automated security fixes enabled on both repos
+  - Vulnerability alerts + automated security fixes enabled
   - Allow branch update, delete-branch-on-merge, squash merge defaults
 
 - [ ] **Performance optimization**
@@ -317,11 +317,15 @@
   - Streaming text display with real-time TEXT_MESSAGE_CONTENT deltas
   - `chat_send_streaming` Tauri command for event-driven chat
   - Fallback to non-streaming `chat_send` when model not natively available
-- [ ] **AG-UI advanced features (next iteration)**
+- [x] **AG-UI advanced features**
+  - Agent executor emits full AG-UI event lifecycle for ReAct loop
+  - Tool call events: TOOL_CALL_START → ARGS → END with timing
+  - Custom events: tool_approval_required, generation_stats, agent_error
+  - State synchronization between Rust agent and React UI via event bus
+- [ ] **AG-UI remaining features**
   - Bidirectional streaming: user actions → agent (human-in-the-loop)
-  - Approval gates for dangerous tool actions
-  - True token-by-token streaming from llama.cpp (replace word-chunking)
-  - State synchronization between Rust agent and React UI
+  - Approval UI: frontend confirm/deny for dangerous tool calls
+  - True token-by-token streaming from Ollama (replace word-chunking)
 
 #### A2UI Renderer (Generative UI)
 - [x] **A2UI JSON → React component renderer**
@@ -341,11 +345,16 @@
   - Security: CSP headers, no external network access from sandbox
 
 #### Skills System
-- [ ] **Skills.md format support**
+- [x] **Skills.md format support**
   - Define agent capabilities in markdown files (OpenClaw-compatible)
-  - Skill discovery: scan `~/.ghost/skills/` directory
-  - Skill loading: register tools from skill definitions
+  - SKILL.md parser: YAML frontmatter (name, description, triggers, tools, enabled) + Markdown instructions body
+  - Skill discovery: scan `~/.ghost/skills/` directory (configurable)
+  - SkillRegistry: load, match by query triggers, build system prompts with matched skills
+  - Skill loading: register tools from skill definitions (SkillTool → OllamaTool conversion)
+  - Three-tier loading: metadata (~100 tokens) → instructions (<5000 tokens) → resources
+  - `list_skills` Tauri command for frontend
   - Community skills: shareable via Git repos
+  - 5 unit tests passing
 
 ### Exit Criteria
 - [x] Claude Desktop can search local files through Ghost MCP server
@@ -444,7 +453,7 @@
 - [x] **Mobile CI/CD**: GitHub Actions for Android APK + iOS IPA builds
   - Android job: Java 17 + SDK 34 + NDK 27 + Gradle cache + APK signing (if keystore configured) + upload to release
   - iOS job: conditional on `IOS_BUILD_ENABLED` repo var + Apple Developer certificates
-  - Pro stub extracted to reusable composite action (`.github/actions/stub-pro/`)
+  - Pro stub extracted to reusable composite action (removed — no longer needed with extensions trait pattern)
   - RPM bundle added to Linux builds
   - All jobs have timeouts, `workflow_dispatch` trigger added
 - [ ] **App Store assets**: screenshots, descriptions, privacy policies
@@ -491,12 +500,41 @@
   - Expose Ghost tools as A2A skills
   - Multi-agent orchestration: break complex requests into sub-tasks
 
-#### Tool Calling Engine
-- [ ] **LLM-driven tool selection**
-  - Qwen2.5-Instruct structured output for tool call arguments
-  - Tool schema injection into chat context (MCP tool list → system prompt)
+#### Agent Engine (Tool Calling)
+- [x] **ReAct Agent with hardware-adaptive model selection**
+  - `agent/` module: config, executor, tools, safety, memory, skills (7 files, ~2800 lines)
+  - Qwen2.5-Instruct family via native llama-cpp-2 (0.5B→7B, Apache 2.0, ChatML format, GGUF)
+  - Hardware-adaptive auto-selection: detect RAM → pick largest fitting model → dynamic context window
+  - 4 model tiers: 0.5B (1GB), 1.5B (2GB), 3B (4GB), 7B (8GB) — same models as chat engine (no double download)
+  - Q4_K_M quantization, runtime GPU auto-detection (Vulkan/CUDA/Metal)
+  - All config auto-detected but user-overridable via Settings
+- [x] **Fully native ReAct (Reason + Act) execution loop — ZERO external dependencies**
+  - llama.cpp `apply_chat_template_with_tools_oaicompat()` with GBNF grammar-constrained generation
+  - Model's built-in Hermes 2 Pro tool-calling format + grammar ensures valid JSON tool calls
+  - `parse_response_oaicompat()` for native tool call parsing (no regex, no prompt injection)
+  - Lazy grammar sampling: grammar activates only when tool-call trigger tokens appear
+  - Iterative loop: LLM reasons → calls tools → gets results → reasons again (max 10 iterations)
+  - 6 built-in tools: ghost_search, ghost_read_file, ghost_list_directory, ghost_index_status, ghost_write_file, ghost_run_command
+  - MCP external tools auto-collected from connected servers
+  - AG-UI event streaming: RUN_STARTED → TOOL_CALL_START/ARGS/END → TEXT_MESSAGE_CONTENT → RUN_FINISHED
+  - System prompt with index stats, matched skills, and tool schemas
+- [x] **3-tier safety classification**
+  - RiskLevel: Safe (read-only, auto-approved), Moderate (sensitive paths, logged), Dangerous (write/exec, requires approval)
+  - Pattern matching on tool names, arguments, file paths, and shell commands
+  - Pipe-based installer detection (curl | sh, wget | bash)
+  - External MCP tools classified as Moderate by default
+  - Human-in-the-loop: approval events emitted via AG-UI CUSTOM for dangerous actions
+  - 7 unit tests passing
+- [x] **Conversation memory (SQLite)**
+  - conversations + messages tables with FTS5 search
+  - Full CRUD: create, list, get messages, delete, update title
+  - FTS5 search across all conversation history
+  - Recent context retrieval for conversation continuity
+  - 11 Tauri commands for frontend integration
+  - 6 unit tests passing
+- [ ] **LLM-driven tool selection (advanced)**
   - Multi-step planning: chain multiple tool calls for complex tasks
-  - Fallback: Ollama API `/api/chat` with tool calling for larger models
+  - Approval UI in frontend (confirm/deny tool execution)
 
 #### OS Integration Layer
 - [ ] **Browser history indexing**
@@ -545,7 +583,7 @@
 - [ ] Natural language queries: "show me what I worked on last Tuesday"
 - [ ] A2UI-rendered rich cards for different activity types
 
-### Premium Features (Ghost Pro — `ghost-pro` submodule)
+### Premium Features (Ghost Pro)
 - [ ] Vault encryption with ChaCha20-Poly1305 (`age` crate)
 - [ ] Encrypted sync between devices (optional, user-controlled)
 - [ ] Unlimited MCP server connections
@@ -557,7 +595,7 @@
 
 ### Licensing System
 - [ ] License key validation (offline-capable, cryptographic)
-- [ ] Feature gating via `#[cfg(feature = "pro")]` in Rust
+- [ ] Feature gating via `PlatformExtensions` trait (extensions.rs)
 - [ ] Free tier: core search + chat + 3 MCP servers + 5 actions/day
 - [ ] Pro tier: everything unlimited + premium features
 
@@ -658,7 +696,7 @@
 | MCP Apps | blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps | Tools return interactive UI (iframes). Anthropic spec |
 | MCP Spec | modelcontextprotocol.io | v2025-11-25 spec. Linux Foundation / AAIF |
 | OpenClaw | github.com/nicepkg/OpenClaw | Model-agnostic agent infra. Skills.md format. 100K+ stars |
-| Ollama | ollama.com | Local LLM runtime. Supports Qwen2.5 tool calling |
+| Ollama | ollama.com | Optional fallback LLM runtime. Ghost runs natively without it |
 | nomic-embed-text | ollama.com/library/nomic-embed-text | 768 dims, surpasses ada-002, ~274MB |
 | uiautomation | crates.io/crates/uiautomation | Windows UI Automation wrapper for Rust |
 | notify | crates.io/crates/notify | Cross-platform filesystem watcher |
@@ -707,7 +745,7 @@
 
 ## Business Model
 
-### Open Core (ghostapp-ai/ghost MIT + ghostapp-ai/ghost-pro proprietary)
+### Open Core (Grafana pattern — extensions trait)
 
 | Feature | Free | Pro ($8/mo) | Teams ($15/user/mo) |
 |---------|------|-------------|---------------------|

@@ -2306,7 +2306,6 @@ dependencies = [
  "chrono",
  "dirs",
  "encoding_rs",
- "ghost-pro",
  "hex",
  "hf-hub",
  "llama-cpp-2",
@@ -2334,18 +2333,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "zip",
-]
-
-[[package]]
-name = "ghost-pro"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
 ]
 
 [[package]]

@@ -3,14 +3,11 @@ mod chat;
 mod db;
 mod embeddings;
 mod error;
+mod extensions;
 mod indexer;
 mod protocols;
 mod search;
 mod settings;
-
-// Pro features (only compiled when `pro` feature flag is enabled)
-#[cfg(feature = "pro")]
-use ghost_pro;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -579,19 +576,12 @@ async fn clear_logs() -> Result<(), String> {
     Ok(())
 }
 
-// --- Pro Edition Commands ---
+// --- Edition Commands ---
 
-/// Check if this build includes Ghost Pro features
+/// Check if this build includes Ghost Pro features.
 #[tauri::command]
 async fn is_pro() -> bool {
-    #[cfg(feature = "pro")]
-    {
-        ghost_pro::is_licensed()
-    }
-    #[cfg(not(feature = "pro"))]
-    {
-        false
-    }
+    extensions::extensions().is_licensed()
 }
 
 // --- MCP Protocol Commands ---
@@ -1227,21 +1217,21 @@ async fn get_agent_model_tiers(
         .iter()
         .map(|t| {
             serde_json::json!({
-                "model_tag": t.model_tag,
+                "model_id": t.model_id,
                 "name": t.name,
                 "min_ram_mb": t.min_ram_mb,
                 "recommended_ctx": t.recommended_ctx,
                 "tool_calling_reliable": t.tool_calling_reliable,
                 "quality": t.quality,
                 "approx_usage_mb": t.approx_usage_mb,
-                "is_recommended": t.model_tag == recommended.model_tag,
+                "is_recommended": t.model_id == recommended.model_id,
             })
         })
         .collect();
 
     Ok(serde_json::json!({
         "tiers": tiers,
-        "recommended_model": recommended.model_tag,
+        "recommended_model": recommended.model_id,
         "recommended_ctx": ctx,
         "available_ram_mb": state.hardware.available_ram_mb,
     }))
@@ -1285,15 +1275,10 @@ pub fn run() {
     );
 
     // Log edition info
-    #[cfg(feature = "pro")]
-    {
-        push_log(
-            "info",
-            format!("Edition: Ghost Pro v{}", ghost_pro::version()),
-        );
-    }
-    #[cfg(not(feature = "pro"))]
-    {
+    let ext = extensions::extensions();
+    if ext.is_licensed() {
+        push_log("info", format!("Edition: Ghost Pro v{}", ext.version()));
+    } else {
         push_log("info", "Edition: Ghost Community (open source)".to_string());
     }
 
