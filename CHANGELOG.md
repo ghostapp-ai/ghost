@@ -1,3 +1,15 @@
+## [0.5.0](https://github.com/ghostapp-ai/ghost/compare/v0.4.0...v0.5.0) (2026-02-19)
+
+### 🚀 Features
+
+* **protocols:** implement MCP Client host for external servers ([7a6f75e](https://github.com/ghostapp-ai/ghost/commit/7a6f75e75b710f2e0676d51de79d988cad32da79))
+* **protocols:** implement MCP Server with 3 tools via rmcp v0.16 ([dbc9334](https://github.com/ghostapp-ai/ghost/commit/dbc93347c07ef549b8488bd3f7ec26a85834ba92))
+* **ui:** add MCP tab to Settings for server management ([af469cf](https://github.com/ghostapp-ai/ghost/commit/af469cf3018f846a749f5f6484c0550dec1d8d44))
+
+### 📚 Documentation
+
+* update ROADMAP and CLAUDE for Phase 1.5 MCP completion ([b8d0ed5](https://github.com/ghostapp-ai/ghost/commit/b8d0ed596aa24dac23f85554cc357d27c83aa342))
+
 ## [0.4.0](https://github.com/ghostapp-ai/ghost/compare/v0.3.0...v0.4.0) (2026-02-19)
 
 ### 🚀 Features
