@@ -1365,22 +1365,17 @@ mod tests {
         let mut got_run_error = false;
 
         // Drain available events
-        loop {
-            match rx.try_recv() {
-                Ok(event) => {
-                    if event.run_id == run_id {
-                        match event.event_type {
-                            crate::protocols::agui::EventType::RunStarted => {
-                                got_run_started = true;
-                            }
-                            crate::protocols::agui::EventType::RunError => {
-                                got_run_error = true;
-                            }
-                            _ => {}
-                        }
+        while let Ok(event) = rx.try_recv() {
+            if event.run_id == run_id {
+                match event.event_type {
+                    crate::protocols::agui::EventType::RunStarted => {
+                        got_run_started = true;
                     }
+                    crate::protocols::agui::EventType::RunError => {
+                        got_run_error = true;
+                    }
+                    _ => {}
                 }
-                Err(_) => break,
             }
         }
 
@@ -1544,15 +1539,12 @@ mod tests {
         let mut got_args = false;
         let mut got_end = false;
 
-        loop {
-            match rx.try_recv() {
-                Ok(event) => match event.event_type {
-                    crate::protocols::agui::EventType::ToolCallStart => got_start = true,
-                    crate::protocols::agui::EventType::ToolCallArgs => got_args = true,
-                    crate::protocols::agui::EventType::ToolCallEnd => got_end = true,
-                    _ => {}
-                },
-                Err(_) => break,
+        while let Ok(event) = rx.try_recv() {
+            match event.event_type {
+                crate::protocols::agui::EventType::ToolCallStart => got_start = true,
+                crate::protocols::agui::EventType::ToolCallArgs => got_args = true,
+                crate::protocols::agui::EventType::ToolCallEnd => got_end = true,
+                _ => {}
             }
         }
 
@@ -1586,15 +1578,12 @@ mod tests {
         let mut got_content = false;
         let mut got_end = false;
 
-        loop {
-            match rx.try_recv() {
-                Ok(event) => match event.event_type {
-                    crate::protocols::agui::EventType::TextMessageStart => got_start = true,
-                    crate::protocols::agui::EventType::TextMessageContent => got_content = true,
-                    crate::protocols::agui::EventType::TextMessageEnd => got_end = true,
-                    _ => {}
-                },
-                Err(_) => break,
+        while let Ok(event) = rx.try_recv() {
+            match event.event_type {
+                crate::protocols::agui::EventType::TextMessageStart => got_start = true,
+                crate::protocols::agui::EventType::TextMessageContent => got_content = true,
+                crate::protocols::agui::EventType::TextMessageEnd => got_end = true,
+                _ => {}
             }
         }
 
@@ -1617,14 +1606,11 @@ mod tests {
         let mut got_start = false;
         let mut got_end = false;
 
-        loop {
-            match rx.try_recv() {
-                Ok(event) => match event.event_type {
-                    crate::protocols::agui::EventType::TextMessageStart => got_start = true,
-                    crate::protocols::agui::EventType::TextMessageEnd => got_end = true,
-                    _ => {}
-                },
-                Err(_) => break,
+        while let Ok(event) = rx.try_recv() {
+            match event.event_type {
+                crate::protocols::agui::EventType::TextMessageStart => got_start = true,
+                crate::protocols::agui::EventType::TextMessageEnd => got_end = true,
+                _ => {}
             }
         }
 
