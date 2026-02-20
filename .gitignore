@@ -48,3 +48,11 @@ ehthumbs.db
 .env
 .env.local
 .env.*.local
+
+# Sensitive / Internal documents
+*.pdf
+docs/plans/
+
+# AI agent config (internal tooling)
+.agents/
+.claude/
