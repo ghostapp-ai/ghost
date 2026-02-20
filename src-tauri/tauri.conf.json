@@ -10,12 +10,6 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "trayIcon": {
-      "id": "main",
-      "iconPath": "icons/32x32.png",
-      "tooltip": "Ghost — AI Assistant",
-      "menuOnLeftClick": false
-    },
     "windows": [
       {
         "label": "main",

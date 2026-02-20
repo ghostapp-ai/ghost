@@ -1,3 +1,4 @@
+mod agent;
 mod chat;
 mod db;
 mod embeddings;
@@ -144,6 +145,46 @@ async fn start_dragging(app: tauri::AppHandle) -> Result<(), String> {
     }
     #[cfg(not(desktop))]
     let _ = &app; // suppress unused warning
+    Ok(())
+}
+
+/// Minimize the main window.
+#[tauri::command]
+async fn minimize_window(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(desktop)]
+    if let Some(window) = app.get_webview_window("main") {
+        window.minimize().map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(desktop))]
+    let _ = &app;
+    Ok(())
+}
+
+/// Toggle maximize / restore the main window.
+#[tauri::command]
+async fn toggle_maximize_window(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(desktop)]
+    if let Some(window) = app.get_webview_window("main") {
+        if window.is_maximized().unwrap_or(false) {
+            window.unmaximize().map_err(|e| e.to_string())?;
+        } else {
+            window.maximize().map_err(|e| e.to_string())?;
+        }
+    }
+    #[cfg(not(desktop))]
+    let _ = &app;
+    Ok(())
+}
+
+/// Close the main window (exit the app).
+#[tauri::command]
+async fn close_window(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(desktop)]
+    if let Some(window) = app.get_webview_window("main") {
+        window.close().map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(desktop))]
+    let _ = &app;
     Ok(())
 }
 
@@ -418,12 +459,12 @@ async fn chat_send_streaming(
 
     // Spawn the agent runner in a background task
     tokio::spawn(async move {
-        let runner = protocols::agui::AgentRunner::new(state_inner.clone());
-        if let Err(e) = runner
+        let executor = agent::executor::AgentExecutor::new(state_inner.clone());
+        if let Err(e) = executor
             .run(
                 &run_id_clone,
                 &messages,
-                max_tokens,
+                None, // No conversation ID for legacy streaming endpoint
                 &state_inner.agui_event_bus,
             )
             .await
@@ -1012,6 +1053,216 @@ async fn complete_setup(state: tauri::State<'_, Arc<AppState>>) -> Result<(), St
     Ok(())
 }
 
+// --- Agent Commands ---
+
+/// Run the agent on a conversation with the full ReAct loop + tool calling.
+/// Streams AG-UI events through the Tauri event system.
+/// Returns the run_id immediately.
+#[tauri::command]
+async fn agent_chat(
+    messages: Vec<chat::ChatMessage>,
+    conversation_id: Option<i64>,
+    state: tauri::State<'_, Arc<AppState>>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let run_id = format!(
+        "run-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    );
+
+    push_log(
+        "info",
+        format!(
+            "Agent chat: run_id={}, {} messages, conv_id={:?}",
+            run_id,
+            messages.len(),
+            conversation_id
+        ),
+    );
+
+    let state_inner = state.inner().clone();
+    let run_id_clone = run_id.clone();
+
+    // Subscribe to AG-UI events and forward to Tauri event system
+    let mut rx = state_inner.agui_event_bus.subscribe();
+    let app_clone = app.clone();
+    let run_id_for_listener = run_id.clone();
+
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    if event.run_id == run_id_for_listener {
+                        let is_terminal = matches!(
+                            event.event_type,
+                            protocols::agui::EventType::RunFinished
+                                | protocols::agui::EventType::RunError
+                        );
+                        let _ = app_clone.emit("agui://event", &event);
+                        if is_terminal {
+                            break;
+                        }
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    tracing::warn!("AG-UI event listener lagged by {} events", n);
+                }
+            }
+        }
+    });
+
+    // Spawn the agent executor in a background task
+    tokio::spawn(async move {
+        let executor = agent::executor::AgentExecutor::new(state_inner.clone());
+        if let Err(e) = executor
+            .run(
+                &run_id_clone,
+                &messages,
+                conversation_id,
+                &state_inner.agui_event_bus,
+            )
+            .await
+        {
+            tracing::error!("Agent run failed: {}", e);
+            push_log("error", format!("Agent run failed: {}", e));
+        }
+    });
+
+    Ok(run_id)
+}
+
+/// Create a new conversation.
+#[tauri::command]
+async fn create_conversation(
+    title: String,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<i64, String> {
+    agent::memory::create_conversation(&state.db, &title).map_err(|e| e.to_string())
+}
+
+/// List all conversations.
+#[tauri::command]
+async fn list_conversations(
+    limit: Option<usize>,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<agent::memory::Conversation>, String> {
+    let limit = limit.unwrap_or(50);
+    agent::memory::list_conversations(&state.db, limit).map_err(|e| e.to_string())
+}
+
+/// Get messages for a conversation.
+#[tauri::command]
+async fn get_conversation_messages(
+    conversation_id: i64,
+    limit: Option<usize>,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<agent::memory::Message>, String> {
+    agent::memory::get_messages(&state.db, conversation_id, limit).map_err(|e| e.to_string())
+}
+
+/// Delete a conversation.
+#[tauri::command]
+async fn delete_conversation(
+    conversation_id: i64,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    agent::memory::delete_conversation(&state.db, conversation_id).map_err(|e| e.to_string())
+}
+
+/// Update conversation title.
+#[tauri::command]
+async fn update_conversation_title(
+    conversation_id: i64,
+    title: String,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    agent::memory::update_conversation_title(&state.db, conversation_id, &title)
+        .map_err(|e| e.to_string())
+}
+
+/// Search across conversation memory.
+#[tauri::command]
+async fn search_memory(
+    query: String,
+    limit: Option<usize>,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<agent::memory::Message>, String> {
+    let limit = limit.unwrap_or(20);
+    agent::memory::search_conversations(&state.db, &query, limit).map_err(|e| e.to_string())
+}
+
+/// Get agent configuration.
+#[tauri::command]
+async fn get_agent_config(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<agent::config::AgentConfig, String> {
+    let settings = state.settings.lock().map_err(|e| e.to_string())?;
+    Ok(settings.agent_config.clone())
+}
+
+/// Save agent configuration.
+#[tauri::command]
+async fn save_agent_config(
+    config: agent::config::AgentConfig,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+    settings.agent_config = config;
+    settings
+        .save(&get_app_data_dir().join("settings.json"))
+        .map_err(|e| e.to_string())
+}
+
+/// List available agent model tiers and which one is recommended.
+#[tauri::command]
+async fn get_agent_model_tiers(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let (recommended, ctx) = agent::config::recommend_agent_model(&state.hardware);
+    let tiers: Vec<serde_json::Value> = agent::config::AGENT_MODEL_TIERS
+        .iter()
+        .map(|t| {
+            serde_json::json!({
+                "model_tag": t.model_tag,
+                "name": t.name,
+                "min_ram_mb": t.min_ram_mb,
+                "recommended_ctx": t.recommended_ctx,
+                "tool_calling_reliable": t.tool_calling_reliable,
+                "quality": t.quality,
+                "approx_usage_mb": t.approx_usage_mb,
+                "is_recommended": t.model_tag == recommended.model_tag,
+            })
+        })
+        .collect();
+
+    Ok(serde_json::json!({
+        "tiers": tiers,
+        "recommended_model": recommended.model_tag,
+        "recommended_ctx": ctx,
+        "available_ram_mb": state.hardware.available_ram_mb,
+    }))
+}
+
+/// List loaded skills.
+#[tauri::command]
+async fn list_skills(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<Vec<agent::skills::Skill>, String> {
+    let skills_dir = state
+        .settings
+        .lock()
+        .map(|s| s.agent_config.skills_dir.clone())
+        .unwrap_or_default();
+
+    let mut registry = agent::skills::SkillRegistry::new();
+    registry.load_from_directory(std::path::Path::new(&skills_dir));
+    Ok(registry.all_skills().into_iter().cloned().collect())
+}
+
 // --- App Setup ---
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1081,6 +1332,14 @@ pub fn run() {
         "info",
         format!("Database opened (vec_enabled={})", db.is_vec_enabled()),
     );
+
+    // Initialize conversation memory tables
+    if let Err(e) = agent::memory::initialize_memory_schema(&db) {
+        tracing::warn!("Failed to initialize conversation memory schema: {}", e);
+        push_log("warn", format!("Memory schema init failed: {}", e));
+    } else {
+        push_log("info", "Conversation memory schema initialized".to_string());
+    }
 
     // --- Step 4: Initialize embedding engine ---
     let embedding_engine = tauri::async_runtime::block_on(async {
@@ -1156,6 +1415,9 @@ pub fn run() {
             hide_window,
             show_window,
             start_dragging,
+            minimize_window,
+            toggle_maximize_window,
+            close_window,
             // Auto-indexing
             get_default_directories,
             // Chat
@@ -1194,6 +1456,18 @@ pub fn run() {
             list_mcp_tools,
             add_mcp_server_entry,
             remove_mcp_server_entry,
+            // Agent
+            agent_chat,
+            create_conversation,
+            list_conversations,
+            get_conversation_messages,
+            delete_conversation,
+            update_conversation_title,
+            search_memory,
+            get_agent_config,
+            save_agent_config,
+            get_agent_model_tiers,
+            list_skills,
         ])
         .setup(move |app| {
             // --- Desktop-only setup: System Tray + Global Shortcuts ---
@@ -1204,9 +1478,14 @@ pub fn run() {
                 let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
                 let tray_handle = app.handle().clone();
-                TrayIconBuilder::new()
+                let tray_icon = app.default_window_icon().cloned();
+                let mut tray_builder = TrayIconBuilder::new()
                     .menu(&menu)
-                    .tooltip("Ghost — AI Assistant")
+                    .tooltip("Ghost — AI Assistant");
+                if let Some(icon) = tray_icon {
+                    tray_builder = tray_builder.icon(icon);
+                }
+                tray_builder
                     .on_menu_event(move |_app, event| match event.id().as_ref() {
                         "show" => {
                             toggle_window(&tray_handle);

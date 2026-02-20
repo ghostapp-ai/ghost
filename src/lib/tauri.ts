@@ -80,6 +80,21 @@ export async function startDragging(): Promise<void> {
   return invoke<void>("start_dragging");
 }
 
+/** Minimize the main window. */
+export async function minimizeWindow(): Promise<void> {
+  return invoke<void>("minimize_window");
+}
+
+/** Toggle maximize / restore the main window. */
+export async function toggleMaximizeWindow(): Promise<void> {
+  return invoke<void>("toggle_maximize_window");
+}
+
+/** Close the main window (exit the app). */
+export async function closeWindow(): Promise<void> {
+  return invoke<void>("close_window");
+}
+
 // --- Auto-Indexing ---
 
 /** Get auto-detected default user directories for indexing. */
@@ -274,4 +289,79 @@ export async function chatSendStreaming(
   maxTokens?: number
 ): Promise<string> {
   return invoke<string>("chat_send_streaming", { messages, maxTokens });
+}
+
+// --- Agent ---
+
+import type {
+  Conversation,
+  AgentMessage,
+  AgentConfig,
+  AgentModelTiersResponse,
+  Skill,
+} from "./types";
+
+/** Run the agent with ReAct loop + tool calling.
+ *  Returns the run_id immediately. Listen for AG-UI events via `useAgui` hook. */
+export async function agentChat(
+  messages: ChatMessage[],
+  conversationId?: number | null
+): Promise<string> {
+  return invoke<string>("agent_chat", { messages, conversationId });
+}
+
+/** Create a new conversation. Returns the conversation ID. */
+export async function createConversation(title: string): Promise<number> {
+  return invoke<number>("create_conversation", { title });
+}
+
+/** List all conversations, ordered by most recent. */
+export async function listConversations(limit?: number): Promise<Conversation[]> {
+  return invoke<Conversation[]>("list_conversations", { limit });
+}
+
+/** Get messages for a specific conversation. */
+export async function getConversationMessages(
+  conversationId: number,
+  limit?: number
+): Promise<AgentMessage[]> {
+  return invoke<AgentMessage[]>("get_conversation_messages", { conversationId, limit });
+}
+
+/** Delete a conversation and all its messages. */
+export async function deleteConversation(conversationId: number): Promise<void> {
+  return invoke<void>("delete_conversation", { conversationId });
+}
+
+/** Update conversation title. */
+export async function updateConversationTitle(
+  conversationId: number,
+  title: string
+): Promise<void> {
+  return invoke<void>("update_conversation_title", { conversationId, title });
+}
+
+/** Search across conversation memory via FTS5. */
+export async function searchMemory(query: string, limit?: number): Promise<AgentMessage[]> {
+  return invoke<AgentMessage[]>("search_memory", { query, limit });
+}
+
+/** Get current agent configuration. */
+export async function getAgentConfig(): Promise<AgentConfig> {
+  return invoke<AgentConfig>("get_agent_config");
+}
+
+/** Save agent configuration. */
+export async function saveAgentConfig(config: AgentConfig): Promise<void> {
+  return invoke<void>("save_agent_config", { config });
+}
+
+/** Get available agent model tiers and hardware recommendation. */
+export async function getAgentModelTiers(): Promise<AgentModelTiersResponse> {
+  return invoke<AgentModelTiersResponse>("get_agent_model_tiers");
+}
+
+/** List all loaded skills from the skills directory. */
+export async function listSkills(): Promise<Skill[]> {
+  return invoke<Skill[]>("list_skills");
 }

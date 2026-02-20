@@ -20,6 +20,9 @@ import {
   chatStatus as fetchChatStatus,
   chatLoadModel,
   startDragging,
+  minimizeWindow,
+  toggleMaximizeWindow,
+  closeWindow,
 } from "./lib/tauri";
 import type { ChatMessage, ChatStatus } from "./lib/types";
 import "./styles/globals.css";
@@ -269,35 +272,65 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-dvh bg-ghost-bg overflow-hidden md:rounded-2xl md:border md:border-ghost-border/50 md:shadow-2xl">
-      {/* Draggable title bar region — desktop only */}
+      {/* Custom titlebar with drag region + window controls — desktop only */}
       {platform.isDesktop && (
         <div
+          className="flex items-center justify-between shrink-0 h-9 select-none"
           data-tauri-drag-region
-          className="h-4 shrink-0 cursor-grab active:cursor-grabbing"
           onMouseDown={(e) => {
-            if (e.button === 0 && (e.target as HTMLElement).closest('[data-tauri-drag-region]') === e.currentTarget) {
+            const target = e.target as HTMLElement;
+            if (e.button === 0 && !target.closest('button')) {
               startDragging().catch(() => {});
             }
           }}
-        />
+          onDoubleClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (!target.closest('button')) {
+              toggleMaximizeWindow().catch(() => {});
+            }
+          }}
+        >
+          {/* Left spacer for drag area */}
+          <div className="flex-1" />
+          {/* Window control buttons */}
+          <div className="flex items-center h-full">
+            <button
+              onClick={() => minimizeWindow().catch(() => {})}
+              className="inline-flex items-center justify-center w-11 h-full text-ghost-text-dim/60 hover:text-ghost-text hover:bg-ghost-surface-hover transition-colors"
+              title="Minimizar"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M19 13H5v-2h14z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => toggleMaximizeWindow().catch(() => {})}
+              className="inline-flex items-center justify-center w-11 h-full text-ghost-text-dim/60 hover:text-ghost-text hover:bg-ghost-surface-hover transition-colors"
+              title="Maximizar"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M4 4h16v16H4zm2 4v10h12V8z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => closeWindow().catch(() => {})}
+              className="inline-flex items-center justify-center w-11 h-full text-ghost-text-dim/60 hover:text-ghost-text hover:bg-ghost-danger/80 transition-colors rounded-tr-2xl"
+              title="Cerrar"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M13.46 12L19 17.54V19h-1.46L12 13.46L6.46 19H5v-1.46L10.54 12L5 6.46V5h1.46L12 10.54L17.54 5H19v1.46z" />
+              </svg>
+            </button>
+          </div>
+        </div>
       )}
 
-      {/* Header — draggable on desktop, safe area on mobile */}
+      {/* Header */}
       <header
         className="shrink-0 px-5 pb-2 pt-safe"
       >
         <div
-          {...(platform.isDesktop ? { "data-tauri-drag-region": true } : {})}
-          className={`flex items-center justify-between mb-3 ${
-            platform.isDesktop ? "cursor-grab active:cursor-grabbing" : ""
-          }`}
-          onMouseDown={(e) => {
-            if (!platform.isDesktop) return;
-            const target = e.target as HTMLElement;
-            if (e.button === 0 && !target.closest('button') && !target.closest('a')) {
-              startDragging().catch(() => {});
-            }
-          }}
+          className="flex items-center justify-between mb-3"
         >
           <div className="flex items-center gap-2.5">
             <img
