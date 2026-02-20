@@ -15,14 +15,23 @@
   },
   "keywords": [
     "ai",
-    "desktop",
+    "desktop-app",
     "local-first",
-    "privacy",
-    "search",
+    "privacy-first",
     "semantic-search",
+    "vector-search",
     "tauri",
     "rust",
-    "ollama"
+    "ollama",
+    "llm",
+    "mcp",
+    "embeddings",
+    "cross-platform",
+    "spotlight-alternative",
+    "raycast-alternative",
+    "productivity",
+    "sqlite",
+    "open-source"
   ],
   "type": "module",
   "scripts": {

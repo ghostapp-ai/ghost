@@ -1,0 +1,42 @@
+# Ghost — Private Local AI Assistant
+
+> Ghost is a private, local-first AI assistant for desktop (Windows, macOS, Linux).
+> It indexes local files, provides hybrid semantic + keyword search, and evolves
+> into an AI agent that can take actions on your OS — all without sending data to the cloud.
+
+## Key Facts
+
+- **License**: MIT (open source core) + proprietary Pro tier
+- **Stack**: Tauri v2 (Rust backend) + React/TypeScript (frontend) + SQLite/sqlite-vec + Candle (native AI)
+- **Privacy**: 100% local. Zero telemetry. Zero cloud dependencies.
+- **Current Version**: 0.2.x
+- **Platforms**: Windows (x64), macOS (ARM64 + Intel), Linux (DEB, RPM, AppImage)
+
+## Architecture
+
+Ghost uses a 4-layer architecture:
+
+1. **Frontend**: React/TypeScript with Tailwind CSS v4
+2. **IPC Bridge**: Tauri v2 command system
+3. **Core Engine (Rust)**: File watcher, text extractor, embedding engine, vector DB, search
+4. **AI Layer (Local)**:
+   - Native: Candle + all-MiniLM-L6-v2 (384D embeddings, ~23MB)
+   - Fallback: Ollama + nomic-embed-text (768D)
+   - Chat: Qwen2.5-Instruct GGUF (0.5B–7B, auto-selected by RAM)
+
+## Core Features
+
+- **Hybrid Search**: FTS5 keyword + sqlite-vec KNN vector search combined via Reciprocal Rank Fusion (RRF)
+- **Native AI Inference**: In-process BERT embeddings via Candle — no Ollama, no GPU, no internet required after first model download
+- **Spotlight-like UX**: Ctrl/Cmd+Space floating window, auto-hide, keyboard-first
+- **File Indexing**: PDF, DOCX, XLSX, TXT, Markdown, 50+ code file types
+- **Chat**: Native GGUF inference with hardware-aware model auto-selection
+- **Zero-config**: Auto-discovers user directories on first launch
+
+## Links
+
+- Repository: https://github.com/ghostapp-ai/ghost
+- Releases: https://github.com/ghostapp-ai/ghost/releases
+- Issues: https://github.com/ghostapp-ai/ghost/issues
+- Discussions: https://github.com/ghostapp-ai/ghost/discussions
+- Roadmap: https://github.com/ghostapp-ai/ghost/blob/main/ROADMAP.md
