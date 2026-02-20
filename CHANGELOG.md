@@ -1,3 +1,14 @@
+## [0.7.0](https://github.com/ghostapp-ai/ghost/compare/v0.6.0...v0.7.0) (2026-02-20)
+
+### 🚀 Features
+
+* **ci:** multiplatform CI/CD — Android, iOS, RPM, DRY pro stub ([a5d69e7](https://github.com/ghostapp-ai/ghost/commit/a5d69e776ba9d3b8aa32366a6bb7071e49f98b10))
+* multiplatform support — Android APK build, conditional compilation, responsive UI ([6894842](https://github.com/ghostapp-ai/ghost/commit/689484299149196bcdb44baa34bec6b1210ecb20))
+
+### 📚 Documentation
+
+* update README and CLAUDE for AG-UI completion status ([3942a47](https://github.com/ghostapp-ai/ghost/commit/3942a47ed16e730aef4dc41a9cdb75791d160346))
+
 ## [0.6.0](https://github.com/ghostapp-ai/ghost/compare/v0.5.0...v0.6.0) (2026-02-19)
 
 ### 🚀 Features
