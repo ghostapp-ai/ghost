@@ -2,8 +2,12 @@
 name = "ghost"
 version = "0.2.0"
 description = "Private Local AI Superpowers for Your OS"
-authors = ["you"]
+authors = ["Ghost Contributors <https://github.com/ghostapp-ai>"]
+license = "MIT"
+repository = "https://github.com/ghostapp-ai/ghost"
+homepage = "https://github.com/ghostapp-ai/ghost"
 edition = "2021"
+rust-version = "1.77"
 
 [lib]
 name = "ghost_lib"
@@ -14,6 +18,7 @@ default = []
 cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
 metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
 accelerate = ["candle-core/accelerate", "candle-nn/accelerate", "candle-transformers/accelerate"]
+pro = ["dep:ghost-pro"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -71,3 +76,6 @@ hex = "0.4"
 dirs = "6"
 chrono = "0.4"
 tauri-plugin-global-shortcut = "2.3.1"
+
+# Pro features (optional — requires ghost-pro submodule)
+ghost-pro = { path = "../pro", optional = true }

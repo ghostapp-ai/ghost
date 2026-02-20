@@ -2153,7 +2153,7 @@ dependencies = [
 
 [[package]]
 name = "ghost"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "calamine",
@@ -2162,6 +2162,7 @@ dependencies = [
  "candle-transformers",
  "chrono",
  "dirs",
+ "ghost-pro",
  "hex",
  "hf-hub",
  "lopdf",
@@ -2183,6 +2184,18 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "zip",
+]
+
+[[package]]
+name = "ghost-pro"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

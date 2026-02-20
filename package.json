@@ -1,7 +1,29 @@
 {
   "name": "ghost",
-  "private": true,
+  "private": false,
   "version": "0.2.0",
+  "description": "Private Local AI Superpowers for Your OS",
+  "author": "ghostapp-ai",
+  "license": "MIT",
+  "homepage": "https://github.com/ghostapp-ai/ghost",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ghostapp-ai/ghost.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ghostapp-ai/ghost/issues"
+  },
+  "keywords": [
+    "ai",
+    "desktop",
+    "local-first",
+    "privacy",
+    "search",
+    "semantic-search",
+    "tauri",
+    "rust",
+    "ollama"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",

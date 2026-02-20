@@ -17,10 +17,12 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version" />
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform" />
-  <img src="https://img.shields.io/badge/privacy-100%25%20local-brightgreen" alt="Privacy" />
+  <a href="https://github.com/ghostapp-ai/ghost/releases/latest"><img src="https://img.shields.io/github/v/release/ghostapp-ai/ghost?style=flat-square&color=blue" alt="Release" /></a>
+  <a href="https://github.com/ghostapp-ai/ghost/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ghostapp-ai/ghost?style=flat-square&color=green" alt="License" /></a>
+  <a href="https://github.com/ghostapp-ai/ghost/actions/workflows/ghost.yml"><img src="https://img.shields.io/github/actions/workflow/status/ghostapp-ai/ghost/ghost.yml?branch=main&style=flat-square&label=CI" alt="CI" /></a>
+  <a href="https://github.com/ghostapp-ai/ghost/issues"><img src="https://img.shields.io/github/issues/ghostapp-ai/ghost?style=flat-square" alt="Issues" /></a>
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square" alt="Platform" />
+  <img src="https://img.shields.io/badge/privacy-100%25%20local-brightgreen?style=flat-square" alt="Privacy" />
 </p>
 
 ---
@@ -156,7 +158,7 @@ The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Lay
 
 ### Download & Install
 
-Download the latest release for your platform from [**GitHub Releases**](https://github.com/AngelAlexQC/ghost/releases/latest):
+Download the latest release for your platform from [**GitHub Releases**](https://github.com/ghostapp-ai/ghost/releases/latest):
 
 | Platform | File | Notes |
 |----------|------|-------|
@@ -181,7 +183,7 @@ Download the latest release for your platform from [**GitHub Releases**](https:/
 
 ```bash
 # Clone the repo
-git clone https://github.com/AngelAlexQC/ghost.git
+git clone https://github.com/ghostapp-ai/ghost.git
 cd ghost
 
 # Install frontend dependencies
