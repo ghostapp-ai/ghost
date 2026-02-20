@@ -7,13 +7,14 @@
 
 ## Project Overview
 
-**Ghost** is a private, local-first **Agent OS** for desktop (Windows → macOS → Linux). It indexes local files, provides hybrid semantic + keyword search, connects to thousands of tools via open protocols (MCP, A2A, AG-UI, A2UI, WebMCP), and evolves into a full desktop agent that takes actions on your behalf — all without sending data to the cloud.
+**Ghost** is a private, local-first **Agent OS** for desktop (Windows → macOS → Linux) and mobile (Android → iOS). It indexes local files, provides hybrid semantic + keyword search, connects to thousands of tools via open protocols (MCP, A2A, AG-UI, A2UI, WebMCP), and evolves into a full agent that takes actions on your behalf — all without sending data to the cloud.
 
-- **Current phase**: Phase 1.5 — Protocol Bridge (MCP Server ✅, MCP Client ✅, AG-UI next)
+- **Current phase**: Phase 1.7 — Multiplatform (backend ✅, frontend ✅, Android APK ✅, iOS needs macOS)
 - **Stack**: Tauri v2 (Rust backend) + React/TypeScript (frontend) + SQLite/sqlite-vec + Candle (native AI) + rmcp (MCP SDK)
 - **Repo**: `ghostapp-ai/ghost` (public, MIT) + `ghostapp-ai/ghost-pro` (private, proprietary submodule)
-- **Priority**: Open source launch, then Protocol Bridge (MCP Server+Client, AG-UI, A2UI).
+- **Priority**: Multiplatform adaptation, then A2UI/A2A protocols.
 - **Protocol stack**: MCP (tools) → AG-UI (agent↔user streaming) → A2UI (generative UI) → A2A (multi-agent) → WebMCP (web agents)
+- **Platforms**: Desktop (Windows, macOS, Linux) + Mobile (Android, iOS) via Tauri v2 conditional compilation
 
 ---
 
@@ -107,6 +108,17 @@ src-tauri/src/
 - All public functions must have doc comments
 - Use `Result<T, E>` return types — never `unwrap()` in production code (only in tests)
 
+#### Multiplatform Conventions
+- **Use Tauri's `#[cfg(desktop)]` / `#[cfg(mobile)]`** for platform-specific code (set by target triple, NOT by Cargo features)
+- **Desktop-only crates** go in `[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]` in Cargo.toml
+- **Desktop-only features**: file watcher (notify), system tray, global shortcuts, MCP stdio transport
+- **Mobile stubs**: functions that don't apply on mobile return `Ok(())` or a clear error message
+- **Capabilities split**: `default.json` (all platforms), `desktop.json` (desktop-only permissions), `mobile.json` (mobile-only)
+- **Frontend platform detection**: `usePlatform()` hook calls `get_platform_info` Tauri command
+- **Safe area padding**: use `pt-safe` / `pb-safe` CSS classes on mobile for notch/home indicator
+- **Touch targets**: minimum 44px on mobile (`@media (pointer: coarse)`)
+- **Never `h-screen`**: use `h-dvh` for dynamic viewport height (mobile browser chrome)
+
 #### Key Rust Crates
 ```toml
 # Core
@@ -178,7 +190,8 @@ src/
 │   └── VaultBrowser.tsx # (Future) File browser for indexed vault
 ├── hooks/
 │   ├── useSearch.ts     # Search query + results state
-│   └── useHotkey.ts     # Global shortcut handling
+│   ├── useHotkey.ts     # Global shortcut handling
+│   └── usePlatform.ts   # Platform detection hook (desktop/mobile/iOS/Android)
 ├── lib/
 │   ├── tauri.ts        # Tauri invoke wrappers with types
 │   ├── types.ts        # Shared TypeScript types
@@ -550,3 +563,17 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-19 | cargo-nextest over default test runner | 40-60% faster test execution via parallel test scheduling. Pre-built binary via taiki-e/install-action (no cargo install) |
 | 2026-02-19 | taiki-e/install-action over cargo install | Pre-built binaries for cargo-audit and cargo-nextest — installs in <5s vs 30-60s for cargo install |
 | 2026-02-19 | sccache in build matrix jobs | Cross-platform build caching for release artifacts. Heavy crates (llama-cpp-2, candle) cached between runs |
+| 2026-02-20 | `#[cfg(desktop)]`/`#[cfg(mobile)]` over Cargo feature flags | Tauri sets these macros automatically from target triple. Cargo features don't work because build.rs always knows the real target |
+| 2026-02-20 | Target-specific deps over optional deps for mobile | `[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]` cleanly excludes desktop crates from mobile builds |
+| 2026-02-20 | Capabilities split (default/desktop/mobile) | Each platform gets only the permissions it needs. Prevents build errors from missing plugins on mobile |
+| 2026-02-20 | `usePlatform()` hook over compile-time detection | Runtime platform detection allows single frontend bundle. Tauri command provides authoritative platform info with UA fallback |
+| 2026-02-20 | `h-dvh` over `h-screen` | 100dvh accounts for mobile browser chrome (address bar, navigation). h-screen (100vh) causes content to overflow |
+| 2026-02-20 | Safe area CSS classes over hardcoded padding | `env(safe-area-inset-*)` adapts to any device notch/home indicator automatically |
+| 2026-02-20 | Full-screen Settings on mobile over modal | Mobile apps don't use floating modals — full-screen with back navigation is the native pattern |
+| 2026-02-20 | TV platforms rejected as not viable | Closed ecosystems (tvOS, Android TV), no file system access, incompatible interaction model, tiny market for productivity apps |
+| 2026-02-20 | rustls everywhere over native-tls/OpenSSL | OpenSSL cross-compilation fails on Android NDK. reqwest 0.13 `rustls` + hf-hub `rustls-tls` eliminates openssl-sys entirely |
+| 2026-02-20 | `std::ffi::c_char`/`c_int` over `i8`/`i32` for FFI | Android C `char` is unsigned (`u8`), Linux/macOS is signed (`i8`). `c_char` adapts per target automatically |
+| 2026-02-20 | llama-cpp-2 desktop-only over cross-compiling for mobile | C++ cross-compilation for Android NDK is complex and fragile. Mobile chat uses Ollama fallback or future on-device ONNX |
+| 2026-02-20 | `ChatEngine.native` field gated `#[cfg(desktop)]` | Entire native chat inference path (llama-cpp-2) excluded from mobile builds. Clean separation in struct + methods |
+| 2026-02-20 | hf-hub `ureq` feature for sync API | `hf_hub::api::sync::Api` (used in embeddings/native.rs and chat/native.rs) requires the `ureq` feature explicitly when defaults disabled |
+| 2026-02-20 | Dead code removal (ChatPanel, SearchBar) | Both superseded by unified GhostInput Omnibox. No imports found anywhere. Reduces bundle size and maintenance surface |

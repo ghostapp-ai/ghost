@@ -62,6 +62,8 @@ impl McpClientManager {
     }
 
     /// Connect to an MCP server via stdio transport (child process).
+    /// Desktop only — spawning child processes is not supported on mobile platforms.
+    #[cfg(desktop)]
     pub async fn connect_stdio(&self, entry: &McpServerEntry) -> anyhow::Result<ConnectedServer> {
         let command = entry
             .command
@@ -175,7 +177,12 @@ impl McpClientManager {
         }
 
         let result = match entry.transport.as_str() {
+            #[cfg(desktop)]
             "stdio" => self.connect_stdio(entry).await,
+            #[cfg(mobile)]
+            "stdio" => Err(anyhow::anyhow!(
+                "Stdio transport not available on this platform. Use HTTP transport instead."
+            )),
             "http" | "streamable-http" => self.connect_http(entry).await,
             other => Err(anyhow::anyhow!("Unknown transport: {}", other)),
         };

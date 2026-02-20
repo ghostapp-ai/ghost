@@ -15,6 +15,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 default = []
+
 # GPU features for llama.cpp chat inference (runtime auto-detection)
 vulkan = ["llama-cpp-2/vulkan"]
 metal = ["llama-cpp-2/metal", "candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
@@ -27,7 +28,7 @@ pro = ["dep:ghost-pro"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-# Tauri
+# Tauri (tray-icon only on desktop via target-specific dep)
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 
@@ -41,16 +42,15 @@ rusqlite = { version = "0.32", features = ["bundled", "vtab"] }
 # Async
 tokio = { version = "1", features = ["full"] }
 
-# File watching
-notify = "7"
-notify-debouncer-mini = "0.5"
+# File watching (desktop only — see target-specific deps below)
+# notify and notify-debouncer-mini moved to [target.'cfg(desktop)'.dependencies]
 
 # Text extraction
 lopdf = "0.39"
 calamine = "0.33"
 
-# HTTP client (for Ollama)
-reqwest = { version = "0.13", features = ["json"] }
+# HTTP client (for Ollama — rustls avoids OpenSSL cross-compilation issues on Android/iOS)
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 
 # Vector search
 sqlite-vec = "0.1.7-alpha.10"
@@ -66,14 +66,11 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Native AI — Chat inference (llama.cpp, runtime GPU auto-detection)
-llama-cpp-2 = "0.1"
-
 # Native AI — Embeddings (Candle BERT, kept for all-MiniLM-L6-v2)
 candle-core = "0.9"
 candle-nn = "0.9"
 candle-transformers = "0.9"
-hf-hub = "0.4"
+hf-hub = { version = "0.4", default-features = false, features = ["tokio", "ureq", "rustls-tls"] }
 tokenizers = "0.22"
 encoding_rs = "0.8"
 
@@ -91,7 +88,19 @@ sha2 = "0.10"
 hex = "0.4"
 dirs = "6"
 chrono = "0.4"
-tauri-plugin-global-shortcut = "2.3.1"
+# Global shortcut plugin (desktop only — see target-specific deps below)
+# tauri-plugin-global-shortcut moved to [target.'cfg(desktop)'.dependencies]
 
 # Pro features (optional — requires ghost-pro submodule)
 ghost-pro = { path = "../pro", optional = true }
+
+# --- Desktop-only dependencies (not compiled for iOS/Android) ---
+# Tauri sets cfg(desktop) for Windows, macOS, and Linux targets.
+# These crates don't compile or aren't useful on mobile.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+notify = "7"
+notify-debouncer-mini = "0.5"
+tauri-plugin-global-shortcut = "2.3.1"
+# Chat inference via llama.cpp (requires C++ toolchain, desktop only)
+llama-cpp-2 = "0.1"

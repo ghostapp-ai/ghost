@@ -13,6 +13,8 @@ interface ResultItemProps {
   isSelected: boolean;
   onSelect: () => void;
   onOpen: () => void;
+  /** Whether the app is running on a mobile device */
+  isMobile?: boolean;
 }
 
 const EXT_ICONS: Record<string, typeof FileText> = {
@@ -58,20 +60,20 @@ function formatPath(path: string): string {
   return home;
 }
 
-export function ResultItem({ result, isSelected, onSelect, onOpen }: ResultItemProps) {
+export function ResultItem({ result, isSelected, onSelect, onOpen, isMobile = false }: ResultItemProps) {
   const Icon = getIcon(result.extension);
 
   return (
     <button
-      onClick={onSelect}
-      onDoubleClick={onOpen}
+      onClick={isMobile ? onOpen : onSelect}
+      onDoubleClick={isMobile ? undefined : onOpen}
       className={`
-        w-full text-left px-4 py-3 rounded-xl transition-all duration-150
+        w-full text-left px-4 ${isMobile ? "py-3.5" : "py-3"} rounded-xl transition-all duration-150
         border border-transparent
         ${
           isSelected
             ? "bg-ghost-accent/10 border-ghost-accent/30"
-            : "hover:bg-ghost-surface-hover"
+            : "hover:bg-ghost-surface-hover active:bg-ghost-surface-hover"
         }
       `}
       aria-selected={isSelected}

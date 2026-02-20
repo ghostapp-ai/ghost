@@ -9,9 +9,11 @@ import type { DbStats, AiStatus, ChatStatus } from "../lib/types";
 
 interface StatusBarProps {
   onSettingsClick: () => void;
+  /** Compact mode for mobile: fewer details, larger touch targets */
+  compact?: boolean;
 }
 
-export function StatusBar({ onSettingsClick }: StatusBarProps) {
+export function StatusBar({ onSettingsClick, compact = false }: StatusBarProps) {
   const [stats, setStats] = useState<DbStats | null>(null);
   const [ai, setAi] = useState<AiStatus | null>(null);
   const [vecOk, setVecOk] = useState<boolean | null>(null);
@@ -31,16 +33,20 @@ export function StatusBar({ onSettingsClick }: StatusBarProps) {
   }, [refresh]);
 
   return (
-    <footer className="shrink-0 px-4 py-2 border-t border-ghost-border/30 flex items-center gap-3 text-[10px] font-mono text-ghost-text-dim/50 select-none">
-      {/* DB stats */}
-      {stats && (
+    <footer className={`shrink-0 border-t border-ghost-border/30 flex items-center select-none pb-safe ${
+      compact
+        ? "px-3 py-2.5 gap-2 text-[11px]"
+        : "px-4 py-2 gap-3 text-[10px]"
+    } font-mono text-ghost-text-dim/50`}>
+      {/* DB stats — hide on compact/mobile */}
+      {!compact && stats && (
         <span title="Documentos / Chunks / Embeddings">
           {stats.document_count}d · {stats.chunk_count}c ·{" "}
           {stats.embedded_chunk_count}e
         </span>
       )}
 
-      <Separator />
+      {!compact && <Separator />}
 
       {/* AI embedding engine */}
       <Pill
@@ -53,12 +59,14 @@ export function StatusBar({ onSettingsClick }: StatusBarProps) {
         }
       />
 
-      {/* Vector search */}
-      <Pill
-        ok={vecOk}
-        label={vecOk === null ? "Vec: …" : vecOk ? "Vec: OK" : "Vec: OFF"}
-        title="sqlite-vec búsqueda vectorial"
-      />
+      {/* Vector search — hide on compact */}
+      {!compact && (
+        <Pill
+          ok={vecOk}
+          label={vecOk === null ? "Vec: …" : vecOk ? "Vec: OK" : "Vec: OFF"}
+          title="sqlite-vec búsqueda vectorial"
+        />
+      )}
 
       {/* Chat model */}
       <ChatPill chat={chat} />
@@ -69,8 +77,10 @@ export function StatusBar({ onSettingsClick }: StatusBarProps) {
       {/* Settings button */}
       <button
         onClick={onSettingsClick}
-        className="px-2 py-0.5 rounded-md hover:bg-ghost-surface transition-colors text-ghost-text-dim/60 hover:text-ghost-text-dim"
-        title="Settings (Ctrl+,)"
+        className={`rounded-md hover:bg-ghost-surface transition-colors text-ghost-text-dim/60 hover:text-ghost-text-dim ${
+          compact ? "p-2" : "px-2 py-0.5"
+        }`}
+        title="Settings"
       >
         ⚙
       </button>

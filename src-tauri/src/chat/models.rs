@@ -93,16 +93,25 @@ pub fn find_model(id: &str) -> Option<&'static ModelProfile> {
 ///
 /// This detects actual GPU availability (Vulkan, CUDA, Metal) — not just
 /// compile-time feature flags. Returns true if llama.cpp can offload to GPU.
+/// On mobile, always returns false (llama.cpp not available).
 pub fn has_gpu_runtime() -> bool {
-    // Check if any GPU-type device is reported by llama.cpp backends
-    let devices = llama_cpp_2::list_llama_ggml_backend_devices();
-    devices.iter().any(|d| {
-        matches!(
-            d.device_type,
-            llama_cpp_2::LlamaBackendDeviceType::Gpu
-                | llama_cpp_2::LlamaBackendDeviceType::IntegratedGpu
-        )
-    })
+    #[cfg(desktop)]
+    {
+        // Check if any GPU-type device is reported by llama.cpp backends
+        let devices = llama_cpp_2::list_llama_ggml_backend_devices();
+        devices.iter().any(|d| {
+            matches!(
+                d.device_type,
+                llama_cpp_2::LlamaBackendDeviceType::Gpu
+                    | llama_cpp_2::LlamaBackendDeviceType::IntegratedGpu
+            )
+        })
+    }
+
+    #[cfg(not(desktop))]
+    {
+        false
+    }
 }
 
 /// Recommend the best model that fits the available hardware.

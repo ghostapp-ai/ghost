@@ -25,6 +25,8 @@ import type { HardwareInfo, ModelInfo, ChatStatus } from "../lib/types";
 
 interface OnboardingProps {
   onComplete: () => void;
+  /** Mobile layout: no drag region, safe-area padding */
+  isMobile?: boolean;
 }
 
 type SetupPhase =
@@ -34,7 +36,7 @@ type SetupPhase =
   | "downloading"
   | "ready";
 
-export function Onboarding({ onComplete }: OnboardingProps) {
+export function Onboarding({ onComplete, isMobile = false }: OnboardingProps) {
   const [phase, setPhase] = useState<SetupPhase>("welcome");
   const [hardware, setHardware] = useState<HardwareInfo | null>(null);
   const [recommendedModelId, setRecommendedModelId] = useState<string>("");
@@ -129,24 +131,28 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const recommendedModel = models.find((m) => m.id === recommendedModelId);
 
   return (
-    <div className="flex flex-col h-screen bg-ghost-bg rounded-2xl overflow-hidden border border-ghost-border/50 shadow-2xl">
-      {/* Draggable title bar */}
-      <div
-        data-tauri-drag-region
-        className="h-4 shrink-0 cursor-grab active:cursor-grabbing"
-        onMouseDown={(e) => {
-          if (
-            e.button === 0 &&
-            (e.target as HTMLElement).closest("[data-tauri-drag-region]") ===
-              e.currentTarget
-          ) {
-            startDragging().catch(() => {});
-          }
-        }}
-      />
+    <div className="flex flex-col h-dvh bg-ghost-bg overflow-hidden md:rounded-2xl md:border md:border-ghost-border/50 md:shadow-2xl">
+      {/* Draggable title bar — desktop only */}
+      {!isMobile && (
+        <div
+          data-tauri-drag-region
+          className="h-4 shrink-0 cursor-grab active:cursor-grabbing"
+          onMouseDown={(e) => {
+            if (
+              e.button === 0 &&
+              (e.target as HTMLElement).closest("[data-tauri-drag-region]") ===
+                e.currentTarget
+            ) {
+              startDragging().catch(() => {});
+            }
+          }}
+        />
+      )}
 
       {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8 pb-8 overflow-y-auto">
+      <div className={`flex-1 flex flex-col items-center justify-center pb-8 overflow-y-auto ${
+        isMobile ? "px-5 pt-safe" : "px-8"
+      }`}>
         {phase === "welcome" && <WelcomePhase />}
         {phase === "detecting" && <DetectingPhase />}
         {phase === "hardware_ready" && (

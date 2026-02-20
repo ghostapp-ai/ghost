@@ -5,7 +5,7 @@
 <h1 align="center">GHOST</h1>
 
 <p align="center">
-  <strong>The Private Agent OS for Your Desktop</strong>
+  <strong>The Private Agent OS for Desktop & Mobile</strong>
 </p>
 
 <p align="center">
@@ -21,13 +21,13 @@
   <a href="https://github.com/ghostapp-ai/ghost/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ghostapp-ai/ghost?style=flat-square&color=green" alt="License" /></a>
   <a href="https://github.com/ghostapp-ai/ghost/actions/workflows/ghost.yml"><img src="https://img.shields.io/github/actions/workflow/status/ghostapp-ai/ghost/ghost.yml?branch=main&style=flat-square&label=CI" alt="CI" /></a>
   <a href="https://github.com/ghostapp-ai/ghost/issues"><img src="https://img.shields.io/github/issues/ghostapp-ai/ghost?style=flat-square" alt="Issues" /></a>
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square" alt="Platform" />
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android-lightgrey?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/privacy-100%25%20local-brightgreen?style=flat-square" alt="Privacy" />
 </p>
 
 ---
 
-Ghost is a private, local-first **Agent OS** that lives in your desktop. It indexes your files, understands your context, connects to thousands of tools via open protocols (MCP, A2A, AG-UI, A2UI, WebMCP), and takes actions on your behalf — all without sending a single byte to the cloud.
+Ghost is a private, local-first **Agent OS** for desktop and mobile. It indexes your files, understands your context, connects to thousands of tools via open protocols (MCP, A2A, AG-UI, A2UI, WebMCP), and takes actions on your behalf — all without sending a single byte to the cloud.
 
 Think **Raycast + Semantic Search + Local AI Agent + Universal Protocol Hub** — but private by design.
 
@@ -104,6 +104,16 @@ Think **Raycast + Semantic Search + Local AI Agent + Universal Protocol Hub** �
 - **OneDrive-aware indexing**: Detects cloud placeholders, indexes metadata only
 - **Zero-config**: Auto-discovers Documents, Desktop, Downloads, Pictures on first launch
 - **Settings persistence**: `setup_complete`, `launch_on_startup`, all chat preferences with serde defaults
+
+### Phase 1.7 — Multiplatform (**Complete**)
+
+- **Android APK**: Full Tauri v2 mobile build (39MB APK, 16MB AAB for aarch64)
+- **Conditional compilation**: `#[cfg(desktop)]` / `#[cfg(mobile)]` for platform-specific code
+- **TLS migration**: 100% rustls — zero OpenSSL, Android NDK cross-compilation safe
+- **Desktop-only gating**: llama-cpp-2, file watcher, system tray, global shortcuts, MCP stdio
+- **Responsive frontend**: all components adapted with `isMobile` prop, 44px+ touch targets, safe areas
+- **Platform detection**: `usePlatform()` hook for runtime UI adaptation
+- **iOS ready**: backend + frontend fully adapted, scaffold requires macOS
 
 ### Phase 1.5 — The Protocol Bridge *(In Progress)*
 
@@ -205,6 +215,8 @@ Download the latest release for your platform from [**GitHub Releases**](https:/
 | **Linux** (64-bit) | `ghost_x.x.x_amd64.deb` | Debian/Ubuntu |
 | **Linux** (64-bit) | `ghost_x.x.x_amd64.AppImage` | Universal Linux |
 
+| **Android** (ARM64) | `app-universal-release.apk` | Tauri v2 WebView, min SDK 24 |
+
 > **No external dependencies required.** Ghost ships with native AI inference — no Ollama, no GPU, no internet needed after installation.
 
 ### Build from Source
@@ -236,35 +248,42 @@ bun run tauri dev
 ### Build for Production
 
 ```bash
+# Desktop
 bun run tauri build
+
+# Android (requires Android SDK + NDK 27+)
+bun run tauri android build --target aarch64
 ```
 
-The installer will be generated in `src-tauri/target/release/bundle/`.
+The desktop installer will be generated in `src-tauri/target/release/bundle/`.
+The Android APK will be in `src-tauri/gen/android/app/build/outputs/apk/`.
 
 ## Project Structure
 
 ```
 ghost/
 ├── src/                    # Frontend (React/TypeScript)
-│   ├── components/         # UI components (Onboarding, SearchBar, ResultsList, Settings, StatusBar)
-│   ├── hooks/              # Custom React hooks (useSearch, useHotkey)
-│   ├── lib/                # Tauri IPC wrappers + TypeScript types
-│   ├── styles/             # Global CSS (Tailwind v4 theme)
-│   └── App.tsx             # Root component (onboarding → main UI routing)
+│   ├── components/         # UI components (Onboarding, GhostInput, ResultsList, Settings, StatusBar)
+│   ├── hooks/              # Custom React hooks (useSearch, useHotkey, usePlatform)
+│   ├── lib/                # Tauri IPC wrappers + TypeScript types + mode detection
+│   ├── styles/             # Global CSS (Tailwind v4 theme, safe areas, touch targets)
+│   └── App.tsx             # Root component (onboarding → main UI routing, platform-aware)
 ├── src-tauri/              # Backend (Rust)
 │   ├── src/
-│   │   ├── lib.rs          # Tauri commands: search, index, watcher, settings, setup, window mgmt
+│   │   ├── lib.rs          # Tauri commands: search, index, watcher, settings, platform info
 │   │   ├── main.rs         # Entry point
 │   │   ├── error.rs        # Error types (thiserror)
-│   │   ├── settings.rs     # Persistent settings (JSON) — includes setup_complete, launch_on_startup
-│   │   ├── chat/           # Chat engine: native Candle GGUF + Ollama fallback + model registry
-│   │   ├── indexer/        # File watcher + text extraction + chunking
-│   │   ├── db/             # SQLite + sqlite-vec + FTS5 (schema + CRUD)
-│   │   ├── embeddings/     # Native Candle + Ollama embedding engines
+│   │   ├── settings.rs     # Persistent settings (JSON)
+│   │   ├── chat/           # Chat engine: native Candle GGUF (desktop) + Ollama fallback
+│   │   ├── indexer/        # File watcher (desktop) + text extraction + chunking
+│   │   ├── db/             # SQLite + sqlite-vec + FTS5 (cross-platform FFI types)
+│   │   ├── embeddings/     # Native Candle + Ollama engines + hardware detection
 │   │   ├── search/         # Hybrid search engine + RRF ranking
-│   │   └── protocols/      # (Phase 1.5) MCP server/client, A2A, AG-UI, A2UI, WebMCP
-│   ├── Cargo.toml          # Rust dependencies
-│   └── tauri.conf.json     # Tauri configuration + cross-platform bundler config
+│   │   └── protocols/      # MCP server/client, AG-UI, A2A, A2UI, WebMCP
+│   ├── gen/android/        # Generated Android Gradle project (Tauri v2)
+│   ├── capabilities/       # Platform-split permissions (default, desktop, mobile)
+│   ├── Cargo.toml          # Rust deps (target-specific for desktop/mobile)
+│   └── tauri.conf.json     # Tauri configuration + bundler config
 ├── branding/               # Brand assets (SVGs, PNGs, social, scripts)
 ├── ROADMAP.md              # Detailed development roadmap
 ├── CLAUDE.md               # Agent instructions for AI-assisted development

@@ -351,6 +351,114 @@
 
 ---
 
+## Phase 1.7 — "Multiplatform" (Weeks 12-16)
+
+**Goal**: Adapt Ghost for Android and iOS via Tauri v2 mobile targets, making it the first local-first AI assistant on every platform.
+
+> Market insight: AI assistant market $16.29B (2024) → $73.8B (2033), 18.8% CAGR.
+> Mobile is 60%+ of compute time. Ghost is the only local-first, open-source, multiplatform AI assistant.
+> TV platforms rejected as not viable (closed ecosystems, no file system access).
+
+### Technical Deliverables
+
+#### Backend (Rust) Adaptation
+- [x] **Conditional compilation with `#[cfg(desktop)]` / `#[cfg(mobile)]`**
+  - Use Tauri's built-in platform macros (set by target triple, not Cargo features)
+  - Target-specific deps: notify, notify-debouncer-mini, tauri-plugin-global-shortcut, tray-icon → desktop only
+  - `[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]` in Cargo.toml
+- [x] **Platform-gated features**
+  - File watcher (`indexer::watcher`): desktop only; mobile no background file monitoring
+  - System tray + global shortcuts: desktop only
+  - Window toggle (`toggle_window`): desktop only
+  - MCP stdio transport: desktop only; mobile falls back to HTTP transport with clear error
+  - `start_watcher()`: desktop version starts notify; mobile stub returns Ok(())
+- [x] **Mobile hardware detection (embeddings/hardware.rs)**
+  - iOS: Metal GPU backend, conservative 6GB RAM estimate (no std::process::Command)
+  - Android: Vulkan GPU backend, /proc/meminfo RAM detection (Linux-based)
+- [x] **Platform info command (`get_platform_info`)**
+  - Returns: platform, is_desktop, is_mobile, has_file_watcher, has_system_tray, has_global_shortcuts, has_stdio_mcp
+  - Frontend uses this to adapt UI dynamically
+
+#### Capabilities Split
+- [x] **Tauri capabilities separated by platform**
+  - `default.json`: core permissions only (all platforms)
+  - `desktop.json`: global-shortcut permissions (linux, macOS, windows)
+  - `mobile.json`: core permissions (iOS, android)
+
+#### Frontend Responsive Adaptation
+- [x] **`usePlatform()` hook** — detects platform via Tauri command, fallback to navigator.userAgent
+  - Computed properties: isMobile, isDesktop, isIos, isAndroid, isMacos, modKey, activationShortcut
+- [x] **App.tsx multiplatform**
+  - Auto-hide on blur: desktop only (mobile apps don't hide)
+  - Drag region: desktop only (no title bar drag on mobile)
+  - `h-dvh` instead of `h-screen` for mobile browser chrome
+  - Window hide after file open: desktop only (spotlight-style)
+  - Escape key: doesn't hide window on mobile
+  - Responsive border/shadow: `md:rounded-2xl md:border md:shadow-2xl`
+- [x] **GhostInput.tsx mobile**
+  - `isMobile` prop: larger touch targets (48px buttons), larger icons
+  - Font size: `text-base` on mobile vs `text-[15px]` desktop
+  - Keyboard hints (kbd elements): hidden on mobile
+  - Clear button: larger tap area on mobile
+- [x] **StatusBar.tsx compact mode**
+  - `compact` prop: fewer details on mobile (hide DB stats, vector status)
+  - Larger settings button touch target on mobile
+  - Safe area bottom padding (`pb-safe`)
+- [x] **Settings.tsx mobile**
+  - Full-screen modal on mobile (no rounded corners, full viewport)
+  - Horizontally scrollable tabs on small screens
+  - Directories tab hidden on mobile (no file watcher)
+  - Larger close button touch target
+  - Safe area top padding
+- [x] **Onboarding.tsx mobile**
+  - Conditional drag region (desktop only)
+  - Safe area padding, adapted content padding
+  - `h-dvh` viewport height
+- [x] **Responsive CSS (globals.css)**
+  - Mobile safe area insets: `pt-safe`, `pb-safe`, `pl-safe`, `pr-safe`
+  - `h-dvh` utility (100dvh for mobile browser chrome)
+  - `scrollbar-none` utility for hidden scrollbars
+  - Touch-friendly overrides `@media (pointer: coarse)`: min 44px touch targets
+  - Momentum scrolling for touch devices
+
+#### Mobile Project Scaffold
+- [x] **Android setup**: `tauri android init`, Gradle config, minimum SDK 24+
+  - Full Gradle project scaffolded with `npx tauri android init`
+  - 4 Android Rust targets installed: aarch64, armv7, i686, x86_64
+  - OpenSSL eliminated — entire dep tree uses rustls (cross-compilation safe)
+  - `llama-cpp-2` gated to desktop-only (avoids C++ cross-compilation on mobile)
+  - `std::ffi::c_char` / `c_int` for sqlite-vec FFI (Android C char is unsigned)
+  - Window management APIs (`hide`, `show`, `start_dragging`) gated with `#[cfg(desktop)]`
+  - `ChatEngine.native` field and `chat::native` module gated desktop-only
+  - APK: 39MB (unsigned, aarch64), AAB: 16MB — zero Rust warnings
+- [ ] **iOS setup**: `tauri ios init`, Xcode project, minimum iOS 15+
+  - Requires macOS — `tauri ios` subcommand only available on macOS
+  - Backend Rust code already adapted (conditional compilation ready)
+  - Frontend already responsive with iOS safe areas
+- [ ] **Mobile CI/CD**: GitHub Actions for Android APK + iOS IPA builds
+- [ ] **App Store assets**: screenshots, descriptions, privacy policies
+- [ ] **Mobile-specific features**: share sheet integration, notification support
+
+#### Dead Code Removal
+- [x] **Removed ChatPanel.tsx** — superseded by unified Omnibox (GhostInput)
+- [x] **Removed SearchBar.tsx** — superseded by unified Omnibox (GhostInput)
+
+#### Component Adaptation (All Components)
+- [x] **ChatMessages.tsx** — `isMobile` prop, platform-aware tips (no keyboard shortcuts on mobile), `useMemo` for tips
+- [x] **ResultsList.tsx** — `isMobile` prop, conditional kbd elements, mobile-friendly empty state text
+- [x] **ResultItem.tsx** — `isMobile` prop, single-tap opens on mobile (vs double-click desktop), 44px+ touch targets, `active:` state
+- [x] **DownloadProgress.tsx** — reviewed, already responsive (no changes needed)
+
+### Exit Criteria
+- [x] `bun run build` compiles frontend with zero errors (245.96 KB JS)
+- [x] `cargo check` + `cargo test` (34 tests) + `cargo clippy -- -D warnings` all pass clean
+- [x] All responsive adaptations compile and render correctly on desktop
+- [x] `tauri android build --target aarch64` produces a working APK (39MB) + AAB (16MB)
+- [ ] `tauri ios build` produces a working IPA (requires macOS)
+- [ ] Mobile app tested on device/emulator and shows Onboarding on first launch
+
+---
+
 ## Phase 2 — "The Agent OS" (Weeks 13-22)
 
 **Goal**: Transform Ghost from a search tool into a true local Agent OS. Users interact with their computer through natural language. Growing paid user base.

@@ -19,10 +19,18 @@ use embeddings::hardware::HardwareInfo;
 use embeddings::{AiStatus, EmbeddingEngine};
 use search::SearchResult;
 use settings::Settings;
+
+// Desktop-only imports
+#[cfg(desktop)]
 use tauri::menu::{Menu, MenuItem};
+#[cfg(desktop)]
 use tauri::tray::TrayIconBuilder;
-use tauri::{Emitter, Manager};
+#[cfg(desktop)]
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
+
+use tauri::Emitter;
+#[cfg(desktop)]
+use tauri::Manager;
 
 /// Application state shared across commands.
 pub struct AppState {
@@ -76,7 +84,8 @@ fn get_db_path() -> PathBuf {
 
 // --- Window Management ---
 
-/// Toggle window visibility (show/hide).
+/// Toggle window visibility (show/hide). Desktop only — tray icon interaction.
+#[cfg(desktop)]
 fn toggle_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible().unwrap_or(false) {
@@ -90,27 +99,37 @@ fn toggle_window(app: &tauri::AppHandle) {
 
 #[tauri::command]
 async fn hide_window(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(desktop)]
     if let Some(window) = app.get_webview_window("main") {
         window.hide().map_err(|e| e.to_string())?;
     }
+    #[cfg(not(desktop))]
+    let _ = &app; // suppress unused warning
     Ok(())
 }
 
 #[tauri::command]
 async fn show_window(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(desktop)]
     if let Some(window) = app.get_webview_window("main") {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
     }
+    #[cfg(not(desktop))]
+    let _ = &app; // suppress unused warning
     Ok(())
 }
 
 /// Programmatic window drag — fallback for data-tauri-drag-region issues on Linux.
+/// No-op on mobile.
 #[tauri::command]
 async fn start_dragging(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(desktop)]
     if let Some(window) = app.get_webview_window("main") {
         window.start_dragging().map_err(|e| e.to_string())?;
     }
+    #[cfg(not(desktop))]
+    let _ = &app; // suppress unused warning
     Ok(())
 }
 
@@ -220,6 +239,8 @@ async fn check_ai_status(state: tauri::State<'_, Arc<AppState>>) -> Result<AiSta
     Ok(state.embedding_engine.status())
 }
 
+/// Start file watcher on directories. Desktop only — notify crate requires OS file events.
+#[cfg(desktop)]
 #[tauri::command]
 async fn start_watcher(
     directories: Vec<String>,
@@ -259,6 +280,17 @@ async fn start_watcher(
         }
     });
 
+    Ok(())
+}
+
+/// Mobile stub — file watching not available on mobile platforms.
+#[cfg(mobile)]
+#[tauri::command]
+async fn start_watcher(
+    _directories: Vec<String>,
+    _state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    tracing::info!("File watcher not available on this platform");
     Ok(())
 }
 
@@ -440,6 +472,40 @@ async fn get_available_models(
 #[tauri::command]
 async fn get_recommended_model(state: tauri::State<'_, Arc<AppState>>) -> Result<String, String> {
     Ok(state.chat_engine.recommended_model_id())
+}
+
+// --- Platform Detection ---
+
+/// Get the current platform information for the frontend.
+/// Allows the UI to adapt layout and features based on platform.
+#[tauri::command]
+async fn get_platform_info() -> Result<serde_json::Value, String> {
+    let platform = if cfg!(target_os = "android") {
+        "android"
+    } else if cfg!(target_os = "ios") {
+        "ios"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "unknown"
+    };
+
+    let is_desktop = cfg!(desktop);
+    let is_mobile = cfg!(mobile);
+
+    Ok(serde_json::json!({
+        "platform": platform,
+        "is_desktop": is_desktop,
+        "is_mobile": is_mobile,
+        "has_file_watcher": is_desktop,
+        "has_system_tray": is_desktop,
+        "has_global_shortcuts": is_desktop,
+        "has_stdio_mcp": is_desktop,
+    }))
 }
 
 // --- Debug Commands ---
@@ -1048,9 +1114,17 @@ pub fn run() {
         agui_event_bus: protocols::agui::AgUiEventBus::new(256),
     });
 
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init());
+
+    // Desktop-only plugins
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
+    }
+
+    builder
         .manage(app_state.clone())
         .invoke_handler(tauri::generate_handler![
             // Search & indexing
@@ -1078,6 +1152,8 @@ pub fn run() {
             get_hardware_info,
             get_available_models,
             get_recommended_model,
+            // Platform
+            get_platform_info,
             // Debug
             get_logs,
             clear_logs,
@@ -1104,57 +1180,67 @@ pub fn run() {
             remove_mcp_server_entry,
         ])
         .setup(move |app| {
-            // --- System Tray ---
-            let show_item = MenuItem::with_id(app, "show", "Show Ghost", true, None::<&str>)?;
-            let quit_item = MenuItem::with_id(app, "quit", "Quit Ghost", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+            // --- Desktop-only setup: System Tray + Global Shortcuts ---
+            #[cfg(desktop)]
+            {
+                let show_item = MenuItem::with_id(app, "show", "Show Ghost", true, None::<&str>)?;
+                let quit_item = MenuItem::with_id(app, "quit", "Quit Ghost", true, None::<&str>)?;
+                let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
-            let tray_handle = app.handle().clone();
-            TrayIconBuilder::new()
-                .menu(&menu)
-                .tooltip("Ghost — AI Assistant")
-                .on_menu_event(move |_app, event| match event.id().as_ref() {
-                    "show" => {
-                        toggle_window(&tray_handle);
-                    }
-                    "quit" => {
-                        std::process::exit(0);
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::Click {
-                        button: tauri::tray::MouseButton::Left,
-                        ..
-                    } = event
-                    {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                let tray_handle = app.handle().clone();
+                TrayIconBuilder::new()
+                    .menu(&menu)
+                    .tooltip("Ghost — AI Assistant")
+                    .on_menu_event(move |_app, event| match event.id().as_ref() {
+                        "show" => {
+                            toggle_window(&tray_handle);
                         }
-                    }
-                })
-                .build(app)?;
+                        "quit" => {
+                            std::process::exit(0);
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let tauri::tray::TrayIconEvent::Click {
+                            button: tauri::tray::MouseButton::Left,
+                            ..
+                        } = event
+                        {
+                            let app = tray.app_handle();
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
+                        }
+                    })
+                    .build(app)?;
 
-            tracing::info!("System tray icon created");
+                tracing::info!("System tray icon created");
 
-            // Register global shortcut: Ctrl+Space (or Cmd+Space on macOS)
-            use tauri_plugin_global_shortcut::ShortcutState;
-            let handle = app.handle().clone();
+                // Register global shortcut: Ctrl+Space (or Cmd+Space on macOS)
+                use tauri_plugin_global_shortcut::ShortcutState;
+                let handle = app.handle().clone();
 
-            app.global_shortcut()
-                .on_shortcut("CmdOrCtrl+Space", move |_app, shortcut, event| {
-                    if event.state == ShortcutState::Pressed {
-                        tracing::debug!("Global shortcut pressed: {:?}", shortcut);
-                        toggle_window(&handle);
-                    }
-                })
-                .unwrap_or_else(|e| {
-                    tracing::warn!("Failed to register global shortcut CmdOrCtrl+Space: {}", e);
-                });
+                app.global_shortcut()
+                    .on_shortcut("CmdOrCtrl+Space", move |_app, shortcut, event| {
+                        if event.state == ShortcutState::Pressed {
+                            tracing::debug!("Global shortcut pressed: {:?}", shortcut);
+                            toggle_window(&handle);
+                        }
+                    })
+                    .unwrap_or_else(|e| {
+                        tracing::warn!(
+                            "Failed to register global shortcut CmdOrCtrl+Space: {}",
+                            e
+                        );
+                    });
 
-            tracing::info!("Global shortcut registered: CmdOrCtrl+Space");
+                tracing::info!("Global shortcut registered: CmdOrCtrl+Space");
+            }
+
+            // Suppress unused `app` warning on mobile (tray/shortcuts are desktop-only)
+            #[cfg(not(desktop))]
+            let _ = &app;
 
             // --- Start MCP Server ---
             let mcp_state = app_state.clone();
@@ -1326,69 +1412,76 @@ pub fn run() {
                             }
                         }
 
-                        // Start file watcher on discovered directories
-                        let watch_dirs: Vec<std::path::PathBuf> =
-                            auto_dirs.iter().map(std::path::PathBuf::from).collect();
-                        match crate::indexer::watcher::start_watching(watch_dirs) {
-                            Ok(rx) => {
-                                let watcher_state = state_for_autoindex.clone();
-                                tauri::async_runtime::spawn(async move {
-                                    while let Ok(events) = rx.recv() {
-                                        for event in events {
-                                            match event {
-                                                crate::indexer::watcher::FileEvent::Changed(
-                                                    path,
-                                                ) => {
-                                                    tracing::info!(
-                                                        "File changed, re-indexing: {}",
-                                                        path.display()
-                                                    );
-                                                    if let Err(e) = crate::indexer::index_file(
-                                                        &watcher_state.db,
-                                                        &watcher_state.embedding_engine,
-                                                        &path,
-                                                    )
-                                                    .await
-                                                    {
-                                                        tracing::warn!(
-                                                            "Failed to re-index {}: {}",
-                                                            path.display(),
-                                                            e
+                        // Start file watcher on discovered directories (desktop only)
+                        #[cfg(desktop)]
+                        {
+                            let watch_dirs: Vec<std::path::PathBuf> =
+                                auto_dirs.iter().map(std::path::PathBuf::from).collect();
+                            match crate::indexer::watcher::start_watching(watch_dirs) {
+                                Ok(rx) => {
+                                    let watcher_state = state_for_autoindex.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        while let Ok(events) = rx.recv() {
+                                            for event in events {
+                                                match event {
+                                                    crate::indexer::watcher::FileEvent::Changed(
+                                                        path,
+                                                    ) => {
+                                                        tracing::info!(
+                                                            "File changed, re-indexing: {}",
+                                                            path.display()
                                                         );
+                                                        if let Err(e) = crate::indexer::index_file(
+                                                            &watcher_state.db,
+                                                            &watcher_state.embedding_engine,
+                                                            &path,
+                                                        )
+                                                        .await
+                                                        {
+                                                            tracing::warn!(
+                                                                "Failed to re-index {}: {}",
+                                                                path.display(),
+                                                                e
+                                                            );
+                                                        }
                                                     }
-                                                }
-                                                crate::indexer::watcher::FileEvent::Removed(
-                                                    path,
-                                                ) => {
-                                                    tracing::info!(
-                                                        "File removed: {}",
-                                                        path.display()
-                                                    );
-                                                    let path_str =
-                                                        path.to_string_lossy().to_string();
-                                                    if let Ok(Some((doc_id, _))) = watcher_state
-                                                        .db
-                                                        .get_document_by_path(&path_str)
-                                                    {
-                                                        let _ = watcher_state
-                                                            .db
-                                                            .delete_embeddings_for_document(doc_id);
-                                                        let _ = watcher_state
-                                                            .db
-                                                            .delete_chunks_for_document(doc_id);
+                                                    crate::indexer::watcher::FileEvent::Removed(
+                                                        path,
+                                                    ) => {
+                                                        tracing::info!(
+                                                            "File removed: {}",
+                                                            path.display()
+                                                        );
+                                                        let path_str =
+                                                            path.to_string_lossy().to_string();
+                                                        if let Ok(Some((doc_id, _))) =
+                                                            watcher_state
+                                                                .db
+                                                                .get_document_by_path(&path_str)
+                                                        {
+                                                            let _ = watcher_state
+                                                                .db
+                                                                .delete_embeddings_for_document(
+                                                                    doc_id,
+                                                                );
+                                                            let _ = watcher_state
+                                                                .db
+                                                                .delete_chunks_for_document(doc_id);
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
-                                    }
-                                });
-                                push_log(
-                                    "info",
-                                    "File watcher started on auto-discovered directories".into(),
-                                );
-                            }
-                            Err(e) => {
-                                push_log("warn", format!("Failed to start watcher: {}", e));
+                                    });
+                                    push_log(
+                                        "info",
+                                        "File watcher started on auto-discovered directories"
+                                            .into(),
+                                    );
+                                }
+                                Err(e) => {
+                                    push_log("warn", format!("Failed to start watcher: {}", e));
+                                }
                             }
                         }
 

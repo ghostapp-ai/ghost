@@ -1,7 +1,7 @@
 //! Hardware detection and optimization for AI inference.
 //!
 //! Detects CPU, RAM, GPU, and SIMD capabilities to select optimal models
-//! and inference devices. Works cross-platform (Windows, macOS, Linux).
+//! and inference devices. Works cross-platform (Windows, macOS, Linux, iOS, Android).
 
 use crate::error::{GhostError, Result};
 
@@ -177,10 +177,21 @@ impl HardwareInfo {
     }
 
     fn detect_gpu() -> Option<GpuBackend> {
-        // Metal detection (macOS)
+        // Metal detection (macOS and iOS)
         #[cfg(target_os = "macos")]
         {
             return Some(GpuBackend::Metal);
+        }
+
+        #[cfg(target_os = "ios")]
+        {
+            return Some(GpuBackend::Metal);
+        }
+
+        // Android — most devices have Vulkan support (Android 7+)
+        #[cfg(target_os = "android")]
+        {
+            return Some(GpuBackend::Vulkan);
         }
 
         // CUDA detection (check for nvidia-smi)
@@ -230,6 +241,16 @@ impl HardwareInfo {
         #[cfg(target_os = "windows")]
         {
             return Self::detect_ram_windows();
+        }
+
+        #[cfg(target_os = "ios")]
+        {
+            return Self::detect_ram_ios();
+        }
+
+        #[cfg(target_os = "android")]
+        {
+            return Self::detect_ram_android();
         }
 
         // Fallback: assume 8GB total, 4GB available
@@ -339,6 +360,54 @@ impl HardwareInfo {
             .unwrap_or(total / 2);
 
         (total, available)
+    }
+
+    /// Detect RAM on iOS using sysctl (same as macOS but without vm_stat).
+    /// iOS doesn't allow spawning processes, so we use libc sysctl directly.
+    #[cfg(target_os = "ios")]
+    fn detect_ram_ios() -> (u64, u64) {
+        // On iOS, use the same sysctl approach but via libc FFI
+        // since std::process::Command is not available on iOS.
+        // For now, use conservative estimates based on common iOS devices.
+        // iPhone 15 Pro: 8GB, iPhone 15: 6GB, iPad Pro: 16GB
+        // iOS typically gives apps 50-75% of physical RAM.
+        //
+        // TODO: Use libc::sysctl for precise detection
+        let total: u64 = 6144; // Conservative: 6GB (most modern iPhones)
+        let available = total * 60 / 100; // iOS gives ~60% to foreground apps
+        (total, available)
+    }
+
+    /// Detect RAM on Android by reading /proc/meminfo (Linux-based).
+    #[cfg(target_os = "android")]
+    fn detect_ram_android() -> (u64, u64) {
+        // Android is Linux-based, so /proc/meminfo works
+        if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
+            let total = Self::parse_meminfo_kb_mobile(&content, "MemTotal:")
+                .map(|kb| kb / 1024)
+                .unwrap_or(4096);
+            let available = Self::parse_meminfo_kb_mobile(&content, "MemAvailable:")
+                .map(|kb| kb / 1024)
+                .unwrap_or(total / 2);
+            (total, available)
+        } else {
+            // Fallback: conservative estimate for modern Android devices
+            (4096, 2048)
+        }
+    }
+
+    /// Parse /proc/meminfo fields on Android (same logic as Linux).
+    #[cfg(target_os = "android")]
+    fn parse_meminfo_kb_mobile(content: &str, field: &str) -> Option<u64> {
+        for line in content.lines() {
+            if line.starts_with(field) {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    return parts[1].parse().ok();
+                }
+            }
+        }
+        None
     }
 }
 

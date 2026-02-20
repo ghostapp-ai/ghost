@@ -5,6 +5,7 @@
 //! Fallback chain: Native (llama.cpp) → Ollama → None.
 
 pub mod models;
+#[cfg(desktop)]
 pub mod native;
 
 use std::sync::Mutex;
@@ -53,10 +54,12 @@ pub struct ChatResponse {
 
 /// Unified chat engine with runtime GPU auto-detection.
 ///
-/// Uses llama.cpp (via llama-cpp-2) for native inference.
+/// Uses llama.cpp (via llama-cpp-2) for native inference on desktop.
 /// GPU is detected at runtime — no compile-time flags needed for Vulkan.
 /// Falls back to Ollama HTTP API if native engine fails.
+/// On mobile, only Ollama is available (llama.cpp not compiled for mobile).
 pub struct ChatEngine {
+    #[cfg(desktop)]
     native: Mutex<Option<native::NativeChatEngine>>,
     active_model_id: Mutex<String>,
     loading: Mutex<bool>,
@@ -69,6 +72,7 @@ impl ChatEngine {
     /// Create a new chat engine (does NOT load the model yet).
     pub fn new(hardware: HardwareInfo, model_id: String) -> Self {
         Self {
+            #[cfg(desktop)]
             native: Mutex::new(None),
             active_model_id: Mutex::new(model_id),
             loading: Mutex::new(false),
@@ -79,7 +83,23 @@ impl ChatEngine {
     }
 
     /// Load the active model. Downloads from HuggingFace Hub on first run.
+    /// On mobile, this is a no-op (mobile uses Ollama only).
     pub async fn load_model(&self) {
+        #[cfg(not(desktop))]
+        {
+            tracing::info!("Native chat model loading skipped on mobile — use Ollama");
+            return;
+        }
+
+        #[cfg(desktop)]
+        {
+            self._load_model_desktop().await;
+        }
+    }
+
+    /// Desktop-only model loading implementation.
+    #[cfg(desktop)]
+    async fn _load_model_desktop(&self) {
         let model_id = { self.active_model_id.lock().unwrap().clone() };
 
         let profile = match models::find_model(&model_id) {
@@ -148,8 +168,11 @@ impl ChatEngine {
             )));
         }
 
-        // Unload current model
-        *self.native.lock().unwrap() = None;
+        // Unload current model (desktop only)
+        #[cfg(desktop)]
+        {
+            *self.native.lock().unwrap() = None;
+        }
         *self.active_model_id.lock().unwrap() = model_id.to_string();
 
         self.load_model().await;
@@ -163,14 +186,16 @@ impl ChatEngine {
 
     /// Get chat engine status for the frontend.
     pub fn status(&self) -> ChatStatus {
+        #[cfg(desktop)]
         let native = self.native.lock().unwrap();
         let loading = *self.loading.lock().unwrap();
         let error = self.error.lock().unwrap().clone();
         let model_id = self.active_model_id.lock().unwrap().clone();
         let progress = self.download_progress.lock().unwrap().clone();
 
+        #[cfg(desktop)]
         if let Some(ref engine) = *native {
-            ChatStatus {
+            return ChatStatus {
                 available: true,
                 backend: "native".into(),
                 model_id: engine.model_id().to_string(),
@@ -179,8 +204,10 @@ impl ChatEngine {
                 error: None,
                 device: engine.gpu_backend().to_string(),
                 download_progress: None,
-            }
-        } else if loading {
+            };
+        }
+
+        if loading {
             let model_name = models::find_model(&model_id)
                 .map(|p| p.name.to_string())
                 .unwrap_or(model_id.clone());
@@ -225,10 +252,11 @@ impl ChatEngine {
     /// Generate a chat response.
     pub async fn chat(&self, messages: &[ChatMessage], max_tokens: usize) -> Result<ChatResponse> {
         let start = std::time::Instant::now();
-        let model_id = self.active_model_id.lock().unwrap().clone();
 
-        // Try native engine first
+        // Try native engine first (desktop only)
+        #[cfg(desktop)]
         {
+            let model_id = self.active_model_id.lock().unwrap().clone();
             let native = self.native.lock().unwrap();
             if let Some(ref engine) = *native {
                 let content = engine.generate(messages, max_tokens)?;
@@ -238,7 +266,7 @@ impl ChatEngine {
                     content,
                     tokens_generated: token_count,
                     duration_ms: duration.as_millis() as u64,
-                    model_id: model_id.clone(),
+                    model_id,
                 });
             }
         }

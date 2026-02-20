@@ -1,5 +1,8 @@
 pub mod chunker;
 pub mod extractor;
+
+/// File watcher — desktop only (requires `notify` crate with OS-level file events).
+#[cfg(desktop)]
 pub mod watcher;
 
 use std::path::Path;
