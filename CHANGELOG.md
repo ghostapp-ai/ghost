@@ -1,3 +1,9 @@
+## [0.11.1](https://github.com/ghostapp-ai/ghost/compare/v0.11.0...v0.11.1) (2026-02-20)
+
+### 🐛 Bug Fixes
+
+* **updater:** regenerate signing keypair with proper password ([442ae26](https://github.com/ghostapp-ai/ghost/commit/442ae2615024f907374d280c2b6965cd78d5952c))
+
 ## [0.11.0](https://github.com/ghostapp-ai/ghost/compare/v0.10.1...v0.11.0) (2026-02-20)
 
 ### 🚀 Features
