@@ -13,6 +13,8 @@ interface GhostInputProps {
   resultCount: number;
   modelReady: boolean;
   autoFocus?: boolean;
+  /** Mobile layout: larger touch targets, no keyboard hints */
+  isMobile?: boolean;
 }
 
 export function GhostInput({
@@ -26,6 +28,7 @@ export function GhostInput({
   resultCount,
   modelReady,
   autoFocus = true,
+  isMobile = false,
 }: GhostInputProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -63,20 +66,24 @@ export function GhostInput({
 
   return (
     <div className="relative group">
-      <div className="flex items-start gap-2.5 px-4 py-3 bg-ghost-surface border border-ghost-border rounded-2xl transition-all duration-200 focus-within:border-ghost-accent/50 focus-within:shadow-[0_0_20px_rgba(108,92,231,0.1)]">
+      <div className={`flex items-start gap-2.5 bg-ghost-surface border border-ghost-border rounded-2xl transition-all duration-200 focus-within:border-ghost-accent/50 focus-within:shadow-[0_0_20px_rgba(108,92,231,0.1)] ${
+        isMobile ? "px-3 py-3.5" : "px-4 py-3"
+      }`}>
         {/* Mode indicator button */}
         <button
           onClick={onModeToggle}
-          className="shrink-0 mt-0.5 p-1.5 rounded-lg transition-all hover:bg-ghost-surface-hover"
+          className={`shrink-0 mt-0.5 rounded-lg transition-all hover:bg-ghost-surface-hover ${
+            isMobile ? "p-2.5" : "p-1.5"
+          }`}
           title={`Modo: ${mode === "search" ? "Búsqueda" : "Chat"} (click para cambiar)`}
           aria-label="Toggle mode"
         >
           {isLoading ? (
-            <Loader2 className="w-4.5 h-4.5 text-ghost-accent animate-spin" />
+            <Loader2 className={`text-ghost-accent animate-spin ${isMobile ? "w-5 h-5" : "w-4.5 h-4.5"}`} />
           ) : mode === "search" ? (
-            <Search className="w-4.5 h-4.5 text-ghost-text-dim transition-colors group-focus-within:text-ghost-accent" />
+            <Search className={`text-ghost-text-dim transition-colors group-focus-within:text-ghost-accent ${isMobile ? "w-5 h-5" : "w-4.5 h-4.5"}`} />
           ) : (
-            <MessageCircle className="w-4.5 h-4.5 text-ghost-accent" />
+            <MessageCircle className={`text-ghost-accent ${isMobile ? "w-5 h-5" : "w-4.5 h-4.5"}`} />
           )}
         </button>
 
@@ -89,7 +96,9 @@ export function GhostInput({
           onInput={handleInput}
           placeholder={placeholder}
           rows={1}
-          className="flex-1 bg-transparent text-ghost-text text-[15px] leading-relaxed outline-none placeholder:text-ghost-text-dim/40 resize-none"
+          className={`flex-1 bg-transparent text-ghost-text leading-relaxed outline-none placeholder:text-ghost-text-dim/40 resize-none ${
+            isMobile ? "text-base" : "text-[15px]"
+          }`}
           style={{ minHeight: "1.5rem", maxHeight: "120px" }}
           spellCheck={false}
           aria-label="Ghost input"
@@ -102,10 +111,12 @@ export function GhostInput({
           {value && (
             <button
               onClick={() => onChange("")}
-              className="p-1 rounded-lg text-ghost-text-dim/40 hover:text-ghost-text hover:bg-ghost-surface-hover transition-all"
+              className={`rounded-lg text-ghost-text-dim/40 hover:text-ghost-text hover:bg-ghost-surface-hover transition-all ${
+                isMobile ? "p-2" : "p-1"
+              }`}
               aria-label="Clear"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className={isMobile ? "w-4 h-4" : "w-3.5 h-3.5"} />
             </button>
           )}
 
@@ -129,30 +140,32 @@ export function GhostInput({
         </div>
       </div>
 
-      {/* Keyboard hint */}
-      <div className="flex items-center justify-between px-2 mt-1.5 text-[9px] text-ghost-text-dim/25">
-        <div className="flex items-center gap-2">
-          <span>
-            <kbd className="px-1 py-0.5 rounded bg-ghost-surface/50 border border-ghost-border/30 text-[8px]">
-              ↵
-            </kbd>{" "}
-            {mode === "chat" ? "enviar" : "abrir"}
-          </span>
-          <span>
-            <kbd className="px-1 py-0.5 rounded bg-ghost-surface/50 border border-ghost-border/30 text-[8px]">
-              esc
-            </kbd>{" "}
-            limpiar
-          </span>
+      {/* Keyboard hints — desktop only */}
+      {!isMobile && (
+        <div className="flex items-center justify-between px-2 mt-1.5 text-[9px] text-ghost-text-dim/25">
+          <div className="flex items-center gap-2">
+            <span>
+              <kbd className="px-1 py-0.5 rounded bg-ghost-surface/50 border border-ghost-border/30 text-[8px]">
+                ↵
+              </kbd>{" "}
+              {mode === "chat" ? "enviar" : "abrir"}
+            </span>
+            <span>
+              <kbd className="px-1 py-0.5 rounded bg-ghost-surface/50 border border-ghost-border/30 text-[8px]">
+                esc
+              </kbd>{" "}
+              limpiar
+            </span>
+          </div>
+          <button
+            onClick={onModeToggle}
+            className="flex items-center gap-1 opacity-40 hover:opacity-80 transition-opacity"
+          >
+            <ArrowUpDown className="w-2.5 h-2.5" />
+            cambiar modo
+          </button>
         </div>
-        <button
-          onClick={onModeToggle}
-          className="flex items-center gap-1 opacity-40 hover:opacity-80 transition-opacity"
-        >
-          <ArrowUpDown className="w-2.5 h-2.5" />
-          cambiar modo
-        </button>
-      </div>
+      )}
     </div>
   );
 }

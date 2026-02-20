@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useMemo } from "react";
 import {
   Bot,
   User,
@@ -20,6 +20,8 @@ interface ChatMessagesProps {
   tokensInfo: string | null;
   error: string | null;
   onRetryDownload: () => void;
+  /** Whether the app is running on a mobile device */
+  isMobile?: boolean;
 }
 
 function getTimeGreeting(): { greeting: string; emoji: string } {
@@ -41,19 +43,27 @@ function getFormattedDate(): string {
   });
 }
 
-const TIPS = [
-  "Escribe ? para preguntar algo",
-  "Ctrl+Space para mostrar/ocultar",
-  "Ctrl+, para abrir configuración",
-  "Busca archivos escribiendo su nombre",
-  "Ctrl+D para ver los logs de depuración",
-];
+function getTips(isMobile: boolean): string[] {
+  const base = [
+    "Escribe ? para preguntar algo",
+    "Busca archivos escribiendo su nombre",
+  ];
+  if (!isMobile) {
+    base.push(
+      "Ctrl+Space para mostrar/ocultar",
+      "Ctrl+, para abrir configuración",
+      "Ctrl+D para ver los logs de depuración"
+    );
+  }
+  return base;
+}
 
-function SmartGreeting() {
+function SmartGreeting({ isMobile = false }: { isMobile?: boolean }) {
   const [time, setTime] = useState(getFormattedTime());
   const { greeting } = getTimeGreeting();
   const date = getFormattedDate();
-  const tip = TIPS[Math.floor(Math.random() * TIPS.length)];
+  const tips = useMemo(() => getTips(isMobile), [isMobile]);
+  const tip = tips[Math.floor(Math.random() * tips.length)];
 
   useEffect(() => {
     const id = setInterval(() => setTime(getFormattedTime()), 30_000);
@@ -93,6 +103,7 @@ export function ChatMessages({
   tokensInfo,
   error,
   onRetryDownload,
+  isMobile = false,
 }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -117,7 +128,7 @@ export function ChatMessages({
       {messages.length === 0 && !isLoading && (
         <div className="flex flex-col items-center justify-center flex-1 text-ghost-text-dim/50 gap-3">
           {isAvailable ? (
-            <SmartGreeting />
+            <SmartGreeting isMobile={isMobile} />
           ) : status?.error ? (
             <>
               <div className="w-12 h-12 rounded-2xl bg-ghost-danger/10 flex items-center justify-center">

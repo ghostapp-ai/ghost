@@ -28,8 +28,13 @@ dist-ssr
 src-tauri/target/
 **/*.rs.bk
 
-# Tauri build output
+# Tauri build output & generated platform projects
 src-tauri/gen/schemas
+src-tauri/gen/android
+src-tauri/gen/apple
+
+# Binary tools (downloaded at runtime)
+biome
 
 # OS files
 Thumbs.db

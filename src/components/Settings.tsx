@@ -40,6 +40,7 @@ import {
   addMcpServerEntry,
   removeMcpServerEntry,
 } from "../lib/tauri";
+import { usePlatform } from "../hooks/usePlatform";
 import type {
   Settings as SettingsType,
   ModelInfo,
@@ -57,6 +58,7 @@ interface SettingsProps {
 type Tab = "general" | "models" | "directories" | "mcp";
 
 export function Settings({ onClose }: SettingsProps) {
+  const { isMobile } = usePlatform();
   const [tab, setTab] = useState<Tab>("general");
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -106,22 +108,28 @@ export function Settings({ onClose }: SettingsProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-ghost-surface border border-ghost-border rounded-2xl w-full max-w-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-0 md:p-4">
+      <div className={`bg-ghost-surface flex flex-col overflow-hidden ${
+        isMobile
+          ? "w-full h-full"
+          : "border border-ghost-border rounded-2xl w-full max-w-2xl shadow-2xl max-h-[85vh]"
+      }`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-ghost-border shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-ghost-border shrink-0 pt-safe">
           <h2 className="text-lg font-semibold text-ghost-text">Settings</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-ghost-text-dim hover:text-ghost-text hover:bg-ghost-surface-hover transition-all"
+            className={`rounded-lg text-ghost-text-dim hover:text-ghost-text hover:bg-ghost-surface-hover transition-all ${
+              isMobile ? "p-2.5" : "p-1.5"
+            }`}
             aria-label="Close settings"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-ghost-border shrink-0 px-6">
+        {/* Tabs — horizontally scrollable on mobile */}
+        <div className="flex border-b border-ghost-border shrink-0 px-6 overflow-x-auto scrollbar-none">
           <TabButton
             active={tab === "general"}
             onClick={() => setTab("general")}
@@ -139,6 +147,7 @@ export function Settings({ onClose }: SettingsProps) {
             onClick={() => setTab("directories")}
             icon={<FolderOpen className="w-3.5 h-3.5" />}
             label="Directories"
+            hide={isMobile}
           />
           <TabButton
             active={tab === "mcp"}
@@ -210,12 +219,15 @@ function TabButton({
   onClick,
   icon,
   label,
+  hide = false,
 }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
+  hide?: boolean;
 }) {
+  if (hide) return null;
   return (
     <button
       onClick={onClick}

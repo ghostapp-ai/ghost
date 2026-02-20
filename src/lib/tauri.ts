@@ -247,6 +247,24 @@ export async function removeMcpServerEntry(name: string): Promise<void> {
   return invoke<void>("remove_mcp_server_entry", { name });
 }
 
+// --- Platform Detection ---
+
+/** Platform information from the Rust backend. */
+export interface PlatformInfo {
+  platform: "android" | "ios" | "macos" | "windows" | "linux" | "unknown";
+  is_desktop: boolean;
+  is_mobile: boolean;
+  has_file_watcher: boolean;
+  has_system_tray: boolean;
+  has_global_shortcuts: boolean;
+  has_stdio_mcp: boolean;
+}
+
+/** Get current platform info for UI adaptation. */
+export async function getPlatformInfo(): Promise<PlatformInfo> {
+  return invoke<PlatformInfo>("get_platform_info");
+}
+
 // --- AG-UI Streaming Chat ---
 
 /** Start a streaming chat using the AG-UI event protocol.

@@ -9,6 +9,7 @@ import { Onboarding } from "./components/Onboarding";
 import { useSearch } from "./hooks/useSearch";
 import { useHotkey } from "./hooks/useHotkey";
 import { useAgui } from "./hooks/useAgui";
+import { usePlatform } from "./hooks/usePlatform";
 import { detectMode, type InputMode } from "./lib/detectMode";
 import {
   hideWindow,
@@ -24,6 +25,9 @@ import type { ChatMessage, ChatStatus } from "./lib/types";
 import "./styles/globals.css";
 
 export default function App() {
+  // --- Platform detection ---
+  const platform = usePlatform();
+
   // --- Setup / onboarding state ---
   const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
 
@@ -114,24 +118,26 @@ export default function App() {
       });
   }, []);
 
-  // --- Auto-hide on blur (with startup grace period) ---
+  // --- Auto-hide on blur (desktop only, with startup grace period) ---
   const [blurEnabled, setBlurEnabled] = useState(false);
   useEffect(() => {
+    // Only enable auto-hide on desktop — mobile apps don't hide on blur
+    if (!platform.isDesktop) return;
     // Give the app 2 seconds to stabilize before enabling auto-hide.
     // This prevents the window from disappearing immediately on startup
     // when focus hasn't been established yet (common on Linux/WSL2).
     const timer = setTimeout(() => setBlurEnabled(true), 2000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [platform.isDesktop]);
 
   useEffect(() => {
-    if (!blurEnabled) return;
+    if (!blurEnabled || !platform.isDesktop) return;
     const handleBlur = () => {
       if (!showSettings) hideWindow().catch(() => {});
     };
     window.addEventListener("blur", handleBlur);
     return () => window.removeEventListener("blur", handleBlur);
-  }, [showSettings, blurEnabled]);
+  }, [showSettings, blurEnabled, platform.isDesktop]);
 
   // --- Input handling ---
   const handleQueryChange = useCallback(
@@ -159,7 +165,10 @@ export default function App() {
       const result = results[selectedIndex];
       if (result) {
         openFile(result.path).catch(() => {});
-        hideWindow().catch(() => {});
+        // Only hide window on desktop (spotlight-style)
+        if (platform.isDesktop) {
+          hideWindow().catch(() => {});
+        }
       }
     } else {
       const trimmed = query.trim();
@@ -229,7 +238,7 @@ export default function App() {
       handleQueryChange("");
     } else if (messages.length > 0) {
       clearChat();
-    } else {
+    } else if (platform.isDesktop) {
       hideWindow().catch(() => {});
     }
   });
@@ -242,7 +251,7 @@ export default function App() {
   // Loading state — waiting for settings to load
   if (setupComplete === null) {
     return (
-      <div className="flex flex-col h-screen bg-ghost-bg rounded-2xl overflow-hidden border border-ghost-border/50 shadow-2xl items-center justify-center">
+      <div className="flex flex-col h-dvh bg-ghost-bg rounded-2xl overflow-hidden border border-ghost-border/50 shadow-2xl items-center justify-center">
         <div className="w-3 h-3 rounded-full bg-ghost-accent animate-pulse" />
       </div>
     );
@@ -253,33 +262,37 @@ export default function App() {
     return (
       <Onboarding
         onComplete={() => setSetupComplete(true)}
+        isMobile={platform.isMobile}
       />
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-ghost-bg rounded-2xl overflow-hidden border border-ghost-border/50 shadow-2xl">
-      {/* Draggable title bar region — large hit area for reliable window drag */}
-      <div
-        data-tauri-drag-region
-        className="h-4 shrink-0 cursor-grab active:cursor-grabbing"
-        onMouseDown={(e) => {
-          // Only drag on primary button, skip if clicking a button
-          if (e.button === 0 && (e.target as HTMLElement).closest('[data-tauri-drag-region]') === e.currentTarget) {
-            startDragging().catch(() => {});
-          }
-        }}
-      />
-
-      {/* Header — also draggable */}
-      <header
-        className="shrink-0 px-5 pb-2"
-      >
+    <div className="flex flex-col h-dvh bg-ghost-bg overflow-hidden md:rounded-2xl md:border md:border-ghost-border/50 md:shadow-2xl">
+      {/* Draggable title bar region — desktop only */}
+      {platform.isDesktop && (
         <div
           data-tauri-drag-region
-          className="flex items-center justify-between mb-3 cursor-grab active:cursor-grabbing"
+          className="h-4 shrink-0 cursor-grab active:cursor-grabbing"
           onMouseDown={(e) => {
-            // Allow drag from header bar area, but not from buttons
+            if (e.button === 0 && (e.target as HTMLElement).closest('[data-tauri-drag-region]') === e.currentTarget) {
+              startDragging().catch(() => {});
+            }
+          }}
+        />
+      )}
+
+      {/* Header — draggable on desktop, safe area on mobile */}
+      <header
+        className="shrink-0 px-5 pb-2 pt-safe"
+      >
+        <div
+          {...(platform.isDesktop ? { "data-tauri-drag-region": true } : {})}
+          className={`flex items-center justify-between mb-3 ${
+            platform.isDesktop ? "cursor-grab active:cursor-grabbing" : ""
+          }`}
+          onMouseDown={(e) => {
+            if (!platform.isDesktop) return;
             const target = e.target as HTMLElement;
             if (e.button === 0 && !target.closest('button') && !target.closest('a')) {
               startDragging().catch(() => {});
@@ -325,6 +338,7 @@ export default function App() {
           isGenerating={isGenerating}
           resultCount={results.length}
           modelReady={isModelReady}
+          isMobile={platform.isMobile}
         />
 
         {searchError && activeMode === "search" && (
@@ -372,11 +386,14 @@ export default function App() {
                   const result = results[index];
                   if (result) {
                     openFile(result.path).catch(() => {});
-                    hideWindow().catch(() => {});
+                    if (platform.isDesktop) {
+                      hideWindow().catch(() => {});
+                    }
                   }
                 }}
                 isLoading={isSearching}
                 hasQuery={!!query.trim()}
+                isMobile={platform.isMobile}
               />
             )}
           </div>
@@ -389,15 +406,18 @@ export default function App() {
             tokensInfo={tokensInfo}
             error={chatError}
             onRetryDownload={() => chatLoadModel().catch(() => {})}
+            isMobile={platform.isMobile}
           />
         )}
       </main>
 
-      {/* Debug Panel */}
-      <DebugPanel isOpen={debugOpen} onToggle={() => setDebugOpen(!debugOpen)} />
+      {/* Debug Panel — desktop only */}
+      {platform.isDesktop && (
+        <DebugPanel isOpen={debugOpen} onToggle={() => setDebugOpen(!debugOpen)} />
+      )}
 
       {/* Status Bar */}
-      <StatusBar onSettingsClick={() => setShowSettings(true)} />
+      <StatusBar onSettingsClick={() => setShowSettings(true)} compact={platform.isMobile} />
 
       {/* Settings Modal */}
       {showSettings && (

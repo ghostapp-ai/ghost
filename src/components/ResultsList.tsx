@@ -11,6 +11,8 @@ interface ResultsListProps {
   onOpen: (index: number) => void;
   isLoading: boolean;
   hasQuery: boolean;
+  /** Whether the app is running on a mobile device */
+  isMobile?: boolean;
 }
 
 export function ResultsList({
@@ -20,6 +22,7 @@ export function ResultsList({
   onOpen,
   isLoading,
   hasQuery,
+  isMobile = false,
 }: ResultsListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -46,21 +49,25 @@ export function ResultsList({
     return (
       <div className="flex flex-col items-center justify-center h-64 text-ghost-text-dim/50 gap-3">
         <SearchIcon className="w-10 h-10" />
-        <p className="text-sm">Type to search your indexed files</p>
-        <div className="flex gap-3 text-xs text-ghost-text-dim/30">
-          <kbd className="px-2 py-1 rounded bg-ghost-surface border border-ghost-border">
-            ↑↓
-          </kbd>
-          <span>navigate</span>
-          <kbd className="px-2 py-1 rounded bg-ghost-surface border border-ghost-border">
-            ↵
-          </kbd>
-          <span>open</span>
-          <kbd className="px-2 py-1 rounded bg-ghost-surface border border-ghost-border">
-            esc
-          </kbd>
-          <span>clear</span>
-        </div>
+        <p className="text-sm">
+          {isMobile ? "Escribe para buscar tus archivos" : "Type to search your indexed files"}
+        </p>
+        {!isMobile && (
+          <div className="flex gap-3 text-xs text-ghost-text-dim/30">
+            <kbd className="px-2 py-1 rounded bg-ghost-surface border border-ghost-border">
+              ↑↓
+            </kbd>
+            <span>navigate</span>
+            <kbd className="px-2 py-1 rounded bg-ghost-surface border border-ghost-border">
+              ↵
+            </kbd>
+            <span>open</span>
+            <kbd className="px-2 py-1 rounded bg-ghost-surface border border-ghost-border">
+              esc
+            </kbd>
+            <span>clear</span>
+          </div>
+        )}
       </div>
     );
   }
@@ -119,6 +126,7 @@ export function ResultsList({
               isSelected={virtualItem.index === selectedIndex}
               onSelect={() => onSelect(virtualItem.index)}
               onOpen={() => onOpen(virtualItem.index)}
+              isMobile={isMobile}
             />
           </div>
         ))}
