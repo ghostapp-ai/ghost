@@ -40,6 +40,8 @@ export interface Settings {
   chat_device: string;
   chat_max_tokens: number;
   chat_temperature: number;
+  setup_complete: boolean;
+  launch_on_startup: boolean;
 }
 
 /** Hardware info from the Rust backend. */
@@ -113,4 +115,16 @@ export interface ModelInfo {
   active: boolean;
   recommended: boolean;
   fits_hardware: boolean;
+}
+
+/** Filesystem entry for the file browser. */
+export interface FsEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size_bytes: number;
+  modified: string;
+  extension: string | null;
+  is_cloud_placeholder: boolean;
+  is_local: boolean;
 }

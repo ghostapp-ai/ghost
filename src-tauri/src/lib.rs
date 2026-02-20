@@ -19,6 +19,8 @@ use embeddings::{AiStatus, EmbeddingEngine};
 use search::SearchResult;
 use settings::Settings;
 use tauri::Manager;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::TrayIconBuilder;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 /// Application state shared across commands.
@@ -379,6 +381,318 @@ async fn is_pro() -> bool {
     }
 }
 
+// --- Filesystem Browsing Commands ---
+
+/// Entry in a directory listing for the file browser.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct FsEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    pub size_bytes: u64,
+    pub modified: String,
+    pub extension: Option<String>,
+    /// Whether the file is a cloud placeholder (OneDrive, iCloud, etc.)
+    pub is_cloud_placeholder: bool,
+    /// Whether the file is locally available
+    pub is_local: bool,
+}
+
+/// List contents of a directory for the file browser.
+/// Returns sorted entries: directories first, then files.
+#[tauri::command]
+async fn list_directory(path: String) -> Result<Vec<FsEntry>, String> {
+    let dir = PathBuf::from(&path);
+    if !dir.exists() {
+        return Err(format!("Directory does not exist: {}", path));
+    }
+    if !dir.is_dir() {
+        return Err(format!("Not a directory: {}", path));
+    }
+
+    let mut entries = Vec::new();
+    let read_dir = std::fs::read_dir(&dir).map_err(|e| format!("Cannot read directory: {}", e))?;
+
+    for entry in read_dir.flatten() {
+        let entry_path = entry.path();
+        let name = entry
+            .file_name()
+            .to_string_lossy()
+            .to_string();
+
+        // Skip hidden files/directories
+        if name.starts_with('.') {
+            continue;
+        }
+
+        let metadata = match entry.metadata() {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+
+        let is_dir = metadata.is_dir();
+        let size_bytes = if is_dir { 0 } else { metadata.len() };
+        let extension = if is_dir {
+            None
+        } else {
+            entry_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|s| s.to_lowercase())
+        };
+
+        let modified = metadata
+            .modified()
+            .ok()
+            .and_then(|t| {
+                t.duration_since(std::time::UNIX_EPOCH)
+                    .ok()
+                    .map(|d| {
+                        chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
+                            .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                            .unwrap_or_default()
+                    })
+            })
+            .unwrap_or_default();
+
+        // Detect cloud placeholder files (OneDrive, iCloud, etc.)
+        let (is_cloud_placeholder, is_local) = detect_cloud_status(&metadata);
+
+        entries.push(FsEntry {
+            name,
+            path: entry_path.to_string_lossy().to_string(),
+            is_dir,
+            size_bytes,
+            modified,
+            extension,
+            is_cloud_placeholder,
+            is_local,
+        });
+    }
+
+    // Sort: directories first, then alphabetical
+    entries.sort_by(|a, b| {
+        b.is_dir
+            .cmp(&a.is_dir)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+
+    Ok(entries)
+}
+
+/// Detect if a file is a cloud placeholder (OneDrive Files On-Demand, iCloud, etc.)
+#[cfg(target_os = "windows")]
+fn detect_cloud_status(metadata: &std::fs::Metadata) -> (bool, bool) {
+    use std::os::windows::fs::MetadataExt;
+    let attrs = metadata.file_attributes();
+    // FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS = 0x00400000 (4194304)
+    // FILE_ATTRIBUTE_RECALL_ON_OPEN = 0x00040000 (262144)
+    // FILE_ATTRIBUTE_OFFLINE = 0x00001000 (4096)
+    const RECALL_ON_DATA: u32 = 0x00400000;
+    const RECALL_ON_OPEN: u32 = 0x00040000;
+    const OFFLINE: u32 = 0x00001000;
+
+    let is_cloud = (attrs & RECALL_ON_DATA) != 0
+        || (attrs & RECALL_ON_OPEN) != 0
+        || (attrs & OFFLINE) != 0;
+    let is_local = !is_cloud;
+    (is_cloud, is_local)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn detect_cloud_status(_metadata: &std::fs::Metadata) -> (bool, bool) {
+    // On Linux/macOS, files are generally local.
+    // macOS iCloud detection could be added later via extended attributes.
+    (false, true)
+}
+
+/// Get the user's home directory.
+#[tauri::command]
+async fn get_home_directory() -> Result<String, String> {
+    dirs::home_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .ok_or_else(|| "Could not determine home directory".to_string())
+}
+
+/// Get common root directories for filesystem browsing.
+#[tauri::command]
+async fn get_root_directories() -> Result<Vec<FsEntry>, String> {
+    let mut roots = Vec::new();
+
+    // Add home directory
+    if let Some(home) = dirs::home_dir() {
+        roots.push(FsEntry {
+            name: "Home".to_string(),
+            path: home.to_string_lossy().to_string(),
+            is_dir: true,
+            size_bytes: 0,
+            modified: String::new(),
+            extension: None,
+            is_cloud_placeholder: false,
+            is_local: true,
+        });
+    }
+
+    // Platform-specific roots
+    #[cfg(target_os = "windows")]
+    {
+        // Add common Windows drives
+        for letter in ['C', 'D', 'E', 'F'] {
+            let drive = format!("{}:\\", letter);
+            if PathBuf::from(&drive).exists() {
+                roots.push(FsEntry {
+                    name: format!("{}: Drive", letter),
+                    path: drive,
+                    is_dir: true,
+                    size_bytes: 0,
+                    modified: String::new(),
+                    extension: None,
+                    is_cloud_placeholder: false,
+                    is_local: true,
+                });
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Add filesystem root
+        roots.push(FsEntry {
+            name: "/".to_string(),
+            path: "/".to_string(),
+            is_dir: true,
+            size_bytes: 0,
+            modified: String::new(),
+            extension: None,
+            is_cloud_placeholder: false,
+            is_local: true,
+        });
+
+        // Add common mount points
+        for mount in ["/mnt", "/media", "/run/media"] {
+            if PathBuf::from(mount).exists() {
+                roots.push(FsEntry {
+                    name: mount.to_string(),
+                    path: mount.to_string(),
+                    is_dir: true,
+                    size_bytes: 0,
+                    modified: String::new(),
+                    extension: None,
+                    is_cloud_placeholder: false,
+                    is_local: true,
+                });
+            }
+        }
+    }
+
+    // Add user directories
+    let user_dirs: Vec<(&str, Option<PathBuf>)> = vec![
+        ("Documents", dirs::document_dir()),
+        ("Desktop", dirs::desktop_dir()),
+        ("Downloads", dirs::download_dir()),
+        ("Pictures", dirs::picture_dir()),
+    ];
+
+    for (label, dir_opt) in user_dirs {
+        if let Some(dir) = dir_opt {
+            if dir.exists() {
+                roots.push(FsEntry {
+                    name: label.to_string(),
+                    path: dir.to_string_lossy().to_string(),
+                    is_dir: true,
+                    size_bytes: 0,
+                    modified: String::new(),
+                    extension: None,
+                    is_cloud_placeholder: false,
+                    is_local: true,
+                });
+            }
+        }
+    }
+
+    // Detect OneDrive directories (Windows)
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(home) = dirs::home_dir() {
+            let onedrive_paths = [
+                home.join("OneDrive"),
+                home.join("OneDrive - Personal"),
+            ];
+            for od in &onedrive_paths {
+                if od.exists() {
+                    roots.push(FsEntry {
+                        name: "OneDrive".to_string(),
+                        path: od.to_string_lossy().to_string(),
+                        is_dir: true,
+                        size_bytes: 0,
+                        modified: String::new(),
+                        extension: None,
+                        is_cloud_placeholder: false,
+                        is_local: true,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(roots)
+}
+
+/// Add a directory to watched directories and start indexing it.
+#[tauri::command]
+async fn add_watch_directory(
+    path: String,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    let dir = PathBuf::from(&path);
+    if !dir.exists() || !dir.is_dir() {
+        return Err(format!("Invalid directory: {}", path));
+    }
+
+    // Add to settings
+    {
+        let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+        if !settings.watched_directories.contains(&path) {
+            settings.watched_directories.push(path.clone());
+            let _ = settings.save(&get_app_data_dir().join("settings.json"));
+        }
+    }
+
+    // Start indexing in background
+    let app_state = state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        push_log("info", format!("Indexing new directory: {}", path));
+        match indexer::index_directory(&app_state.db, &app_state.embedding_engine, &dir).await {
+            Ok(stats) => {
+                push_log(
+                    "info",
+                    format!(
+                        "Indexed {}: {} files ({} ok, {} failed)",
+                        path, stats.total, stats.indexed, stats.failed
+                    ),
+                );
+            }
+            Err(e) => {
+                push_log("warn", format!("Failed to index {}: {}", path, e));
+            }
+        }
+    });
+
+    Ok(())
+}
+
+/// Remove a directory from watched directories.
+#[tauri::command]
+async fn remove_watch_directory(
+    path: String,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+    settings.watched_directories.retain(|d| d != &path);
+    let _ = settings.save(&get_app_data_dir().join("settings.json"));
+    Ok(())
+}
+
 // --- Settings Commands ---
 
 #[tauri::command]
@@ -397,6 +711,18 @@ async fn save_settings(
     settings
         .save(&get_app_data_dir().join("settings.json"))
         .map_err(|e| e.to_string())
+}
+
+/// Mark initial setup/onboarding as complete.
+#[tauri::command]
+async fn complete_setup(state: tauri::State<'_, Arc<AppState>>) -> Result<(), String> {
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+    settings.setup_complete = true;
+    settings
+        .save(&get_app_data_dir().join("settings.json"))
+        .map_err(|e| e.to_string())?;
+    tracing::info!("Initial setup marked as complete");
+    Ok(())
 }
 
 // --- App Setup ---
@@ -552,10 +878,50 @@ pub fn run() {
             // Settings
             get_settings,
             save_settings,
+            complete_setup,
             // Pro
             is_pro,
+            // Filesystem browsing
+            list_directory,
+            get_home_directory,
+            get_root_directories,
+            add_watch_directory,
+            remove_watch_directory,
         ])
         .setup(move |app| {
+            // --- System Tray ---
+            let show_item = MenuItem::with_id(app, "show", "Show Ghost", true, None::<&str>)?;
+            let quit_item = MenuItem::with_id(app, "quit", "Quit Ghost", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+            let tray_handle = app.handle().clone();
+            TrayIconBuilder::new()
+                .menu(&menu)
+                .tooltip("Ghost — AI Assistant")
+                .on_menu_event(move |_app, event| {
+                    match event.id().as_ref() {
+                        "show" => {
+                            toggle_window(&tray_handle);
+                        }
+                        "quit" => {
+                            std::process::exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)?;
+
+            tracing::info!("System tray icon created");
+
             // Register global shortcut: Ctrl+Space (or Cmd+Space on macOS)
             use tauri_plugin_global_shortcut::ShortcutState;
             let handle = app.handle().clone();
