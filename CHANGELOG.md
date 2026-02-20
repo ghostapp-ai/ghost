@@ -1,3 +1,21 @@
+## [0.6.0](https://github.com/ghostapp-ai/ghost/compare/v0.5.0...v0.6.0) (2026-02-19)
+
+### 🚀 Features
+
+* **protocols:** implement AG-UI event system and streaming chat ([2532558](https://github.com/ghostapp-ai/ghost/commit/2532558e2e20723e7418f3014791882773d13707))
+
+### 🐛 Bug Fixes
+
+* **ci:** use correct sccache-action version v0.0.9 ([0ee1d48](https://github.com/ghostapp-ai/ghost/commit/0ee1d48111c75d95069625d31e20e5bc6d82a1ce))
+
+### ⚡ Performance
+
+* **ci:** parallelize CI jobs and add sccache + nextest ([cf824ae](https://github.com/ghostapp-ai/ghost/commit/cf824aeed37e699a1d6fdedcb4e2ce4fdaf3d9bd))
+
+### 📚 Documentation
+
+* update CLAUDE.md decision log and ROADMAP.md progress ([b14abc1](https://github.com/ghostapp-ai/ghost/commit/b14abc1d971c65164765c5cdc5ebacf0e6a80059))
+
 ## [0.5.0](https://github.com/ghostapp-ai/ghost/compare/v0.4.0...v0.5.0) (2026-02-19)
 
 ### 🚀 Features
