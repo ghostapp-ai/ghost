@@ -257,7 +257,7 @@ impl ServerHandler for GhostMcpServer {
 pub async fn start_server(state: Arc<AppState>, addr: &str) -> anyhow::Result<String> {
     let addr_owned = addr.to_string();
 
-    let handler = GhostMcpServer::new(state);
+    let handler = GhostMcpServer::new(state.clone());
 
     // Build the streamable HTTP service
     let service = rmcp::transport::streamable_http_server::StreamableHttpService::new(
@@ -267,13 +267,52 @@ pub async fn start_server(state: Arc<AppState>, addr: &str) -> anyhow::Result<St
         Default::default(),
     );
 
-    let router = axum::Router::new().route("/mcp", axum::routing::any_service(service));
+    // AG-UI SSE endpoint: streams AG-UI events to external clients
+    let agui_state = state.clone();
+    let agui_sse_handler = axum::routing::get(move || {
+        let bus = &agui_state.agui_event_bus;
+        let rx = bus.subscribe();
+        async move {
+            let stream = async_stream::stream! {
+                let mut rx = rx;
+                loop {
+                    match rx.recv().await {
+                        Ok(event) => {
+                            if let Ok(json) = serde_json::to_string(&event) {
+                                yield Ok::<_, std::convert::Infallible>(
+                                    axum::response::sse::Event::default()
+                                        .event(format!("{:?}", event.event_type))
+                                        .data(json)
+                                );
+                            }
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                            tracing::warn!("AG-UI SSE client lagged by {} events", n);
+                            yield Ok::<_, std::convert::Infallible>(
+                                axum::response::sse::Event::default()
+                                    .event("error")
+                                    .data(format!("{{\"lagged\":{}}}", n))
+                            );
+                        }
+                    }
+                }
+            };
+            axum::response::sse::Sse::new(stream)
+                .keep_alive(axum::response::sse::KeepAlive::default())
+        }
+    });
+
+    let router = axum::Router::new()
+        .route("/mcp", axum::routing::any_service(service))
+        .route("/agui", agui_sse_handler);
 
     let listener = tokio::net::TcpListener::bind(&addr_owned).await?;
     let actual_addr = listener.local_addr()?;
     let addr_str = actual_addr.to_string();
 
     tracing::info!("MCP server listening on http://{}/mcp", addr_str);
+    tracing::info!("AG-UI SSE endpoint on http://{}/agui", addr_str);
 
     tokio::spawn(async move {
         if let Err(e) = axum::serve(listener, router).await {

@@ -246,3 +246,14 @@ export async function addMcpServerEntry(entry: McpServerEntry): Promise<void> {
 export async function removeMcpServerEntry(name: string): Promise<void> {
   return invoke<void>("remove_mcp_server_entry", { name });
 }
+
+// --- AG-UI Streaming Chat ---
+
+/** Start a streaming chat using the AG-UI event protocol.
+ *  Returns the run_id. Listen for AG-UI events via `useAgui` hook. */
+export async function chatSendStreaming(
+  messages: ChatMessage[],
+  maxTokens?: number
+): Promise<string> {
+  return invoke<string>("chat_send_streaming", { messages, maxTokens });
+}

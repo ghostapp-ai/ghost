@@ -83,6 +83,9 @@ schemars = "1"
 axum = "0.8"
 tower = "0.5"
 
+# AG-UI streaming support
+async-stream = "0.3"
+
 # Utilities
 sha2 = "0.10"
 hex = "0.4"
