@@ -1,0 +1,19 @@
+# Lefthook — Git hooks for Ghost
+# Runs formatting & linting automatically before each commit.
+# Install: bun install && npx lefthook install
+# Docs: https://lefthook.dev/configuration/
+
+pre-commit:
+  parallel: true
+  jobs:
+    # ── Rust formatting (auto-fix staged .rs files) ──
+    - name: cargo-fmt
+      glob: "*.rs"
+      root: "src-tauri/"
+      run: cargo fmt --all
+      stage_fixed: true
+
+    # ── TypeScript/frontend type-check ──
+    - name: ts-check
+      glob: "*.{ts,tsx}"
+      run: bun run build

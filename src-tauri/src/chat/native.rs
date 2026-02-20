@@ -31,8 +31,7 @@ static LLAMA_BACKEND: OnceLock<Arc<LlamaBackend>> = OnceLock::new();
 /// This MUST be used instead of `LlamaBackend::init()` directly.
 pub fn get_or_init_backend() -> Result<Arc<LlamaBackend>> {
     let backend = LLAMA_BACKEND.get_or_init(|| {
-        let b = LlamaBackend::init()
-            .expect("Failed to initialize llama.cpp backend");
+        let b = LlamaBackend::init().expect("Failed to initialize llama.cpp backend");
         Arc::new(b)
     });
     Ok(Arc::clone(backend))
@@ -495,9 +494,7 @@ mod tests {
 
         let handles: Vec<_> = (0..8)
             .map(|_| {
-                thread::spawn(|| {
-                    get_or_init_backend().expect("concurrent init should succeed")
-                })
+                thread::spawn(|| get_or_init_backend().expect("concurrent init should succeed"))
             })
             .collect();
 
