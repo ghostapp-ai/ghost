@@ -9,7 +9,7 @@
 
 **Ghost** is a private, local-first **Agent OS** for desktop (Windows → macOS → Linux). It indexes local files, provides hybrid semantic + keyword search, connects to thousands of tools via open protocols (MCP, A2A, AG-UI, A2UI, WebMCP), and evolves into a full desktop agent that takes actions on your behalf — all without sending data to the cloud.
 
-- **Current phase**: Phase 1 — The Search Bar (Complete) → preparing Phase 1.5 (Protocol Bridge)
+- **Current phase**: Phase 1.5 — Protocol Bridge (MCP Server ✅, MCP Client ✅, AG-UI next)
 - **Stack**: Tauri v2 (Rust backend) + React/TypeScript (frontend) + SQLite/sqlite-vec + Candle (native AI) + rmcp (MCP SDK)
 - **Repo**: `ghostapp-ai/ghost` (public, MIT) + `ghostapp-ai/ghost-pro` (private, proprietary submodule)
 - **Priority**: Open source launch, then Protocol Bridge (MCP Server+Client, AG-UI, A2UI).
@@ -139,7 +139,7 @@ reqwest = { version = "0.12", features = ["json"] }
 axum = "0.8"             # HTTP transport for MCP, A2A, AG-UI
 
 # Protocol SDKs (Phase 1.5+)
-rmcp = { version = "0.15", features = ["server", "client", "transport-streamable-http-client-reqwest"] }
+rmcp = { version = "0.16", features = ["server", "client", "transport-io", "transport-child-process", "transport-streamable-http-server", "transport-streamable-http-client-reqwest"] }
 # AG-UI — custom Rust implementation (event types + SSE streaming)
 # A2UI — JSON schema only, custom React renderer on frontend
 # A2A — custom Rust implementation (JSON-RPC 2.0 + Agent Cards)
@@ -535,3 +535,8 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-20 | 6-layer stack over 4-layer | Added AG-UI Runtime layer + Protocol Hub layer. AG-UI between frontend and IPC for streaming. Protocol Hub between Core and AI |
 | 2026-02-20 | Free tier with 3 MCP servers limit | Generous free tier drives adoption; Pro unlocks unlimited MCP + A2A + WebMCP. Matches Raycast/Alfred freemium model |
 | 2026-02-20 | $8/mo Pro over $15/mo | Below Raycast Pro ($8), Notion AI ($8), GitHub Copilot ($10). Maximize adoption in $24.53B market growing at 22% CAGR |
+| 2026-02-20 | rmcp v0.16 `#[tool]` macro over manual JSON schema | Zero-boilerplate tool definitions: derive JsonSchema + `#[tool(name, description)]` generates MCP-compliant schemas automatically |
+| 2026-02-20 | `any_service()` axum routing for MCP transport | StreamableHttpService implements tower::Service — `any_service()` handles all HTTP methods (GET/POST/DELETE) on `/mcp` endpoint |
+| 2026-02-20 | Concrete `RunningService<RoleClient, ()>` over DynService | MCP client doesn't need dynamic dispatch; `()` handler is the standard client pattern in rmcp |
+| 2026-02-20 | Port 6774 default for MCP server | Memorable (GHOST on phone keypad ≈ 4-4-6-7-8), unlikely to conflict with common services |
+| 2026-02-20 | MCP Settings tab in existing Settings panel | Consistent UX — users manage MCP alongside directories and models. No separate config files needed |
