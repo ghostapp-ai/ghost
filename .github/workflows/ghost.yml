@@ -368,10 +368,22 @@ jobs:
           if-no-files-found: ignore
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # iOS BUILD — requires Apple Developer certificates
+  # iOS BUILD — always produces an unsigned .xcarchive (no Apple
+  # Developer account required). When Apple secrets ARE configured,
+  # additionally exports a signed .ipa for direct distribution.
   #
-  # To enable: set repository variable IOS_BUILD_ENABLED = true
-  # Required secrets:
+  # Background: iOS has NO equivalent of macOS ad-hoc signing.
+  #   Every signed IPA needs a paid Apple Developer account ($99/yr).
+  #   However, an unsigned .xcarchive can be sideloaded by users via
+  #   AltStore / Sideloadly / their own free Apple ID in Xcode.
+  #
+  # Strategy:
+  #   1. tauri ios init → generate Xcode project
+  #   2. xcodebuild archive CODE_SIGNING_REQUIRED=NO → .xcarchive
+  #   3. Zip and upload .xcarchive (usable by all users)
+  #   4. IF Apple secrets configured → export signed .ipa + upload
+  #
+  # To enable signed IPA, configure these repository secrets:
   #   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD,
   #   APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD,
   #   APPLE_TEAM_ID, APPLE_PROVISIONING_PROFILE
@@ -379,9 +391,9 @@ jobs:
   build-ios:
     name: iOS (aarch64)
     needs: release
-    if: needs.release.outputs.released == 'true' && vars.IOS_BUILD_ENABLED == 'true'
+    if: needs.release.outputs.released == 'true'
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       contents: write
     env:
@@ -406,8 +418,52 @@ jobs:
       - name: Install frontend deps
         run: bun install --frozen-lockfile
 
-      # ── Apple certificate + provisioning profile ──
+      # ── Generate Xcode project ──
+      - name: Initialize iOS project
+        run: bun run tauri ios init
+
+      # ── Build unsigned .xcarchive (no Apple account required) ──
+      # tauri ios build requires signing; we go directly to xcodebuild
+      # with CODE_SIGNING_REQUIRED=NO so CI passes without any cert.
+      # Reference: https://github.com/tauri-apps/tauri/issues/14940
+      - name: Build unsigned xcarchive
+        run: |
+          APP_NAME="ghost"
+          SCHEME="${APP_NAME}_iOS"
+          PROJECT="src-tauri/gen/apple/${APP_NAME}.xcodeproj"
+          ARCHIVE_PATH="src-tauri/gen/apple/build/App.xcarchive"
+          xcodebuild archive \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -archivePath "$ARCHIVE_PATH" \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty || true
+          ls -la "src-tauri/gen/apple/build/" || true
+
+      # ── Upload unsigned .xcarchive (users can sideload via AltStore) ──
+      - name: Upload xcarchive to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          TAG="${{ needs.release.outputs.tag }}"
+          ARCHIVE="src-tauri/gen/apple/build/App.xcarchive"
+          if [ ! -d "$ARCHIVE" ]; then
+            echo "::warning::xcarchive not found, skipping xcarchive upload"
+            exit 0
+          fi
+          DEST="Ghost_${VERSION}_ios-aarch64.xcarchive.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$ARCHIVE" "$DEST"
+          gh release upload "$TAG" "$DEST" --clobber
+          echo "Uploaded unsigned xcarchive: $DEST"
+          echo "Users can sideload via AltStore/Sideloadly or sign with their own Apple Developer account."
+
+      # ── Install Apple certs (only if configured) ──
       - name: Install Apple certificates
+        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -440,39 +496,67 @@ jobs:
           fi
           rm -f "$CERT_PATH"
 
-      # ── Initialize & build ──
-      - name: Initialize iOS project
-        run: bun run tauri ios init
-
-      - name: Build iOS IPA
+      # ── Export signed IPA from the .xcarchive (only if certs configured) ──
+      - name: Export signed IPA
+        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: bun run tauri ios build
+        run: |
+          ARCHIVE_PATH="src-tauri/gen/apple/build/App.xcarchive"
+          EXPORT_PATH="src-tauri/gen/apple/build/ipa-export"
+          # Write ExportOptions.plist for ad-hoc distribution
+          cat > /tmp/ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>ad-hoc</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>compileBitcode</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            | xcpretty || true
 
-      # ── Upload to release ──
+      # ── Upload signed IPA to release (only if signing succeeded) ──
       - name: Upload IPA to release
+        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ needs.release.outputs.version }}"
           TAG="${{ needs.release.outputs.tag }}"
-          IPA=$(find src-tauri/gen/apple -name "*.ipa" -type f 2>/dev/null | head -1)
+          IPA=$(find src-tauri/gen/apple/build/ipa-export -name "*.ipa" -type f 2>/dev/null | head -1)
           if [ -n "$IPA" ]; then
             DEST="Ghost_${VERSION}_ios-aarch64.ipa"
             cp "$IPA" "$DEST"
             gh release upload "$TAG" "$DEST" --clobber
+            echo "Uploaded signed IPA: $DEST"
           else
-            echo "::warning::No IPA found — uploading .app as zip"
-            APP=$(find src-tauri/gen/apple -name "*.app" -type d 2>/dev/null | head -1)
-            if [ -n "$APP" ]; then
-              DEST="Ghost_${VERSION}_ios-aarch64.app.zip"
-              ditto -c -k --sequesterRsrc --keepParent "$APP" "$DEST"
-              gh release upload "$TAG" "$DEST" --clobber
-            fi
+            echo "::warning::IPA export failed or not found. xcarchive was already uploaded."
           fi
+
+      # ── Upload xcarchive as workflow artifact too ──
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ghost-ios-aarch64-xcarchive
+          path: Ghost_*.xcarchive.zip
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Cleanup keychain
         if: always()
