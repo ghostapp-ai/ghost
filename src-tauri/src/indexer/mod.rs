@@ -11,6 +11,8 @@ use crate::embeddings::EmbeddingEngine;
 use crate::error::{GhostError, Result};
 
 /// Index a single file: extract text, chunk, store in DB, and optionally embed.
+/// For cloud placeholder files (OneDrive, iCloud), only index metadata without
+/// downloading the file content.
 pub async fn index_file(
     db: &Database,
     embedding_engine: &EmbeddingEngine,
@@ -26,6 +28,15 @@ pub async fn index_file(
             e
         ))
     })?;
+
+    // Check if file is a cloud placeholder (OneDrive Files On-Demand)
+    if is_cloud_placeholder(&metadata) {
+        tracing::debug!(
+            "Cloud placeholder (not downloaded), metadata-only index: {}",
+            path.display()
+        );
+        return index_file_metadata_only(db, path, &metadata);
+    }
 
     let size_bytes = metadata.len() as i64;
     let modified_at = metadata
@@ -225,6 +236,83 @@ fn chrono_format_timestamp(secs: u64) -> String {
         "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
         year, month, day, hours, minutes, seconds
     )
+}
+
+/// Detect if a file is a cloud placeholder (OneDrive Files On-Demand, iCloud, etc.)
+/// On Windows, checks FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS and related flags.
+/// Cloud-only files should NOT be read (reading triggers a download).
+#[cfg(target_os = "windows")]
+fn is_cloud_placeholder(metadata: &std::fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    let attrs = metadata.file_attributes();
+    const RECALL_ON_DATA: u32 = 0x00400000;
+    const RECALL_ON_OPEN: u32 = 0x00040000;
+    const OFFLINE: u32 = 0x00001000;
+    (attrs & RECALL_ON_DATA) != 0 || (attrs & RECALL_ON_OPEN) != 0 || (attrs & OFFLINE) != 0
+}
+
+#[cfg(not(target_os = "windows"))]
+fn is_cloud_placeholder(_metadata: &std::fs::Metadata) -> bool {
+    false
+}
+
+/// Index only the file's metadata (name, path, extension, size) without reading content.
+/// Used for cloud placeholder files that shouldn't be downloaded just for indexing.
+fn index_file_metadata_only(
+    db: &Database,
+    path: &Path,
+    metadata: &std::fs::Metadata,
+) -> Result<()> {
+    let path_str = path.to_string_lossy().to_string();
+    let filename = path
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("unknown");
+    let extension = path.extension().and_then(|e| e.to_str());
+    let size_bytes = metadata.len() as i64;
+    let modified_at = metadata
+        .modified()
+        .ok()
+        .and_then(|t| {
+            t.duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .map(|d| chrono_format_timestamp(d.as_secs()))
+        })
+        .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string());
+
+    // Use path as hash for cloud files (can't compute content hash without downloading)
+    let hash = format!("cloud:{}", path_str);
+
+    // Check if already indexed
+    if let Some((_, existing_hash)) = db.get_document_by_path(&path_str)? {
+        if existing_hash == hash {
+            return Ok(());
+        }
+    }
+
+    // Upsert document with just metadata
+    let doc_id = db.upsert_document(
+        &path_str,
+        filename,
+        extension,
+        size_bytes,
+        &hash,
+        &modified_at,
+    )?;
+
+    // Create a single chunk with filename info for FTS5 search
+    db.delete_chunks_for_document(doc_id)?;
+    db.delete_embeddings_for_document(doc_id)?;
+
+    let searchable_text = format!(
+        "{} {} (cloud file — not downloaded)",
+        filename,
+        extension.unwrap_or("")
+    );
+    db.insert_chunk(doc_id, 0, &searchable_text, 0)?;
+
+    tracing::debug!("Metadata-only index for cloud file: {}", path.display());
+    Ok(())
 }
 
 #[derive(Debug, Default, Clone, serde::Serialize)]

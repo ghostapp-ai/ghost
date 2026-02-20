@@ -25,6 +25,12 @@ pub struct Settings {
     /// Sampling temperature (0.0 = deterministic, 2.0 = creative).
     #[serde(default = "default_chat_temperature")]
     pub chat_temperature: f64,
+    /// Whether the initial setup (onboarding) has been completed.
+    #[serde(default)]
+    pub setup_complete: bool,
+    /// Whether to launch Ghost on system startup.
+    #[serde(default)]
+    pub launch_on_startup: bool,
 }
 
 fn default_chat_model() -> String {
@@ -49,6 +55,8 @@ impl Default for Settings {
             chat_device: default_chat_device(),
             chat_max_tokens: default_chat_max_tokens(),
             chat_temperature: default_chat_temperature(),
+            setup_complete: false,
+            launch_on_startup: false,
         }
     }
 }
@@ -102,6 +110,8 @@ mod tests {
             chat_device: "auto".to_string(),
             chat_max_tokens: 512,
             chat_temperature: 0.7,
+            setup_complete: true,
+            launch_on_startup: false,
         };
         settings.save(&tmp).unwrap();
 

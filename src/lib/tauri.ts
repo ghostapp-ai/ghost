@@ -12,6 +12,7 @@ import type {
   LogEntry,
   HardwareInfo,
   ModelInfo,
+  FsEntry,
 } from "./types";
 
 // --- Search & Indexing ---
@@ -149,6 +150,11 @@ export async function saveSettings(newSettings: Settings): Promise<void> {
   return invoke<void>("save_settings", { newSettings });
 }
 
+/** Mark initial setup/onboarding as complete. */
+export async function completeSetup(): Promise<void> {
+  return invoke<void>("complete_setup");
+}
+
 // --- System ---
 
 /** Open a file with the system default application. */
@@ -161,4 +167,31 @@ export async function openFile(path: string): Promise<void> {
 /** Check if this build includes Ghost Pro features. */
 export async function isPro(): Promise<boolean> {
   return invoke<boolean>("is_pro");
+}
+
+// --- Filesystem Browsing ---
+
+/** List contents of a directory for the file browser. */
+export async function listDirectory(path: string): Promise<FsEntry[]> {
+  return invoke<FsEntry[]>("list_directory", { path });
+}
+
+/** Get the user's home directory path. */
+export async function getHomeDirectory(): Promise<string> {
+  return invoke<string>("get_home_directory");
+}
+
+/** Get common root directories for filesystem browsing. */
+export async function getRootDirectories(): Promise<FsEntry[]> {
+  return invoke<FsEntry[]>("get_root_directories");
+}
+
+/** Add a directory to watched directories and start indexing. */
+export async function addWatchDirectory(path: string): Promise<void> {
+  return invoke<void>("add_watch_directory", { path });
+}
+
+/** Remove a directory from watched directories. */
+export async function removeWatchDirectory(path: string): Promise<void> {
+  return invoke<void>("remove_watch_directory", { path });
 }
