@@ -18,9 +18,9 @@ use embeddings::hardware::HardwareInfo;
 use embeddings::{AiStatus, EmbeddingEngine};
 use search::SearchResult;
 use settings::Settings;
-use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
+use tauri::Manager;
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 /// Application state shared across commands.
@@ -415,10 +415,7 @@ async fn list_directory(path: String) -> Result<Vec<FsEntry>, String> {
 
     for entry in read_dir.flatten() {
         let entry_path = entry.path();
-        let name = entry
-            .file_name()
-            .to_string_lossy()
-            .to_string();
+        let name = entry.file_name().to_string_lossy().to_string();
 
         // Skip hidden files/directories
         if name.starts_with('.') {
@@ -445,13 +442,11 @@ async fn list_directory(path: String) -> Result<Vec<FsEntry>, String> {
             .modified()
             .ok()
             .and_then(|t| {
-                t.duration_since(std::time::UNIX_EPOCH)
-                    .ok()
-                    .map(|d| {
-                        chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
-                            .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
-                            .unwrap_or_default()
-                    })
+                t.duration_since(std::time::UNIX_EPOCH).ok().map(|d| {
+                    chrono::DateTime::from_timestamp(d.as_secs() as i64, 0)
+                        .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                        .unwrap_or_default()
+                })
             })
             .unwrap_or_default();
 
@@ -492,9 +487,8 @@ fn detect_cloud_status(metadata: &std::fs::Metadata) -> (bool, bool) {
     const RECALL_ON_OPEN: u32 = 0x00040000;
     const OFFLINE: u32 = 0x00001000;
 
-    let is_cloud = (attrs & RECALL_ON_DATA) != 0
-        || (attrs & RECALL_ON_OPEN) != 0
-        || (attrs & OFFLINE) != 0;
+    let is_cloud =
+        (attrs & RECALL_ON_DATA) != 0 || (attrs & RECALL_ON_OPEN) != 0 || (attrs & OFFLINE) != 0;
     let is_local = !is_cloud;
     (is_cloud, is_local)
 }
@@ -614,10 +608,7 @@ async fn get_root_directories() -> Result<Vec<FsEntry>, String> {
     #[cfg(target_os = "windows")]
     {
         if let Some(home) = dirs::home_dir() {
-            let onedrive_paths = [
-                home.join("OneDrive"),
-                home.join("OneDrive - Personal"),
-            ];
+            let onedrive_paths = [home.join("OneDrive"), home.join("OneDrive - Personal")];
             for od in &onedrive_paths {
                 if od.exists() {
                     roots.push(FsEntry {
@@ -898,19 +889,21 @@ pub fn run() {
             TrayIconBuilder::new()
                 .menu(&menu)
                 .tooltip("Ghost — AI Assistant")
-                .on_menu_event(move |_app, event| {
-                    match event.id().as_ref() {
-                        "show" => {
-                            toggle_window(&tray_handle);
-                        }
-                        "quit" => {
-                            std::process::exit(0);
-                        }
-                        _ => {}
+                .on_menu_event(move |_app, event| match event.id().as_ref() {
+                    "show" => {
+                        toggle_window(&tray_handle);
                     }
+                    "quit" => {
+                        std::process::exit(0);
+                    }
+                    _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
+                    if let tauri::tray::TrayIconEvent::Click {
+                        button: tauri::tray::MouseButton::Left,
+                        ..
+                    } = event
+                    {
                         let app = tray.app_handle();
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
