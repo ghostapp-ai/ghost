@@ -26,9 +26,12 @@ src-tauri/src/     # Rust backend (indexer, db, embeddings, chat, agent, protoco
 src/               # React frontend (components, hooks, lib)
 website/           # Astro Starlight documentation site
 scripts/           # Build and maintenance scripts
-.github/agents/    # Custom Copilot agents
-.claude/agents/    # Claude Code agent definitions
+.github/agents/    # Custom Copilot agents (website-maintainer)
 ```
+
+## Copilot Agents
+- **website-maintainer**: Assign website/docs issues to `@copilot` — it uses `.github/agents/website-maintainer.agent.md`
+- The deploy workflow (`website-deploy.yml`) auto-syncs CHANGELOG, ROADMAP, CONTRIBUTING, SECURITY on every push
 
 ## For Detailed Architecture
 Read `CLAUDE.md` at the project root for full architecture, conventions, and decision log.

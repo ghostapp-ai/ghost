@@ -16,9 +16,8 @@
 # Website (docs site)
 /website/ @AngelAlexQC
 
-# Agent definitions
+# Copilot agent definitions
 /.github/agents/ @AngelAlexQC
-/.claude/agents/ @AngelAlexQC
 
 # Pro features (submodule — separate repo)
 /pro/ @AngelAlexQC

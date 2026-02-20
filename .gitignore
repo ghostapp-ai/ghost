@@ -66,5 +66,3 @@ docs/plans/
 
 # AI agent config (internal tooling)
 .agents/
-.claude/
-!.claude/agents/

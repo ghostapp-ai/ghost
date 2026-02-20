@@ -10,9 +10,8 @@ body:
       value: |
         ## 🤖 Automated Website Maintenance
 
-        This issue can be automatically handled by AI agents:
-        - **Copilot**: Assign this issue to `@copilot` in the sidebar
-        - **Claude**: Write `@claude` in a comment with your request
+        Assign this issue to **@copilot** in the sidebar to have it handled automatically.
+        Copilot will use the `website-maintainer` agent to update the docs site.
 
   - type: dropdown
     id: task-type

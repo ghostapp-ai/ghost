@@ -1,10 +1,16 @@
-# Ghost Website — Deploy to GitHub Pages
+# Ghost Website — Auto-Sync + Deploy to GitHub Pages
 #
-# Builds the Astro Starlight site and deploys to GitHub Pages.
-# Triggers on:
-#   - Push to main (when website/ files change)
+# Two-stage pipeline:
+#   1. sync: Runs sync-website-content.mjs, commits any changes back to main
+#   2. build-deploy: Builds Astro Starlight site and deploys to GitHub Pages
+#
+# Triggers:
+#   - Push to main (source docs or website files change)
 #   - After successful Ghost CI/CD pipeline
 #   - Manual dispatch
+#
+# No external AI APIs required — uses deterministic sync script.
+# For intelligent updates, assign issues to Copilot using the website-maintainer agent.
 
 name: Deploy Website
 
@@ -18,33 +24,72 @@ on:
       - "CHANGELOG.md"
       - "CONTRIBUTING.md"
       - "SECURITY.md"
+      - "scripts/sync-website-content.mjs"
   workflow_run:
     workflows: ["Ghost CI/CD"]
     types: [completed]
     branches: [main]
   workflow_dispatch:
 
-# Allow only one deployment at a time
 concurrency:
   group: pages
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
 jobs:
-  build:
-    name: Build Website
+  # ─── Stage 1: Sync source docs → website content ───────────────
+  sync:
+    name: Sync Content
     runs-on: ubuntu-latest
-    # Only run on successful upstream workflow or direct triggers
     if: >-
       github.event_name != 'workflow_run' ||
       github.event.workflow_run.conclusion == 'success'
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run content sync
+        run: node scripts/sync-website-content.mjs
+
+      - name: Commit synced content
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add website/src/content/docs/
+          if git diff --cached --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No content changes to commit"
+          else
+            git commit -m "docs(website): auto-sync content from source files [skip ci]"
+            git push
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Content synced and committed"
+          fi
+
+  # ─── Stage 2: Build and deploy ─────────────────────────────────
+  build:
+    name: Build Website
+    needs: sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (latest, including sync commit)
+        uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -54,9 +99,6 @@ jobs:
       - name: Install dependencies
         working-directory: website
         run: npm install
-
-      - name: Sync content from source files
-        run: node scripts/sync-website-content.mjs
 
       - name: Build Astro site
         working-directory: website
