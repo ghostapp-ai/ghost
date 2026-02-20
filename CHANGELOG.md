@@ -1,3 +1,9 @@
+## [0.9.0](https://github.com/ghostapp-ai/ghost/compare/v0.8.0...v0.9.0) (2026-02-20)
+
+### 🚀 Features
+
+* **ci:** enhance Apple and Android signing process with environment variable checks ([0931516](https://github.com/ghostapp-ai/ghost/commit/0931516aec344e5a55856938c27312eea6a8b289))
+
 ## [0.2.0](https://github.com/ghostapp-ai/ghost/compare/v0.1.1...v0.2.0) (2026-02-20)
 
 ### 🚀 Features
