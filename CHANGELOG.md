@@ -1,3 +1,13 @@
+## [0.8.0](https://github.com/ghostapp-ai/ghost/compare/v0.7.2...v0.8.0) (2026-02-20)
+
+### 🚀 Features
+
+* **ci:** build iOS unsigned xcarchive without Apple Developer account ([c618cbe](https://github.com/ghostapp-ai/ghost/commit/c618cbe43f7671c66c9638bc1c968b5a271bfab8))
+
+### 🐛 Bug Fixes
+
+* **ci:** replace invalid secrets context in step if conditions ([09c7dcf](https://github.com/ghostapp-ai/ghost/commit/09c7dcfbb0e399f51327d7e78c3b8903ef5e70af))
+
 ## [0.7.2](https://github.com/ghostapp-ai/ghost/compare/v0.7.1...v0.7.2) (2026-02-20)
 
 ### 🐛 Bug Fixes
