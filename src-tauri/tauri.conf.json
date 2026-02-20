@@ -95,6 +95,18 @@
           "gtk3"
         ]
       }
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/ghostapp-ai/ghost/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIyQUVDQ0RGMjQxOTA2Q0MKUldUTUJoa2szOHl1c3VaUmY3Y0NwcUMzbkF5dTljK1lVbUxTUjhoTFRRejNrd1BKSXNiT2U4UVgK",
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

@@ -1,12 +1,17 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop",
-  "description": "Desktop-only capabilities (tray, global shortcuts)",
+  "description": "Desktop-only capabilities (tray, global shortcuts, updater)",
   "windows": ["main"],
   "platforms": ["linux", "macOS", "windows"],
   "permissions": [
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
-    "global-shortcut:allow-is-registered"
+    "global-shortcut:allow-is-registered",
+    "updater:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install",
+    "process:default",
+    "process:allow-restart"
   ]
 }
