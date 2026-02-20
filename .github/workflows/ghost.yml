@@ -192,6 +192,22 @@ jobs:
       - name: Install frontend deps
         run: bun install --frozen-lockfile
 
+      # ── Windows: force dynamic CRT (/MD) for all C++ compiled by
+      #    llama-cpp-sys-2 (both CMake and cc::Build code paths).
+      #    Without this, CMake Release defaults to /MT (static CRT →
+      #    libcpmt.lib), which conflicts with Rust's /MD (dynamic CRT →
+      #    msvcprt.lib) and causes LNK2005 "multiply defined symbols".
+      #    CMAKE_MSVC_RUNTIME_LIBRARY is forwarded to CMake automatically
+      #    by the llama-cpp-sys-2 build script (it forwards all CMAKE_* vars).
+      #    CFLAGS/CXXFLAGS cover the cc::Build wrapper compilation step.
+      - name: Configure Windows CRT linkage
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL" >> "$GITHUB_ENV"
+          echo "CFLAGS=/MD"   >> "$GITHUB_ENV"
+          echo "CXXFLAGS=/MD" >> "$GITHUB_ENV"
+
       # ── macOS signing: use real Apple certificate if configured,
       #    otherwise fall back to ad-hoc signing ("-").
       #    Ad-hoc is required on ARM (aarch64) or the app shows
