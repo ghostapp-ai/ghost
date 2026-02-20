@@ -1,3 +1,9 @@
+## [0.2.4](https://github.com/ghostapp-ai/ghost/compare/v0.2.3...v0.2.4) (2026-02-19)
+
+### 🐛 Bug Fixes
+
+* **ci:** remove dev dep opt-level=2, add mold RUSTFLAGS for Linux ([f2f4473](https://github.com/ghostapp-ai/ghost/commit/f2f4473db169f57a9c9bf1adfaa0c680d9ea1d57))
+
 ## [0.2.3](https://github.com/ghostapp-ai/ghost/compare/v0.2.2...v0.2.3) (2026-02-19)
 
 ### ⚡ Performance
