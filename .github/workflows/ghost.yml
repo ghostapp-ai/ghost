@@ -216,14 +216,19 @@ jobs:
         if: runner.os == 'macOS'
         env:
           APPLE_CERT_RAW: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERT_PASSWORD_RAW: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_ID_RAW: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID_RAW: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD_RAW: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID_RAW: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           if [ -n "$APPLE_CERT_RAW" ]; then
-            echo "APPLE_CERTIFICATE=${{ secrets.APPLE_CERTIFICATE }}" >> "$GITHUB_ENV"
-            echo "APPLE_CERTIFICATE_PASSWORD=${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" >> "$GITHUB_ENV"
-            echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}" >> "$GITHUB_ENV"
-            echo "APPLE_ID=${{ secrets.APPLE_ID }}" >> "$GITHUB_ENV"
-            echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}" >> "$GITHUB_ENV"
-            echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}" >> "$GITHUB_ENV"
+            echo "APPLE_CERTIFICATE=$APPLE_CERT_RAW" >> "$GITHUB_ENV"
+            echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERT_PASSWORD_RAW" >> "$GITHUB_ENV"
+            echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_ID_RAW" >> "$GITHUB_ENV"
+            echo "APPLE_ID=$APPLE_ID_RAW" >> "$GITHUB_ENV"
+            echo "APPLE_PASSWORD=$APPLE_PASSWORD_RAW" >> "$GITHUB_ENV"
+            echo "APPLE_TEAM_ID=$APPLE_TEAM_ID_RAW" >> "$GITHUB_ENV"
             echo "macOS signing: using Apple Developer certificate"
           else
             # Ad-hoc signing: codesign -s "-"
@@ -316,11 +321,21 @@ jobs:
       - name: Build Android APK
         run: bun run tauri android build --target aarch64 --apk
 
+      # ── Detect keystore availability ──
+      - name: Detect Android keystore
+        env:
+          KEYSTORE_RAW: ${{ secrets.ANDROID_KEYSTORE }}
+        run: |
+          if [ -n "$KEYSTORE_RAW" ]; then
+            echo "HAS_KEYSTORE=true" >> "$GITHUB_ENV"
+          else
+            echo "HAS_KEYSTORE=false" >> "$GITHUB_ENV"
+          fi
+
       # ── Sign APK (if keystore secrets configured) ──
       - name: Sign APK
         if: env.HAS_KEYSTORE == 'true'
         env:
-          HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE != '' }}
           ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -419,12 +434,17 @@ jobs:
         run: bun install --frozen-lockfile
 
       # Detect whether Apple signing secrets are configured.
-      # secrets context is NOT allowed in step `if:` conditions,
-      # so we expose it as an env var and check that instead.
+      # secrets context is NOT allowed in step `if:` or `run:` expressions,
+      # so we expose it as an env var and check via shell test.
       - name: Detect Apple certificate
         env:
           APPLE_CERT_RAW: ${{ secrets.APPLE_CERTIFICATE }}
-        run: echo "HAS_APPLE_CERT=${{ secrets.APPLE_CERTIFICATE != '' }}" >> "$GITHUB_ENV"
+        run: |
+          if [ -n "$APPLE_CERT_RAW" ]; then
+            echo "HAS_APPLE_CERT=true" >> "$GITHUB_ENV"
+          else
+            echo "HAS_APPLE_CERT=false" >> "$GITHUB_ENV"
+          fi
 
       # ── Generate Xcode project ──
       - name: Initialize iOS project
