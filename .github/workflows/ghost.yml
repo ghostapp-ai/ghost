@@ -26,6 +26,8 @@ jobs:
   ci:
     name: CI
     runs-on: ubuntu-22.04
+    env:
+      RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
     steps:
       - uses: actions/checkout@v6
 
@@ -252,6 +254,10 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev mold
+
+      - name: Set mold linker for Linux
+        if: runner.os == 'Linux'
+        run: echo "RUSTFLAGS=-C link-arg=-fuse-ld=mold" >> "$GITHUB_ENV"
 
       - uses: oven-sh/setup-bun@v2
         with:
