@@ -11,8 +11,20 @@ name: Ghost CI/CD
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'website/**'
+      - '*.md'
+      - 'branding/**'
+      - 'LICENSE'
+      - '.github/workflows/website-deploy.yml'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'website/**'
+      - '*.md'
+      - 'branding/**'
+      - 'LICENSE'
+      - '.github/workflows/website-deploy.yml'
   workflow_dispatch:
 
 concurrency:
@@ -24,6 +36,7 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_NET_RETRY: 10
   RUSTUP_MAX_RETRIES: 10
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
 permissions:
   contents: write
@@ -37,7 +50,7 @@ jobs:
   # ─── Fast checks (no heavy Rust compilation, ~1-2min) ────────────
   checks:
     name: Checks
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
@@ -58,7 +71,7 @@ jobs:
   # ─── Security audit (no compilation, ~30s) ───────────────────────
   audit:
     name: Audit
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
@@ -70,7 +83,7 @@ jobs:
   # ─── Test + Clippy (heavy compilation, sccache + mold) ──────────
   test:
     name: Test & Clippy
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       SCCACHE_GHA_ENABLED: "true"
@@ -80,7 +93,7 @@ jobs:
       - uses: actions/checkout@v6
       - name: Install system dependencies
         run: |
-          sudo apt-get update
+          sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev \
@@ -90,6 +103,17 @@ jobs:
           components: clippy
       - uses: Mozilla-Actions/sccache-action@v0.0.9
       - uses: taiki-e/install-action@cargo-nextest
+
+      # ── Cache Cargo registry for test job ──
+      - name: Cache Cargo registry
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+          key: cargo-registry-test-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-registry-test-
+
       - name: Rust tests
         working-directory: src-tauri
         run: cargo nextest run
@@ -152,11 +176,11 @@ jobs:
             target: aarch64-apple-darwin
             bundles: dmg
           - label: macOS x64
-            runner: macos-latest
+            runner: macos-13
             target: x86_64-apple-darwin
             bundles: dmg
           - label: Linux x64
-            runner: ubuntu-22.04
+            runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             bundles: deb,appimage,rpm
     runs-on: ${{ matrix.runner }}
@@ -171,7 +195,7 @@ jobs:
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
+          sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev \
@@ -186,6 +210,17 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - uses: Mozilla-Actions/sccache-action@v0.0.9
+
+      # ── Cache Cargo registry (avoids re-downloading crate metadata) ──
+      - name: Cache Cargo registry
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+          key: cargo-registry-${{ matrix.target }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-registry-${{ matrix.target }}-
+
       - name: Install frontend deps
         run: bun install
 
@@ -197,13 +232,14 @@ jobs:
       #    CMAKE_MSVC_RUNTIME_LIBRARY is forwarded to CMake automatically
       #    by the llama-cpp-sys-2 build script (it forwards all CMAKE_* vars).
       #    CFLAGS/CXXFLAGS cover the cc::Build wrapper compilation step.
+      #    /MP enables parallel C++ compilation for llama.cpp.
       - name: Configure Windows CRT linkage
         if: runner.os == 'Windows'
         shell: bash
         run: |
           echo "CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL" >> "$GITHUB_ENV"
-          echo "CFLAGS=/MD"   >> "$GITHUB_ENV"
-          echo "CXXFLAGS=/MD" >> "$GITHUB_ENV"
+          echo "CFLAGS=/MD /MP"   >> "$GITHUB_ENV"
+          echo "CXXFLAGS=/MD /MP" >> "$GITHUB_ENV"
 
       # ── macOS signing: use real Apple certificate if configured,
       #    otherwise fall back to ad-hoc signing ("-").
@@ -256,7 +292,7 @@ jobs:
     name: Android (aarch64)
     needs: release
     if: needs.release.outputs.released == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: write
@@ -287,22 +323,24 @@ jobs:
             "build-tools;34.0.0"
           echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
 
-      # ── Rust with Android targets ──
+      # ── Rust with Android target (only aarch64 needed for APK) ──
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+          targets: aarch64-linux-android
 
       - uses: Mozilla-Actions/sccache-action@v0.0.9
 
-      # ── Gradle cache ──
-      - name: Cache Gradle
+      # ── Gradle + Cargo registry cache ──
+      - name: Cache Gradle & Cargo registry
         uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: gradle-${{ runner.os }}-
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+          key: android-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'src-tauri/Cargo.lock') }}
+          restore-keys: android-${{ runner.os }}-
 
       # ── Bun + frontend ──
       - uses: oven-sh/setup-bun@v2

@@ -111,3 +111,14 @@ llama-cpp-2 = "0.1"
 # Auto-updater + process control (desktop only — not needed on mobile)
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+
+# ── Release profile: optimized for CI build speed ──────────────────
+# strip = true removes debug symbols → faster linking + smaller binary
+# lto = "thin" gives ~10% runtime boost without fat-LTO compile cost
+# codegen-units = 16 (default) keeps compile parallelism high
+# opt-level = 2 is ~95% of opt-level 3 perf with faster compile
+[profile.release]
+strip = true
+lto = "thin"
+opt-level = 2
+codegen-units = 16
