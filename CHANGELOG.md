@@ -1,3 +1,21 @@
+## [0.3.0](https://github.com/ghostapp-ai/ghost/compare/v0.2.4...v0.3.0) (2026-02-19)
+
+### 🚀 Features
+
+* add system tray, filesystem browser, OneDrive detection, and Settings redesign ([7f0e3c1](https://github.com/ghostapp-ai/ghost/commit/7f0e3c158d741bebf227bd6bc988d2f75b24a174))
+* **installer:** enhance cross-platform bundler configuration ([01d0b74](https://github.com/ghostapp-ai/ghost/commit/01d0b74523652b8bc50479587e0f5e57a879fb19))
+* **setup:** add first-launch onboarding wizard with model auto-download ([2a5a97e](https://github.com/ghostapp-ai/ghost/commit/2a5a97e65c187640eaff77cd3d01bda19d3cd5aa))
+
+### 🐛 Bug Fixes
+
+* **window:** prevent window from hiding immediately on startup ([5e12e33](https://github.com/ghostapp-ai/ghost/commit/5e12e33472998c7423acb038776cdc0164ab6f63))
+* **window:** prevent window from hiding immediately on startup ([e136a13](https://github.com/ghostapp-ai/ghost/commit/e136a136b0f00a2917a47b777b69340897458a63))
+
+### 📚 Documentation
+
+* update all core documents for Agent OS vision with protocol architecture ([7168e3a](https://github.com/ghostapp-ai/ghost/commit/7168e3abac04cba837512c45b23440e0cae98a14))
+* update README, ROADMAP, and CLAUDE.md with new features ([544e60c](https://github.com/ghostapp-ai/ghost/commit/544e60c30677fcf556e8c33f31c8362d1f88f737))
+
 ## [0.2.4](https://github.com/ghostapp-ai/ghost/compare/v0.2.3...v0.2.4) (2026-02-19)
 
 ### 🐛 Bug Fixes
