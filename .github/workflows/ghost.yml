@@ -121,7 +121,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
       - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v4
+        uses: cycjimmy/semantic-release-action@v6
         id: semantic
         with:
           extra_plugins: |
