@@ -200,6 +200,17 @@
   - Progressive Escape: clear query → clear chat → hide window
   - Chat history persists across mode switches
 
+- [x] **Open source project configuration**
+  - Migrated from `AngelAlexQC/ghost` to `ghostapp-ai/ghost` organization
+  - Repository made PUBLIC for open source (MIT license)
+  - `ghost-pro` as private git submodule (`ghostapp-ai/ghost-pro`)
+  - Dynamic GitHub badges (release, CI, license, issues)
+  - Community files: SUPPORT.md, FUNDING.yml, CODEOWNERS, issue/PR templates
+  - package.json: full metadata (author, license, repo, keywords, homepage)
+  - Cargo.toml: proper authors, license, repository, homepage, rust-version
+  - Vulnerability alerts + automated security fixes enabled on both repos
+  - Allow branch update, delete-branch-on-merge, squash merge defaults
+
 - [ ] **Performance optimization**
   - Cold start <500ms
   - Search results <100ms for keyword, <500ms for semantic
