@@ -1,3 +1,69 @@
+## [0.2.0](https://github.com/ghostapp-ai/ghost/compare/v0.1.1...v0.2.0) (2026-02-20)
+
+### 🚀 Features
+
+* add system tray, filesystem browser, OneDrive detection, and Settings redesign ([717133d](https://github.com/ghostapp-ai/ghost/commit/717133dcb1e967c8f79020e39635c8c6cdc747da))
+* **agent:** add native ReAct agent engine with 104 tests ([0927c1f](https://github.com/ghostapp-ai/ghost/commit/0927c1fe48fa8e723ca0980ca877041ac858c3be))
+* **chat:** enhance GPU support with runtime auto-detection and update model loading logic ([ce031e8](https://github.com/ghostapp-ai/ghost/commit/ce031e86a9d1b393e5657434050114f498f7f56a))
+* **ci:** build iOS unsigned xcarchive without Apple Developer account ([f3f51d8](https://github.com/ghostapp-ai/ghost/commit/f3f51d81fc37896b4e5cd24f4842532cb5ba7e81))
+* **ci:** enhance Apple and Android signing process with environment variable checks ([899eb8d](https://github.com/ghostapp-ai/ghost/commit/899eb8d576a9ef80bda07c4ed953298f83e73967))
+* **ci:** multiplatform CI/CD — Android, iOS, RPM, DRY pro stub ([5a21cbc](https://github.com/ghostapp-ai/ghost/commit/5a21cbcf0cf2acec3d73da6ce635aca76653ed6f))
+* **ci:** replace Release Please with semantic-release for fully automatic releases ([79d76d2](https://github.com/ghostapp-ai/ghost/commit/79d76d2bd83aacf0d30d704f1a45f7738dc72fac))
+* **installer:** enhance cross-platform bundler configuration ([4ab5bfa](https://github.com/ghostapp-ai/ghost/commit/4ab5bfa601f63e540a03ef10b178bd6b54bf94c2))
+* multiplatform support — Android APK build, conditional compilation, responsive UI ([d00ed4c](https://github.com/ghostapp-ai/ghost/commit/d00ed4cce235a5b463d6f65ba40628c179d6e227))
+* **protocols:** implement A2UI v0.9 generative UI renderer ([ab4835a](https://github.com/ghostapp-ai/ghost/commit/ab4835acaeac4e25c9963bdf9ae3e9c0fb8c6b42))
+* **protocols:** implement AG-UI event system and streaming chat ([7cc0c6e](https://github.com/ghostapp-ai/ghost/commit/7cc0c6ead2238c42359496abceeb34e0b2df226b))
+* **protocols:** implement MCP Client host for external servers ([4e4a0b4](https://github.com/ghostapp-ai/ghost/commit/4e4a0b454083442681ba642db4a5a76185d0f9c5))
+* **protocols:** implement MCP Server with 3 tools via rmcp v0.16 ([e99bffb](https://github.com/ghostapp-ai/ghost/commit/e99bffb8925be84b70378df49037145e8ce18831))
+* **setup:** add first-launch onboarding wizard with model auto-download ([d16a85d](https://github.com/ghostapp-ai/ghost/commit/d16a85d4ca5c661cb2eca0180a11f8b003b70b21))
+* **ui:** add MCP tab to Settings for server management ([7129ec5](https://github.com/ghostapp-ai/ghost/commit/7129ec5aafa47337eb7b1ebdb2730624107e4c5e))
+* **updater:** add frontend auto-update UI with progress tracking ([b4fb0d1](https://github.com/ghostapp-ai/ghost/commit/b4fb0d1bf26b251d04b594214b3e3d3b3e921500))
+* **updater:** add tauri-plugin-updater for in-app auto-updates ([220d242](https://github.com/ghostapp-ai/ghost/commit/220d24251b05a96407b5177ff9dab6da9e0a91d5))
+* **website:** add Astro Starlight docs site + AI agent automation ([0126732](https://github.com/ghostapp-ai/ghost/commit/012673263aa46b4fefb59ab32ddab148cf8a6b8a))
+
+### 🐛 Bug Fixes
+
+* **agent:** replace loop/match with while-let for clippy compliance ([bdce1e5](https://github.com/ghostapp-ai/ghost/commit/bdce1e5345789ee1bc28bef8cd2eef4ac0fe2b2a))
+* cargo fmt and bump MSRV to 1.80 for LazyLock support ([76d4b11](https://github.com/ghostapp-ai/ghost/commit/76d4b11263797d95e2c926f7ad40205a29739289))
+* **chat:** cap model at 1.5B on CPU, add smart greeting and periodic re-indexing ([f22e937](https://github.com/ghostapp-ai/ghost/commit/f22e937124d6ada75f72d2ea418923445a3cd1a7))
+* **ci:** add id-token: write permission for claude-code-action OIDC ([9f5365d](https://github.com/ghostapp-ai/ghost/commit/9f5365db45a3321912cfc663bb98dc39e8b130d4))
+* **ci:** add pro stub to build job for cross-platform builds ([38fee37](https://github.com/ghostapp-ai/ghost/commit/38fee37df81df4fea73aa194c67cb2d167dac242))
+* **ci:** force dynamic CRT (/MD) for Windows build to resolve LNK2005 ([6ba16b9](https://github.com/ghostapp-ai/ghost/commit/6ba16b9ce3b7ba28d52ec327f8c22c5721b46086))
+* **ci:** format stub crate code to pass cargo fmt check ([763bc59](https://github.com/ghostapp-ai/ghost/commit/763bc5971e80cbac992bc4514a80e83903707797))
+* **ci:** handle Dependabot PRs and harden repo configuration ([5fa3882](https://github.com/ghostapp-ai/ghost/commit/5fa3882778488d87d4a9291c2df61d6834af3054))
+* **ci:** remove dev dep opt-level=2, add mold RUSTFLAGS for Linux ([41da74c](https://github.com/ghostapp-ai/ghost/commit/41da74c1ba86ec814b3b4bac05463fe3bcf1d873))
+* **ci:** replace invalid secrets context in step if conditions ([6215840](https://github.com/ghostapp-ai/ghost/commit/6215840c72548196afe738e745924821766a7fae))
+* **ci:** resolve all GitHub Actions failures ([a0744eb](https://github.com/ghostapp-ai/ghost/commit/a0744eb2d7fc9703bbd1e38449dc96d1bd2bf7d8))
+* **ci:** stub pro crate when private submodule unavailable ([e75583e](https://github.com/ghostapp-ai/ghost/commit/e75583eaaeda29ccad2f20a2fc2088f2cc9c580d))
+* **ci:** use ad-hoc macOS signing when no Apple Developer cert configured ([206a2a8](https://github.com/ghostapp-ai/ghost/commit/206a2a8904b2f7d4a347c061e3c802fb0b51265f))
+* **ci:** use correct sccache-action version v0.0.9 ([4842405](https://github.com/ghostapp-ai/ghost/commit/4842405e5382cc748c03c9aab7278709279de2dc))
+* **tls:** replace aws-lc-rs with ring to fix MSVC Windows build ([82f81ff](https://github.com/ghostapp-ai/ghost/commit/82f81ffe8a4dd4ca15d9b5624ddc8a8baa9c03cd))
+* **ui:** resolve duplicate tray icon and add custom window controls ([d1141a5](https://github.com/ghostapp-ai/ghost/commit/d1141a53451525043a8abae5f2deb575eac5a95b))
+* **updater:** update pubkey after key regeneration with --ci flag ([e6e6051](https://github.com/ghostapp-ai/ghost/commit/e6e6051887991fdfb28e066d97768ff480d34e84))
+* **window:** prevent window from hiding immediately on startup ([dabd993](https://github.com/ghostapp-ai/ghost/commit/dabd99340abe2c7284725b250247b5cf6779a5fb))
+* **window:** prevent window from hiding immediately on startup ([894fc66](https://github.com/ghostapp-ai/ghost/commit/894fc66740d2a251d5b73d688d8b07ef9e095b4e))
+
+### ⚡ Performance
+
+* **ci:** optimize build times with cargo profiles, mold linker, and caching ([dc31027](https://github.com/ghostapp-ai/ghost/commit/dc310279f7b83c8168543521b96e513da0475d9f))
+* **ci:** parallelize CI jobs and add sccache + nextest ([176e2cf](https://github.com/ghostapp-ai/ghost/commit/176e2cf103e8b2ed7a2e0dd2043c5de23a825d6a))
+
+### ♻️ Code Refactoring
+
+* remove pro/ stubs and pro CI step CI action from public repo ([c048d27](https://github.com/ghostapp-ai/ghost/commit/c048d27ffd41e372806104b6fdbe06d6918df8ca))
+* replace Claude agents with Copilot-only architecture ([194db99](https://github.com/ghostapp-ai/ghost/commit/194db996e9313d7dbf08253f709db98aab061951))
+
+### 📚 Documentation
+
+* document auto-updater in ROADMAP and CLAUDE decision log ([333d444](https://github.com/ghostapp-ai/ghost/commit/333d444c51d351e40f94d573f1eb647cefb8865d))
+* update all core documents for Agent OS vision with protocol architecture ([96747a1](https://github.com/ghostapp-ai/ghost/commit/96747a1b6e388b4e7209dddf0015fbd265109ca4))
+* update CLAUDE.md and ROADMAP.md for open source configuration ([48a1018](https://github.com/ghostapp-ai/ghost/commit/48a1018e967fc271895af814cc96420950fe022a))
+* update CLAUDE.md decision log and ROADMAP.md progress ([917809f](https://github.com/ghostapp-ai/ghost/commit/917809fbb9d5e4ee29bd3081a9700c62bb6e3c76))
+* update README and CLAUDE for AG-UI completion status ([79cf447](https://github.com/ghostapp-ai/ghost/commit/79cf4472c84149e1519ae29bdf4c4e2551e2df64))
+* update README, ROADMAP, and CLAUDE.md with new features ([c2b6c94](https://github.com/ghostapp-ai/ghost/commit/c2b6c94e5f3dd103b91dbad8ae6db6191edc3d0e))
+* update ROADMAP and CLAUDE for Phase 1.5 MCP completion ([decf772](https://github.com/ghostapp-ai/ghost/commit/decf7721745e108ecb47527347b7d635e696e570))
+* **website:** auto-sync content from source files [skip ci] ([2d00863](https://github.com/ghostapp-ai/ghost/commit/2d008630debc4aec6fa78ac988e3d81d6a5ec33f))
+
 ## [0.10.1](https://github.com/ghostapp-ai/ghost/compare/v0.10.0...v0.10.1) (2026-02-20)
 
 ### 🐛 Bug Fixes
