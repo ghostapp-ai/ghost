@@ -31,6 +31,12 @@ pub struct Settings {
     /// Whether to launch Ghost on system startup.
     #[serde(default)]
     pub launch_on_startup: bool,
+    /// MCP server configuration.
+    #[serde(default)]
+    pub mcp_server: crate::protocols::McpServerConfig,
+    /// External MCP server connections.
+    #[serde(default)]
+    pub mcp_servers: Vec<crate::protocols::McpServerEntry>,
 }
 
 fn default_chat_model() -> String {
@@ -57,6 +63,8 @@ impl Default for Settings {
             chat_temperature: default_chat_temperature(),
             setup_complete: false,
             launch_on_startup: false,
+            mcp_server: Default::default(),
+            mcp_servers: Vec::new(),
         }
     }
 }
@@ -112,6 +120,8 @@ mod tests {
             chat_temperature: 0.7,
             setup_complete: true,
             launch_on_startup: false,
+            mcp_server: Default::default(),
+            mcp_servers: Vec::new(),
         };
         settings.save(&tmp).unwrap();
 
