@@ -126,12 +126,12 @@
   - Dark theme integrated with Ghost aesthetic
 
 - [x] **Cross-platform installers via GitHub Actions CI/CD**
-  - NSIS installer for Windows (x64)
-  - DMG for macOS (Apple Silicon + Intel via cross-compilation)
-  - DEB + AppImage for Linux (x64)
+  - NSIS installer for Windows (x64) with language selector, custom icons, WebView2 bootstrap
+  - DMG for macOS (Apple Silicon + Intel via cross-compilation) with custom positioning
+  - DEB + RPM + AppImage for Linux (x64)
   - CI pipeline: Rust tests + clippy + `cargo fmt --check` + `cargo audit` + frontend TypeScript check
   - ~11MB installer size (Linux .deb)
-  - *(Pending)*: Code signing, auto-start option, system tray icon
+  - *(Complete)*: System tray icon, onboarding wizard, professional installer config
 
 - [x] **Fully automatic release pipeline (semantic-release)**
   - 100% automatic: push conventional commits → CI → release. Zero interaction needed
@@ -190,6 +190,45 @@
   - DownloadProgress struct with phases: checking_cache, downloading, loading_model, cached
   - Visual progress bar with shimmer animation, MB counters, percentage display
   - Reported via `chat_status` polling (2s interval)
+
+- [x] **First-launch onboarding wizard**
+  - Multi-step setup shown only on first launch (`setup_complete` flag in Settings)
+  - Phase 1: Welcome screen with Ghost branding and auto-advance
+  - Phase 2: Hardware auto-detection (CPU cores, RAM, GPU, SIMD capabilities)
+  - Phase 3: Recommended model display with specs, one-click download button
+  - Phase 4: Real-time download progress with tips carousel while waiting
+  - Phase 5: Setup complete summary with keyboard shortcut and privacy info
+  - Skip button for power users — marks setup as complete immediately
+  - Onboarding component in `src/components/Onboarding.tsx`
+  - `complete_setup` Tauri command persists `setup_complete` to settings.json
+  - App.tsx routes: loading → onboarding → main UI based on settings
+
+- [x] **Professional cross-platform installer configuration**
+  - Windows: NSIS with language selector, custom icons, installer/sidebar images, WebView2 silent bootstrap
+  - macOS: DMG with custom app/Applications folder positioning, window dimensions, minimum 10.15
+  - Linux: DEB (Debian/Ubuntu), RPM (Fedora/RHEL), AppImage (universal binary)
+  - Proper categories, license, copyright, descriptions for all platforms
+
+- [x] **System tray icon**
+  - TrayIconBuilder with Show Ghost / Quit Ghost menu items
+  - Left-click toggles window visibility, tooltip display
+  - Tray icon feature enabled in Cargo.toml (`tray-icon`)
+  - trayIcon config in tauri.conf.json with 32x32 icon
+
+- [x] **Filesystem browser & directory management**
+  - `list_directory`, `get_home_directory`, `get_root_directories` Tauri commands
+  - OneDrive cloud file detection (`FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS` on Windows)
+  - Metadata-only indexing for cloud placeholder files
+  - `add_watch_directory` / `remove_watch_directory` with live indexing
+  - Settings redesigned: 3 tabs (General, AI Models, Directories)
+  - Visual filesystem browser in Directories tab
+  - FsEntry type with `is_cloud_placeholder`, `is_local` flags
+
+- [x] **Settings enhancements**
+  - `setup_complete` boolean for first-launch tracking
+  - `launch_on_startup` boolean for auto-start preference
+  - All fields with `#[serde(default)]` for backward compatibility
+  - Settings.json survives upgrades — new fields get sensible defaults
 
 - [x] **Unified Omnibox (intelligent single input)**
   - Replace tab system (Search/Chat) with a single smart input
