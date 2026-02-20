@@ -41,6 +41,8 @@ import {
   removeMcpServerEntry,
 } from "../lib/tauri";
 import { usePlatform } from "../hooks/usePlatform";
+import { useUpdater } from "../hooks/useUpdater";
+import { CheckUpdateButton } from "./UpdateNotification";
 import type {
   Settings as SettingsType,
   ModelInfo,
@@ -257,6 +259,8 @@ function GeneralTab({
   const [shortcut, setShortcut] = useState(settings.shortcut);
   const [maxTokens, setMaxTokens] = useState(settings.chat_max_tokens);
   const [temperature, setTemperature] = useState(settings.chat_temperature);
+  const { isDesktop } = usePlatform();
+  const updater = useUpdater(false); // no auto-check, manual only
 
   return (
     <div className="space-y-6">
@@ -352,6 +356,42 @@ function GeneralTab({
           </div>
         </div>
       </Section>
+
+      {/* Updates — desktop only */}
+      {isDesktop && (
+        <Section title="Updates" icon={<Download className="w-4 h-4" />}>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-ghost-text-dim">Current version</p>
+                <p className="text-xs text-ghost-text-dim/50 mt-0.5">v{__APP_VERSION__}</p>
+              </div>
+              <CheckUpdateButton checking={updater.checking} onCheck={updater.checkForUpdate} />
+            </div>
+            {updater.available && (
+              <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                <p className="text-sm text-purple-300">
+                  Ghost {updater.version} is available!
+                </p>
+                {updater.releaseNotes && (
+                  <p className="text-xs text-white/50 mt-1 line-clamp-3">{updater.releaseNotes}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={updater.installUpdate}
+                  disabled={updater.downloading}
+                  className="mt-2 px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {updater.downloading ? `Downloading (${updater.progress}%)…` : "Download & Install"}
+                </button>
+              </div>
+            )}
+            {updater.error && (
+              <p className="text-xs text-red-400">{updater.error}</p>
+            )}
+          </div>
+        </Section>
+      )}
     </div>
   );
 }

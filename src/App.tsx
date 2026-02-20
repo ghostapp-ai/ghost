@@ -10,6 +10,8 @@ import { useSearch } from "./hooks/useSearch";
 import { useHotkey } from "./hooks/useHotkey";
 import { useAgui } from "./hooks/useAgui";
 import { usePlatform } from "./hooks/usePlatform";
+import { useUpdater } from "./hooks/useUpdater";
+import { UpdateNotification } from "./components/UpdateNotification";
 import { detectMode, type InputMode } from "./lib/detectMode";
 import {
   hideWindow,
@@ -30,6 +32,9 @@ import "./styles/globals.css";
 export default function App() {
   // --- Platform detection ---
   const platform = usePlatform();
+
+  // --- Auto-updater (desktop only, silent auto-check on launch) ---
+  const updater = useUpdater(platform.isDesktop);
 
   // --- Setup / onboarding state ---
   const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
@@ -452,6 +457,15 @@ export default function App() {
 
       {/* Status Bar */}
       <StatusBar onSettingsClick={() => setShowSettings(true)} compact={platform.isMobile} />
+
+      {/* Update notification */}
+      {platform.isDesktop && (
+        <UpdateNotification
+          state={updater}
+          onInstall={updater.installUpdate}
+          onDismiss={updater.dismiss}
+        />
+      )}
 
       {/* Settings Modal */}
       {showSettings && (
