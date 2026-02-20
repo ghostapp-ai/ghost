@@ -7,12 +7,13 @@
 
 ## Project Overview
 
-**Ghost** is a private, local-first AI assistant for desktop (Windows → macOS → Linux). It indexes local files, provides hybrid semantic + keyword search, and evolves into an AI agent that can take actions on the user's OS — all without sending data to the cloud.
+**Ghost** is a private, local-first **Agent OS** for desktop (Windows → macOS → Linux). It indexes local files, provides hybrid semantic + keyword search, connects to thousands of tools via open protocols (MCP, A2A, AG-UI, A2UI, WebMCP), and evolves into a full desktop agent that takes actions on your behalf — all without sending data to the cloud.
 
-- **Current phase**: Phase 1 — The Search Bar (Complete) → preparing Phase 1.5 (MCP Bridge)
-- **Stack**: Tauri v2 (Rust backend) + React/TypeScript (frontend) + SQLite/sqlite-vec + Candle (native AI)
+- **Current phase**: Phase 1 — The Search Bar (Complete) → preparing Phase 1.5 (Protocol Bridge)
+- **Stack**: Tauri v2 (Rust backend) + React/TypeScript (frontend) + SQLite/sqlite-vec + Candle (native AI) + rmcp (MCP SDK)
 - **Repo**: `ghostapp-ai/ghost` (public, MIT) + `ghostapp-ai/ghost-pro` (private, proprietary submodule)
-- **Priority**: Open source launch, then MCP Bridge integration.
+- **Priority**: Open source launch, then Protocol Bridge (MCP Server+Client, AG-UI, A2UI).
+- **Protocol stack**: MCP (tools) → AG-UI (agent↔user streaming) → A2UI (generative UI) → A2A (multi-agent) → WebMCP (web agents)
 
 ---
 
@@ -82,10 +83,15 @@ src-tauri/src/
 ├── search/
 │   ├── mod.rs          # Search engine combining FTS5 + vector
 │   └── ranking.rs      # RRF (Reciprocal Rank Fusion) implementation
-├── mcp/                # (Phase 3) MCP server implementation
-│   ├── mod.rs
-│   ├── server.rs       # axum HTTP server exposing MCP protocol
-│   └── tools.rs        # Tool definitions and handlers
+├── protocols/          # (Phase 1.5+) Protocol Hub — all agent protocols
+│   ├── mod.rs          # Protocol registry, initialization
+│   ├── mcp_server.rs   # Ghost as MCP server (rmcp ServerHandler)
+│   ├── mcp_client.rs   # Ghost connects to external MCP servers (rmcp ClientHandler)
+│   ├── agui.rs         # AG-UI event system (~16 event types, bidirectional streaming)
+│   ├── a2ui.rs         # A2UI JSON → React component renderer bridge
+│   ├── a2a.rs          # (Phase 2) A2A Agent Card + task delegation
+│   ├── webmcp.rs       # (Phase 2.5) WebMCP browser bridge
+│   └── skills.rs       # Skills.md parser + skill registry
 └── automation/         # (Phase 2+) OS UI automation
     ├── mod.rs
     ├── windows.rs      # uiautomation crate wrapper
@@ -128,9 +134,16 @@ candle-transformers = "0.9" # BERT, GPT, etc.
 hf-hub = "0.4"           # Model download from HuggingFace
 tokenizers = "0.22"      # Fast text tokenization
 
-# HTTP (for Ollama fallback + MCP server)
+# HTTP (for Ollama fallback + protocol servers)
 reqwest = { version = "0.12", features = ["json"] }
-axum = "0.8"             # (Phase 3, MCP server)
+axum = "0.8"             # HTTP transport for MCP, A2A, AG-UI
+
+# Protocol SDKs (Phase 1.5+)
+rmcp = { version = "0.15", features = ["server", "client", "transport-streamable-http-client-reqwest"] }
+# AG-UI — custom Rust implementation (event types + SSE streaming)
+# A2UI — JSON schema only, custom React renderer on frontend
+# A2A — custom Rust implementation (JSON-RPC 2.0 + Agent Cards)
+# WebMCP — browser extension bridge (Phase 2.5)
 
 # Error handling
 thiserror = "2"
@@ -140,7 +153,7 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
-# Encryption (Phase 2+)
+# Encryption (Phase 2+, Pro only)
 # age = "0.10"           # ChaCha20-Poly1305
 ```
 
@@ -511,3 +524,14 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-19 | System tray with TrayIconBuilder over manual tray API | Tauri v2's builder pattern is cleaner, handles menu events and tray clicks in one setup block |
 | 2026-02-19 | OneDrive cloud placeholder detection over blind indexing | `FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS` flag prevents downloading cloud-only files; metadata-only indexing is instant |
 | 2026-02-19 | Filesystem browser in Settings over file dialog only | Visual navigation lets users see cloud status, file sizes, and folder structure before adding watch dirs |
+| 2026-02-20 | "Agent OS" vision over simple MCP Bridge | Protocols converging (MCP+A2A+AG-UI+A2UI+WebMCP) = unique opportunity for universal local agent. $3.35B→$24.53B TAM |
+| 2026-02-20 | rmcp over rust-mcp-sdk or custom implementation | Official Rust SDK from modelcontextprotocol/rust-sdk. 34 versions, `#[tool]` macro, Server+Client, stdio+HTTP transports |
+| 2026-02-20 | AG-UI for agent↔user interaction | CopilotKit's open standard (12K+ stars, MIT). ~16 event types, bidirectional streaming. Better UX than polling. Custom Rust impl |
+| 2026-02-20 | A2UI for generative UI over custom component protocol | Google-backed JSON declarative spec. Security-first, standard components (forms, tables, charts). React renderer on frontend |
+| 2026-02-20 | A2A for multi-agent coordination | Google + Linux Foundation. Agent Cards at /.well-known/agent.json, JSON-RPC 2.0, SSE. Standard for agent discovery + delegation |
+| 2026-02-20 | WebMCP for web agent capabilities (Phase 2.5) | W3C incubation (Google+Microsoft). navigator.modelContext browser API. Structured web interactions without scraping |
+| 2026-02-20 | Skills.md format (OpenClaw-inspired) over custom plugin system | 100K+ stars ecosystem, plain Markdown, model-agnostic. Low friction for contributors. Ghost-specific extensions for tool schemas |
+| 2026-02-20 | Protocol Hub architecture over monolithic agent | Each protocol in separate module under `protocols/`. Independent development, testing. Fallback: each layer works without upper layers |
+| 2026-02-20 | 6-layer stack over 4-layer | Added AG-UI Runtime layer + Protocol Hub layer. AG-UI between frontend and IPC for streaming. Protocol Hub between Core and AI |
+| 2026-02-20 | Free tier with 3 MCP servers limit | Generous free tier drives adoption; Pro unlocks unlimited MCP + A2A + WebMCP. Matches Raycast/Alfred freemium model |
+| 2026-02-20 | $8/mo Pro over $15/mo | Below Raycast Pro ($8), Notion AI ($8), GitHub Copilot ($10). Maximize adoption in $24.53B market growing at 22% CAGR |
