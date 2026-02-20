@@ -13,6 +13,9 @@ import type {
   HardwareInfo,
   ModelInfo,
   FsEntry,
+  McpServerStatus,
+  McpServerEntry,
+  ConnectedServer,
 } from "./types";
 
 // --- Search & Indexing ---
@@ -194,4 +197,52 @@ export async function addWatchDirectory(path: string): Promise<void> {
 /** Remove a directory from watched directories. */
 export async function removeWatchDirectory(path: string): Promise<void> {
   return invoke<void>("remove_watch_directory", { path });
+}
+
+// --- MCP Protocol ---
+
+/** Get MCP server status (enabled, host, port, url). */
+export async function getMcpServerStatus(): Promise<McpServerStatus> {
+  return invoke<McpServerStatus>("get_mcp_server_status");
+}
+
+/** List all configured external MCP servers and their connection status. */
+export async function listMcpServers(): Promise<ConnectedServer[]> {
+  return invoke<ConnectedServer[]>("list_mcp_servers");
+}
+
+/** Connect to an external MCP server by name. */
+export async function connectMcpServer(name: string): Promise<ConnectedServer> {
+  return invoke<ConnectedServer>("connect_mcp_server", { name });
+}
+
+/** Disconnect from an external MCP server. */
+export async function disconnectMcpServer(name: string): Promise<void> {
+  return invoke<void>("disconnect_mcp_server", { name });
+}
+
+/** Call a tool on a connected external MCP server. */
+export async function callMcpTool(
+  serverName: string,
+  toolName: string,
+  toolArguments?: Record<string, unknown>
+): Promise<string> {
+  return invoke<string>("call_mcp_tool", { serverName, toolName, arguments: toolArguments });
+}
+
+/** Get all available tools from all connected MCP servers. */
+export async function listMcpTools(): Promise<
+  Array<{ server: string; name: string; description: string | null }>
+> {
+  return invoke("list_mcp_tools");
+}
+
+/** Add a new MCP server entry to settings. */
+export async function addMcpServerEntry(entry: McpServerEntry): Promise<void> {
+  return invoke<void>("add_mcp_server_entry", { entry });
+}
+
+/** Remove an MCP server entry from settings. */
+export async function removeMcpServerEntry(name: string): Promise<void> {
+  return invoke<void>("remove_mcp_server_entry", { name });
 }

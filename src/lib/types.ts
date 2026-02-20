@@ -128,3 +128,40 @@ export interface FsEntry {
   is_cloud_placeholder: boolean;
   is_local: boolean;
 }
+
+// --- MCP Protocol Types ---
+
+/** MCP Server status. */
+export interface McpServerStatus {
+  enabled: boolean;
+  host: string;
+  port: number;
+  url: string;
+}
+
+/** Configuration for an external MCP server entry. */
+export interface McpServerEntry {
+  name: string;
+  transport: string;
+  command: string | null;
+  args: string[];
+  url: string | null;
+  enabled: boolean;
+  env: Record<string, string>;
+}
+
+/** A connected external MCP server with its tools. */
+export interface ConnectedServer {
+  name: string;
+  connected: boolean;
+  tools: McpToolInfo[];
+  transport: string;
+  error: string | null;
+}
+
+/** Information about a single MCP tool. */
+export interface McpToolInfo {
+  name: string;
+  description: string | null;
+  input_schema: unknown | null;
+}
