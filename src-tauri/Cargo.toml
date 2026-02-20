@@ -15,8 +15,11 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
 default = []
-cuda = ["candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
-metal = ["candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
+# GPU features for llama.cpp chat inference (runtime auto-detection)
+vulkan = ["llama-cpp-2/vulkan"]
+metal = ["llama-cpp-2/metal", "candle-core/metal", "candle-nn/metal", "candle-transformers/metal"]
+cuda = ["llama-cpp-2/cuda", "candle-core/cuda", "candle-nn/cuda", "candle-transformers/cuda"]
+# Candle-only features (embeddings)
 accelerate = ["candle-core/accelerate", "candle-nn/accelerate", "candle-transformers/accelerate"]
 pro = ["dep:ghost-pro"]
 
@@ -63,12 +66,16 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Native AI inference (candle)
+# Native AI — Chat inference (llama.cpp, runtime GPU auto-detection)
+llama-cpp-2 = "0.1"
+
+# Native AI — Embeddings (Candle BERT, kept for all-MiniLM-L6-v2)
 candle-core = "0.9"
 candle-nn = "0.9"
 candle-transformers = "0.9"
 hf-hub = "0.4"
 tokenizers = "0.22"
+encoding_rs = "0.8"
 
 # Utilities
 sha2 = "0.10"
