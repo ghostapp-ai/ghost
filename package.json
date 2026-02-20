@@ -1,7 +1,7 @@
 {
   "name": "ghost",
   "private": false,
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Private Local AI Superpowers for Your OS",
   "author": "ghostapp-ai",
   "license": "MIT",
