@@ -435,7 +435,12 @@
   - Requires macOS — `tauri ios` subcommand only available on macOS
   - Backend Rust code already adapted (conditional compilation ready)
   - Frontend already responsive with iOS safe areas
-- [ ] **Mobile CI/CD**: GitHub Actions for Android APK + iOS IPA builds
+- [x] **Mobile CI/CD**: GitHub Actions for Android APK + iOS IPA builds
+  - Android job: Java 17 + SDK 34 + NDK 27 + Gradle cache + APK signing (if keystore configured) + upload to release
+  - iOS job: conditional on `IOS_BUILD_ENABLED` repo var + Apple Developer certificates
+  - Pro stub extracted to reusable composite action (`.github/actions/stub-pro/`)
+  - RPM bundle added to Linux builds
+  - All jobs have timeouts, `workflow_dispatch` trigger added
 - [ ] **App Store assets**: screenshots, descriptions, privacy policies
 - [ ] **Mobile-specific features**: share sheet integration, notification support
 

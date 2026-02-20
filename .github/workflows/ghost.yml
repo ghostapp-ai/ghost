@@ -1,3 +1,11 @@
+# Ghost CI/CD - Multiplatform Pipeline
+#
+# Jobs flow:
+#   checks --\
+#   audit ----+--> release --+--> build-desktop (4 matrix)
+#   test ----/               +--> build-android
+#                            \--> build-ios (conditional)
+
 name: Ghost CI/CD
 
 on:
@@ -5,9 +13,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -21,162 +30,56 @@ permissions:
   issues: write
   pull-requests: write
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# QUALITY GATES — run on every push & PR
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 jobs:
-  # ─── Fast checks (no Rust compilation, ~1-2min) ──────────────────
+  # ─── Fast checks (no heavy Rust compilation, ~1-2min) ────────────
   checks:
     name: Checks
     runs-on: ubuntu-22.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Stub pro crate if submodule unavailable
-        run: |
-          if [ ! -f pro/Cargo.toml ]; then
-            mkdir -p pro/src/encryption pro/src/sync
-            cat > pro/Cargo.toml << 'EOF'
-          [package]
-          name = "ghost-pro"
-          version = "0.1.0"
-          edition = "2021"
-          publish = false
-
-          [dependencies]
-          serde = { version = "1", features = ["derive"] }
-          serde_json = "1"
-          tokio = { version = "1", features = ["full"] }
-          tracing = "0.1"
-          thiserror = "2"
-          anyhow = "1"
-          EOF
-            cat > pro/src/lib.rs << 'EOF'
-          pub mod encryption;
-          pub mod sync;
-
-          pub fn is_licensed() -> bool {
-              false
-          }
-
-          pub fn version() -> &'static str {
-              "0.0.0-stub"
-          }
-
-          pub async fn initialize() -> anyhow::Result<()> {
-              Ok(())
-          }
-          EOF
-            cat > pro/src/encryption/mod.rs << 'EOF'
-          pub struct EncryptionEngine;
-          impl EncryptionEngine {
-              pub fn new() -> Self {
-                  Self
-              }
-          }
-          EOF
-            cat > pro/src/sync/mod.rs << 'EOF'
-          pub struct SyncEngine;
-          impl SyncEngine {
-              pub fn new() -> Self {
-                  Self
-              }
-          }
-          EOF
-          fi
-
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/stub-pro
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-
       - name: Rust format check
         working-directory: src-tauri
         run: cargo fmt --all -- --check
-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
       - name: Install frontend deps
         run: bun install --frozen-lockfile
-
-      - name: Frontend build check
+      - name: Frontend type-check & build
         run: bun run build
 
   # ─── Security audit (no compilation, ~30s) ───────────────────────
   audit:
     name: Audit
     runs-on: ubuntu-22.04
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
-
+      - uses: actions/checkout@v4
       - uses: taiki-e/install-action@cargo-audit
-
       - name: Security audit
         working-directory: src-tauri
         run: cargo audit || true
 
-  # ─── Test + Clippy (heavy compilation, parallelized with sccache) ─
+  # ─── Test + Clippy (heavy compilation, sccache + mold) ──────────
   test:
     name: Test & Clippy
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
     env:
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: "sccache"
       RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Stub pro crate if submodule unavailable
-        run: |
-          if [ ! -f pro/Cargo.toml ]; then
-            mkdir -p pro/src/encryption pro/src/sync
-            cat > pro/Cargo.toml << 'EOF'
-          [package]
-          name = "ghost-pro"
-          version = "0.1.0"
-          edition = "2021"
-          publish = false
-
-          [dependencies]
-          serde = { version = "1", features = ["derive"] }
-          serde_json = "1"
-          tokio = { version = "1", features = ["full"] }
-          tracing = "0.1"
-          thiserror = "2"
-          anyhow = "1"
-          EOF
-            cat > pro/src/lib.rs << 'EOF'
-          pub mod encryption;
-          pub mod sync;
-
-          pub fn is_licensed() -> bool {
-              false
-          }
-
-          pub fn version() -> &'static str {
-              "0.0.0-stub"
-          }
-
-          pub async fn initialize() -> anyhow::Result<()> {
-              Ok(())
-          }
-          EOF
-            cat > pro/src/encryption/mod.rs << 'EOF'
-          pub struct EncryptionEngine;
-          impl EncryptionEngine {
-              pub fn new() -> Self {
-                  Self
-              }
-          }
-          EOF
-            cat > pro/src/sync/mod.rs << 'EOF'
-          pub struct SyncEngine;
-          impl SyncEngine {
-              pub fn new() -> Self {
-                  Self
-              }
-          }
-          EOF
-          fi
-
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/stub-pro
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -184,47 +87,41 @@ jobs:
             libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev mold
-
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-
       - uses: Mozilla-Actions/sccache-action@v0.0.9
-
       - uses: taiki-e/install-action@cargo-nextest
-
       - name: Rust tests
         working-directory: src-tauri
         run: cargo nextest run
-
       - name: Clippy (reuses sccache artifacts)
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
-
       - name: sccache stats
         run: sccache --show-stats
 
-  # ─── Release: fully automatic via semantic-release ───────────────
-  # Analyzes conventional commits → bumps version → updates CHANGELOG
-  # → commits version files → creates git tag → creates GitHub Release
-  # No manual steps. No PRs to merge. Just push and it releases.
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # RELEASE — semantic-release on main push only
+  # Analyzes conventional commits → bumps version → CHANGELOG → tag
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   release:
     name: Release
     needs: [checks, audit, test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       released: ${{ steps.semantic.outputs.new_release_published }}
       version: ${{ steps.semantic.outputs.new_release_version }}
       tag: ${{ steps.semantic.outputs.new_release_git_tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: true
-
       - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v6
+        uses: cycjimmy/semantic-release-action@v4
         id: semantic
         with:
           extra_plugins: |
@@ -235,9 +132,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ─── Build: compiles for all platforms when a release is created ──
-  build:
-    name: Build (${{ matrix.label }})
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # DESKTOP BUILDS — Windows, macOS (ARM+Intel), Linux (all bundles)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  build-desktop:
+    name: Desktop (${{ matrix.label }})
     needs: release
     if: needs.release.outputs.released == 'true'
     permissions:
@@ -261,73 +160,17 @@ jobs:
           - label: Linux x64
             runner: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            bundles: deb,appimage
-
+            bundles: deb,appimage,rpm
     runs-on: ${{ matrix.runner }}
-
+    timeout-minutes: 30
     env:
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: "sccache"
-
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           ref: ${{ needs.release.outputs.tag }}
-
-      - name: Stub pro crate if submodule unavailable
-        shell: bash
-        run: |
-          if [ ! -f pro/Cargo.toml ]; then
-            mkdir -p pro/src/encryption pro/src/sync
-            cat > pro/Cargo.toml << 'EOF'
-          [package]
-          name = "ghost-pro"
-          version = "0.1.0"
-          edition = "2021"
-          publish = false
-
-          [dependencies]
-          serde = { version = "1", features = ["derive"] }
-          serde_json = "1"
-          tokio = { version = "1", features = ["full"] }
-          tracing = "0.1"
-          thiserror = "2"
-          anyhow = "1"
-          EOF
-            cat > pro/src/lib.rs << 'EOF'
-          pub mod encryption;
-          pub mod sync;
-
-          pub fn is_licensed() -> bool {
-              false
-          }
-
-          pub fn version() -> &'static str {
-              "0.0.0-stub"
-          }
-
-          pub async fn initialize() -> anyhow::Result<()> {
-              Ok(())
-          }
-          EOF
-            cat > pro/src/encryption/mod.rs << 'EOF'
-          pub struct EncryptionEngine;
-          impl EncryptionEngine {
-              pub fn new() -> Self {
-                  Self
-              }
-          }
-          EOF
-            cat > pro/src/sync/mod.rs << 'EOF'
-          pub struct SyncEngine;
-          impl SyncEngine {
-              pub fn new() -> Self {
-                  Self
-              }
-          }
-          EOF
-          fi
-
+      - uses: ./.github/actions/stub-pro
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -336,28 +179,29 @@ jobs:
             libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev mold
-
       - name: Set mold linker for Linux
         if: runner.os == 'Linux'
         run: echo "RUSTFLAGS=-C link-arg=-fuse-ld=mold" >> "$GITHUB_ENV"
-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-
       - uses: Mozilla-Actions/sccache-action@v0.0.9
-
       - name: Install frontend deps
         run: bun install --frozen-lockfile
-
       - name: Build & upload artifacts
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS code signing (optional — skips gracefully if not configured)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ needs.release.outputs.tag }}
           releaseName: Ghost ${{ needs.release.outputs.tag }}
@@ -365,3 +209,236 @@ jobs:
           prerelease: false
           tauriScript: bun run tauri
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # ANDROID BUILD — APK for aarch64 (covers 95%+ devices)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  build-android:
+    name: Android (aarch64)
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      - uses: ./.github/actions/stub-pro
+
+      # ── Java 17 (required by Android Gradle) ──
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # ── Android SDK + NDK ──
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager --install \
+            "platforms;android-34" \
+            "ndk;27.0.12077973" \
+            "build-tools;34.0.0"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
+
+      # ── Rust with Android targets ──
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - uses: Mozilla-Actions/sccache-action@v0.0.9
+
+      # ── Gradle cache ──
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      # ── Bun + frontend ──
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend deps
+        run: bun install --frozen-lockfile
+
+      # ── Initialize & build ──
+      - name: Initialize Android project
+        run: bun run tauri android init
+
+      - name: Build Android APK
+        run: bun run tauri android build --target aarch64 --apk
+
+      # ── Sign APK (if keystore secrets configured) ──
+      - name: Sign APK
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE != '' }}
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEYSTORE" | base64 --decode > /tmp/ghost-release.keystore
+          APK=$(find src-tauri/gen/android -name "*.apk" -type f | head -1)
+          echo "Found APK: $APK"
+          if [ -z "$APK" ]; then
+            echo "::error::No APK found!"
+            exit 1
+          fi
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" sign \
+            --ks /tmp/ghost-release.keystore \
+            --ks-pass "env:KEYSTORE_PASSWORD" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass "env:KEY_PASSWORD" \
+            "$APK"
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
+          rm -f /tmp/ghost-release.keystore
+
+      # ── Upload to release ──
+      - name: Upload APK to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          TAG="${{ needs.release.outputs.tag }}"
+          APK=$(find src-tauri/gen/android -name "*.apk" -type f | head -1)
+          if [ -z "$APK" ]; then
+            echo "::error::No APK found to upload!"
+            exit 1
+          fi
+          DEST="Ghost_${VERSION}_android-aarch64.apk"
+          cp "$APK" "$DEST"
+          gh release upload "$TAG" "$DEST" --clobber
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ghost-android-aarch64
+          path: Ghost_*.apk
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # iOS BUILD — requires Apple Developer certificates
+  #
+  # To enable: set repository variable IOS_BUILD_ENABLED = true
+  # Required secrets:
+  #   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD,
+  #   APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD,
+  #   APPLE_TEAM_ID, APPLE_PROVISIONING_PROFILE
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  build-ios:
+    name: iOS (aarch64)
+    needs: release
+    if: needs.release.outputs.released == 'true' && vars.IOS_BUILD_ENABLED == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      - uses: ./.github/actions/stub-pro
+
+      # ── Rust with iOS target ──
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      - uses: Mozilla-Actions/sccache-action@v0.0.9
+
+      # ── Bun + frontend ──
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install frontend deps
+        run: bun install --frozen-lockfile
+
+      # ── Apple certificate + provisioning profile ──
+      - name: Install Apple certificates
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          if [ -n "$APPLE_PROVISIONING_PROFILE" ]; then
+            PP_PATH="$RUNNER_TEMP/profile.mobileprovision"
+            echo "$APPLE_PROVISIONING_PROFILE" | base64 --decode > "$PP_PATH"
+            mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+            PP_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin \
+              <<< "$(security cms -D -i "$PP_PATH")" 2>/dev/null || true)
+            if [ -n "$PP_UUID" ]; then
+              cp "$PP_PATH" \
+                ~/Library/MobileDevice/Provisioning\ Profiles/"$PP_UUID".mobileprovision
+            fi
+          fi
+          rm -f "$CERT_PATH"
+
+      # ── Initialize & build ──
+      - name: Initialize iOS project
+        run: bun run tauri ios init
+
+      - name: Build iOS IPA
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bun run tauri ios build
+
+      # ── Upload to release ──
+      - name: Upload IPA to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          TAG="${{ needs.release.outputs.tag }}"
+          IPA=$(find src-tauri/gen/apple -name "*.ipa" -type f 2>/dev/null | head -1)
+          if [ -n "$IPA" ]; then
+            DEST="Ghost_${VERSION}_ios-aarch64.ipa"
+            cp "$IPA" "$DEST"
+            gh release upload "$TAG" "$DEST" --clobber
+          else
+            echo "::warning::No IPA found — uploading .app as zip"
+            APP=$(find src-tauri/gen/apple -name "*.app" -type d 2>/dev/null | head -1)
+            if [ -n "$APP" ]; then
+              DEST="Ghost_${VERSION}_ios-aarch64.app.zip"
+              ditto -c -k --sequesterRsrc --keepParent "$APP" "$DEST"
+              gh release upload "$TAG" "$DEST" --clobber
+            fi
+          fi
+
+      - name: Cleanup keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" 2>/dev/null || true
