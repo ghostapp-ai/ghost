@@ -1,3 +1,9 @@
+## [0.10.0](https://github.com/ghostapp-ai/ghost/compare/v0.9.2...v0.10.0) (2026-02-20)
+
+### 🚀 Features
+
+* **protocols:** implement A2UI v0.9 generative UI renderer ([3a10674](https://github.com/ghostapp-ai/ghost/commit/3a10674c79ceaa9ffb2e69dbdd3e1a396a6e92e5))
+
 ## [unreleased]
 
 ### 🚀 Features
