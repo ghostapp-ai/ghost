@@ -22,11 +22,104 @@ permissions:
   pull-requests: write
 
 jobs:
-  # ─── CI: runs on every push/PR ───────────────────────────────────
-  ci:
-    name: CI
+  # ─── Fast checks (no Rust compilation, ~1-2min) ──────────────────
+  checks:
+    name: Checks
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Stub pro crate if submodule unavailable
+        run: |
+          if [ ! -f pro/Cargo.toml ]; then
+            mkdir -p pro/src/encryption pro/src/sync
+            cat > pro/Cargo.toml << 'EOF'
+          [package]
+          name = "ghost-pro"
+          version = "0.1.0"
+          edition = "2021"
+          publish = false
+
+          [dependencies]
+          serde = { version = "1", features = ["derive"] }
+          serde_json = "1"
+          tokio = { version = "1", features = ["full"] }
+          tracing = "0.1"
+          thiserror = "2"
+          anyhow = "1"
+          EOF
+            cat > pro/src/lib.rs << 'EOF'
+          pub mod encryption;
+          pub mod sync;
+
+          pub fn is_licensed() -> bool {
+              false
+          }
+
+          pub fn version() -> &'static str {
+              "0.0.0-stub"
+          }
+
+          pub async fn initialize() -> anyhow::Result<()> {
+              Ok(())
+          }
+          EOF
+            cat > pro/src/encryption/mod.rs << 'EOF'
+          pub struct EncryptionEngine;
+          impl EncryptionEngine {
+              pub fn new() -> Self {
+                  Self
+              }
+          }
+          EOF
+            cat > pro/src/sync/mod.rs << 'EOF'
+          pub struct SyncEngine;
+          impl SyncEngine {
+              pub fn new() -> Self {
+                  Self
+              }
+          }
+          EOF
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Rust format check
+        working-directory: src-tauri
+        run: cargo fmt --all -- --check
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend deps
+        run: bun install --frozen-lockfile
+
+      - name: Frontend build check
+        run: bun run build
+
+  # ─── Security audit (no compilation, ~30s) ───────────────────────
+  audit:
+    name: Audit
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: taiki-e/install-action@cargo-audit
+
+      - name: Security audit
+        working-directory: src-tauri
+        run: cargo audit || true
+
+  # ─── Test + Clippy (heavy compilation, parallelized with sccache) ─
+  test:
+    name: Test & Clippy
     runs-on: ubuntu-22.04
     env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
       RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
     steps:
       - uses: actions/checkout@v6
@@ -87,45 +180,29 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev mold
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          cache-targets: true
+          components: clippy
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+      - uses: Mozilla-Actions/sccache-action@v0.5
 
-      - name: Install frontend deps
-        run: bun install --frozen-lockfile
-
-      - name: Rust format check
-        working-directory: src-tauri
-        run: cargo fmt --all -- --check
+      - uses: taiki-e/install-action@cargo-nextest
 
       - name: Rust tests
         working-directory: src-tauri
-        run: cargo test
+        run: cargo nextest run
 
-      - name: Clippy (reuses test artifacts)
+      - name: Clippy (reuses sccache artifacts)
         working-directory: src-tauri
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
 
-      - name: Security audit
-        working-directory: src-tauri
-        run: |
-          cargo install cargo-audit --locked 2>/dev/null || true
-          cargo audit || true
-
-      - name: Frontend build check
-        run: bun run build
+      - name: sccache stats
+        run: sccache --show-stats
 
   # ─── Release: fully automatic via semantic-release ───────────────
   # Analyzes conventional commits → bumps version → updates CHANGELOG
@@ -133,7 +210,7 @@ jobs:
   # No manual steps. No PRs to merge. Just push and it releases.
   release:
     name: Release
-    needs: ci
+    needs: [checks, audit, test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
@@ -187,6 +264,10 @@ jobs:
             bundles: deb,appimage
 
     runs-on: ${{ matrix.runner }}
+
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
 
     steps:
       - uses: actions/checkout@v6
@@ -251,7 +332,8 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev mold
 
@@ -267,11 +349,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          key: ${{ matrix.target }}
-          cache-targets: true
+      - uses: Mozilla-Actions/sccache-action@v0.5
 
       - name: Install frontend deps
         run: bun install --frozen-lockfile
