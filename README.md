@@ -117,9 +117,9 @@ Think **Raycast + Semantic Search + Local AI Agent + Universal Protocol Hub** �
 
 ### Phase 1.5 — The Protocol Bridge *(In Progress)*
 
-- **MCP Server**: Expose Ghost tools (search, index, chat) to Claude, Cursor, VS Code, etc. via `rmcp` crate
-- **MCP Client**: Connect to external MCP servers (filesystem, GitHub, databases, 10,000+)
-- **AG-UI Runtime**: Bidirectional agent↔user streaming (~16 event types) for real-time interaction
+- **MCP Server**: ✅ Expose Ghost tools (search, index, stats) to Claude, Cursor, VS Code via `rmcp` + HTTP streamable transport
+- **MCP Client**: ✅ Connect to external MCP servers (filesystem, GitHub, databases, 10,000+) via stdio + HTTP
+- **AG-UI Runtime**: ✅ Bidirectional agent↔user streaming (~16 event types) — event bus, SSE endpoint, `useAgui` React hook, streaming chat
 - **A2UI Renderer**: Generative UI from JSON schemas — forms, tables, charts rendered natively in React
 - **MCP Apps**: Interactive tool UIs in sandboxed iframes within Ghost conversations
 - **Skills.md**: OpenClaw-inspired plugin format — plain Markdown skill definitions

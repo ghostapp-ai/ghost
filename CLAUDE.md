@@ -152,7 +152,8 @@ axum = "0.8"             # HTTP transport for MCP, A2A, AG-UI
 
 # Protocol SDKs (Phase 1.5+)
 rmcp = { version = "0.16", features = ["server", "client", "transport-io", "transport-child-process", "transport-streamable-http-server", "transport-streamable-http-client-reqwest"] }
-# AG-UI — custom Rust implementation (event types + SSE streaming)
+# AG-UI — custom Rust implementation (event types + SSE streaming via async-stream)
+async-stream = "0.3"    # SSE streaming for AG-UI endpoint
 # A2UI — JSON schema only, custom React renderer on frontend
 # A2A — custom Rust implementation (JSON-RPC 2.0 + Agent Cards)
 # WebMCP — browser extension bridge (Phase 2.5)
@@ -191,6 +192,7 @@ src/
 ├── hooks/
 │   ├── useSearch.ts     # Search query + results state
 │   ├── useHotkey.ts     # Global shortcut handling
+│   ├── useAgui.ts       # AG-UI event stream consumer + streaming chat state
 │   └── usePlatform.ts   # Platform detection hook (desktop/mobile/iOS/Android)
 ├── lib/
 │   ├── tauri.ts        # Tauri invoke wrappers with types
