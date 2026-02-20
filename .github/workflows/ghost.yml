@@ -191,17 +191,36 @@ jobs:
       - uses: Mozilla-Actions/sccache-action@v0.0.9
       - name: Install frontend deps
         run: bun install --frozen-lockfile
+
+      # ── macOS signing: use real Apple certificate if configured,
+      #    otherwise fall back to ad-hoc signing ("-").
+      #    Ad-hoc is required on ARM (aarch64) or the app shows
+      #    "App is damaged" — no Apple Developer account needed.
+      - name: Configure macOS signing
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERT_RAW: ${{ secrets.APPLE_CERTIFICATE }}
+        run: |
+          if [ -n "$APPLE_CERT_RAW" ]; then
+            echo "APPLE_CERTIFICATE=${{ secrets.APPLE_CERTIFICATE }}" >> "$GITHUB_ENV"
+            echo "APPLE_CERTIFICATE_PASSWORD=${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" >> "$GITHUB_ENV"
+            echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}" >> "$GITHUB_ENV"
+            echo "APPLE_ID=${{ secrets.APPLE_ID }}" >> "$GITHUB_ENV"
+            echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}" >> "$GITHUB_ENV"
+            echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}" >> "$GITHUB_ENV"
+            echo "macOS signing: using Apple Developer certificate"
+          else
+            # Ad-hoc signing: codesign -s "-"
+            # tauri.conf.json already sets signingIdentity:"-",
+            # this env var takes precedence to be explicit.
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+            echo "macOS signing: ad-hoc (no Apple Developer account configured)"
+          fi
+
       - name: Build & upload artifacts
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS code signing (optional — skips gracefully if not configured)
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: ${{ needs.release.outputs.tag }}
           releaseName: Ghost ${{ needs.release.outputs.tag }}
