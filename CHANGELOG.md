@@ -1,3 +1,9 @@
+## [0.9.2](https://github.com/ghostapp-ai/ghost/compare/v0.9.1...v0.9.2) (2026-02-20)
+
+### 🐛 Bug Fixes
+
+* **ci:** resolve all GitHub Actions failures ([42ee433](https://github.com/ghostapp-ai/ghost/commit/42ee43301816937ee415f20a925b17846c88e463))
+
 ## [0.9.1](https://github.com/ghostapp-ai/ghost/compare/v0.9.0...v0.9.1) (2026-02-20)
 
 ### 🐛 Bug Fixes
