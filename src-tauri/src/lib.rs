@@ -420,7 +420,10 @@ pub fn run() {
     // Log edition info
     #[cfg(feature = "pro")]
     {
-        push_log("info", format!("Edition: Ghost Pro v{}", ghost_pro::version()));
+        push_log(
+            "info",
+            format!("Edition: Ghost Pro v{}", ghost_pro::version()),
+        );
     }
     #[cfg(not(feature = "pro"))]
     {
