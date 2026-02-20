@@ -1,0 +1,19 @@
+{
+  "name": "ghost-website",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "sync-content": "node ../scripts/sync-website-content.mjs",
+    "build:full": "node ../scripts/sync-website-content.mjs && astro build"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.35.0",
+    "astro": "^5.10.0",
+    "sharp": "^0.34.0"
+  }
+}

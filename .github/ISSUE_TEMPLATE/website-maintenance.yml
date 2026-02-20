@@ -1,0 +1,62 @@
+---
+name: Website Maintenance
+description: Request automated website documentation maintenance
+title: "docs(website): "
+labels: ["website-maintenance", "documentation"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🤖 Automated Website Maintenance
+
+        This issue can be automatically handled by AI agents:
+        - **Copilot**: Assign this issue to `@copilot` in the sidebar
+        - **Claude**: Write `@claude` in a comment with your request
+
+  - type: dropdown
+    id: task-type
+    attributes:
+      label: Maintenance Task
+      description: What kind of website maintenance is needed?
+      options:
+        - "Content sync (README/ROADMAP/CHANGELOG → website)"
+        - "Fix broken links"
+        - "Update version references"
+        - "Improve page content/SEO"
+        - "Add new documentation page"
+        - "Fix build errors"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe what needs to be updated and why
+      placeholder: |
+        Example: The ROADMAP.md has been updated with Phase 2.0 milestones,
+        but the website roadmap page still shows the old Phase 1.5 content.
+    validations:
+      required: true
+
+  - type: textarea
+    id: source-files
+    attributes:
+      label: Source Files Changed
+      description: Which source files were modified? (helps the agent know what to sync)
+      placeholder: |
+        - README.md
+        - ROADMAP.md
+        - CLAUDE.md
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation Steps
+      description: How should the agent verify the changes?
+      value: |
+        1. Run `cd website && npm install && npm run build` — must succeed
+        2. Check that updated pages render correctly
+        3. Verify internal links are not broken

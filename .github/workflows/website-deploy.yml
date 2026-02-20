@@ -1,0 +1,80 @@
+# Ghost Website — Deploy to GitHub Pages
+#
+# Builds the Astro Starlight site and deploys to GitHub Pages.
+# Triggers on:
+#   - Push to main (when website/ files change)
+#   - After successful Ghost CI/CD pipeline
+#   - Manual dispatch
+
+name: Deploy Website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "README.md"
+      - "ROADMAP.md"
+      - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+  workflow_run:
+    workflows: ["Ghost CI/CD"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# Allow only one deployment at a time
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build Website
+    runs-on: ubuntu-latest
+    # Only run on successful upstream workflow or direct triggers
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm install
+
+      - name: Sync content from source files
+        run: node scripts/sync-website-content.mjs
+
+      - name: Build Astro site
+        working-directory: website
+        run: npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

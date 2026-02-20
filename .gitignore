@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Website build artifacts
+website/.astro/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -63,3 +66,4 @@ docs/plans/
 # AI agent config (internal tooling)
 .agents/
 .claude/
+!.claude/agents/

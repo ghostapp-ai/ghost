@@ -13,5 +13,12 @@
 # Documentation
 /*.md @AngelAlexQC
 
+# Website (docs site)
+/website/ @AngelAlexQC
+
+# Agent definitions
+/.github/agents/ @AngelAlexQC
+/.claude/agents/ @AngelAlexQC
+
 # Pro features (submodule — separate repo)
 /pro/ @AngelAlexQC

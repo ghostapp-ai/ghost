@@ -1,0 +1,153 @@
+/* Ghost Website — Custom Starlight Theme */
+
+/* Color palette: Ghost dark theme */
+:root {
+  --sl-color-accent-low: #1a0a2e;
+  --sl-color-accent: #7c3aed;
+  --sl-color-accent-high: #c4b5fd;
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #e6e1f0;
+  --sl-color-gray-2: #b8b0c8;
+  --sl-color-gray-3: #7c7490;
+  --sl-color-gray-4: #504868;
+  --sl-color-gray-5: #302848;
+  --sl-color-gray-6: #1a1230;
+  --sl-color-black: #0a0a0f;
+}
+
+/* Hero section styling */
+.hero {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.hero h1 {
+  font-size: 3.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 50%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1rem;
+}
+
+/* Feature cards */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  background: var(--sl-color-gray-6);
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.feature-card:hover {
+  border-color: var(--sl-color-accent);
+  transform: translateY(-2px);
+}
+
+.feature-card h3 {
+  color: var(--sl-color-accent-high);
+  margin-top: 0;
+}
+
+/* Download buttons */
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.download-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--sl-color-accent);
+  color: var(--sl-color-white) !important;
+  border-radius: 8px;
+  text-decoration: none !important;
+  font-weight: 600;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.download-btn:hover {
+  background: #6d28d9;
+  transform: translateY(-1px);
+}
+
+/* Stats badges */
+.stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+
+.stat-badge {
+  background: var(--sl-color-gray-6);
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 20px;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  color: var(--sl-color-gray-2);
+}
+
+.stat-badge strong {
+  color: var(--sl-color-accent-high);
+}
+
+/* Protocol stack visualization */
+.protocol-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 2rem 0;
+}
+
+.protocol-layer {
+  background: var(--sl-color-gray-6);
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 8px;
+  padding: 0.75rem 1.25rem;
+  text-align: center;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.protocol-layer:hover {
+  border-color: var(--sl-color-accent);
+}
+
+/* Auto-generated badge */
+.auto-generated-notice {
+  background: var(--sl-color-gray-6);
+  border-left: 3px solid var(--sl-color-accent);
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.85rem;
+  color: var(--sl-color-gray-2);
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .hero h1 {
+    font-size: 2.5rem;
+  }
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+  .download-grid {
+    grid-template-columns: 1fr;
+  }
+}

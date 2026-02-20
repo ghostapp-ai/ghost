@@ -1,0 +1,86 @@
+# Claude Code Action — Automated Docs Sync on PR
+#
+# Triggers when PRs modify source-of-truth files (README, ROADMAP, CHANGELOG, etc.)
+# Claude automatically updates the corresponding website documentation pages.
+#
+# Requires secret: ANTHROPIC_API_KEY
+
+name: Claude Docs Sync
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - "README.md"
+      - "ROADMAP.md"
+      - "CHANGELOG.md"
+      - "CLAUDE.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "CODE_OF_CONDUCT.md"
+      - "src-tauri/Cargo.toml"
+      - "package.json"
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  sync-docs:
+    name: Sync Documentation
+    runs-on: ubuntu-latest
+    # Only run if ANTHROPIC_API_KEY is configured
+    if: ${{ vars.ENABLE_AI_AGENTS == 'true' }}
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }}
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.ref }}...HEAD | tr '\n' ' ')
+          echo "files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+
+      - name: Sync website documentation
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: "--model claude-sonnet-4-20250514 --max-turns 15 --dangerously-skip-permissions"
+          prompt: |
+            You are the Ghost Website Maintainer. Your job is to sync documentation.
+
+            ## Changed files in this PR:
+            ${{ steps.changed.outputs.files }}
+
+            ## Content Mapping Rules:
+            - README.md overview/features → website/src/content/docs/guides/introduction.md
+            - README.md installation → website/src/content/docs/guides/installation.md
+            - ROADMAP.md → website/src/content/docs/reference/roadmap.md
+            - CHANGELOG.md → website/src/content/docs/reference/changelog.md
+            - CONTRIBUTING.md → website/src/content/docs/reference/contributing.md
+            - SECURITY.md → website/src/content/docs/reference/privacy.md
+            - CLAUDE.md architecture sections → website/src/content/docs/architecture/*.md
+
+            ## Instructions:
+            1. Read each changed source file
+            2. Read the corresponding website documentation page
+            3. Update the website page to reflect the source file changes
+            4. Preserve the Starlight frontmatter (title, description) format
+            5. Preserve internal relative links between docs
+            6. DO NOT modify files outside website/src/content/docs/
+            7. After making changes, verify the build: cd website && npm install && npm run build
+
+            ## Frontmatter Format:
+            ```yaml
+            ---
+            title: Page Title
+            description: Brief SEO-friendly description
+            ---
+            ```
+
+            Only update pages whose source files actually changed. If no website update is needed, do nothing.
