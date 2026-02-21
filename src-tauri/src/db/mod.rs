@@ -204,7 +204,7 @@ impl Database {
         self.with_conn(|conn| {
             let mut stmt =
                 conn.prepare("SELECT id, content FROM chunks WHERE has_embedding = 0 LIMIT ?1")?;
-            let rows = stmt.query_map(rusqlite::params![limit], |row| {
+            let rows = stmt.query_map(rusqlite::params![limit as i64], |row| {
                 Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
             })?;
             let mut results = Vec::new();
@@ -221,7 +221,7 @@ impl Database {
             let mut stmt = conn.prepare(
                 "SELECT rowid, rank FROM chunks_fts WHERE chunks_fts MATCH ?1 ORDER BY rank LIMIT ?2",
             )?;
-            let rows = stmt.query_map(rusqlite::params![query, limit], |row| {
+            let rows = stmt.query_map(rusqlite::params![query, limit as i64], |row| {
                 Ok((row.get::<_, i64>(0)?, row.get::<_, f64>(1)?))
             })?;
             let mut results = Vec::new();
@@ -299,7 +299,7 @@ impl Database {
                 "SELECT path, filename, extension, size_bytes, indexed_at \
                  FROM documents ORDER BY indexed_at DESC LIMIT ?1",
             )?;
-            let rows = stmt.query_map(rusqlite::params![limit], |row| {
+            let rows = stmt.query_map(rusqlite::params![limit as i64], |row| {
                 Ok(RecentDocument {
                     path: row.get(0)?,
                     filename: row.get(1)?,

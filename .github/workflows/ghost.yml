@@ -178,7 +178,7 @@ jobs:
             bundles: dmg
             features: metal,accelerate
           - label: macOS x64
-            runner: macos-13
+            runner: macos-15-large
             target: x86_64-apple-darwin
             bundles: dmg
             features: metal,accelerate
@@ -348,7 +348,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
 
       # ── Android SDK + NDK ──
       - name: Setup Android SDK
@@ -359,9 +359,9 @@ jobs:
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager --install \
             "platforms;android-36" \
-            "ndk;27.1.12297006" \
+            "ndk;27.3.13750724" \
             "build-tools;36.0.0"
-          echo "NDK_HOME=$ANDROID_HOME/ndk/27.1.12297006" >> "$GITHUB_ENV"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.3.13750724" >> "$GITHUB_ENV"
 
       # ── Rust with Android target ──
       - uses: dtolnay/rust-toolchain@stable

@@ -189,7 +189,7 @@ pub fn list_conversations(db: &Database, limit: usize) -> Result<Vec<Conversatio
              ORDER BY c.updated_at DESC
              LIMIT ?1",
         )?;
-        let rows = stmt.query_map(rusqlite::params![limit], |row| {
+        let rows = stmt.query_map(rusqlite::params![limit as i64], |row| {
             Ok(Conversation {
                 id: row.get(0)?,
                 title: row.get(1)?,
@@ -241,7 +241,7 @@ pub fn search_conversations(db: &Database, query: &str, limit: usize) -> Result<
              ORDER BY rank
              LIMIT ?2",
         )?;
-        let rows = stmt.query_map(rusqlite::params![query, limit], |row| {
+        let rows = stmt.query_map(rusqlite::params![query, limit as i64], |row| {
             Ok(Message {
                 id: row.get(0)?,
                 conversation_id: row.get(1)?,
@@ -272,7 +272,7 @@ pub fn get_recent_context(db: &Database, limit: usize) -> Result<Vec<Message>> {
              ORDER BY created_at DESC
              LIMIT ?1",
         )?;
-        let rows = stmt.query_map(rusqlite::params![limit], |row| {
+        let rows = stmt.query_map(rusqlite::params![limit as i64], |row| {
             Ok(Message {
                 id: row.get(0)?,
                 conversation_id: row.get(1)?,
