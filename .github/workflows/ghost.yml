@@ -249,13 +249,16 @@ jobs:
       #    by the llama-cpp-sys-2 build script (it forwards all CMAKE_* vars).
       #    CFLAGS/CXXFLAGS cover the cc::Build wrapper compilation step.
       #    /MP enables parallel C++ compilation for llama.cpp.
+      #    /FS forces synchronous PDB writes — required alongside /MP to
+      #    prevent C1041 "cannot open program database" when cmake's
+      #    TryCompile runs parallel cl.exe instances (vulkan-shaders-gen).
       - name: Configure Windows CRT linkage
         if: runner.os == 'Windows'
         shell: bash
         run: |
           echo "CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL" >> "$GITHUB_ENV"
-          echo "CFLAGS=/MD /MP"   >> "$GITHUB_ENV"
-          echo "CXXFLAGS=/MD /MP" >> "$GITHUB_ENV"
+          echo "CFLAGS=/MD /MP /FS"   >> "$GITHUB_ENV"
+          echo "CXXFLAGS=/MD /MP /FS" >> "$GITHUB_ENV"
 
       # ── macOS signing: use real Apple certificate if configured,
       #    otherwise fall back to ad-hoc signing ("-").
