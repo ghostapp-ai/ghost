@@ -88,6 +88,7 @@ src-tauri/src/
 │   ├── mod.rs          # Protocol registry, initialization
 │   ├── mcp_server.rs   # Ghost as MCP server (rmcp ServerHandler)
 │   ├── mcp_client.rs   # Ghost connects to external MCP servers (rmcp ClientHandler)
+│   ├── mcp_catalog.rs  # Curated MCP catalog (30+ servers) + one-click install + runtime detection
 │   ├── agui.rs         # AG-UI event system (~16 event types, bidirectional streaming)
 │   ├── a2ui.rs         # A2UI v0.9 generative UI (Google spec, JSON → React components)
 │   ├── a2a.rs          # (Phase 2) A2A Agent Card + task delegation
@@ -195,6 +196,7 @@ src/
 │   ├── DebugPanel.tsx   # Collapsible log viewer with pause/resume
 │   ├── StatusBar.tsx    # Status pills: DB stats, AI, Vec, Chat model
 │   ├── Settings.tsx     # Settings panel with 3 tabs (General, AI Models, Directories)
+│   ├── McpAppStore.tsx  # MCP catalog browser — searchable/filterable with one-click install
 │   └── VaultBrowser.tsx # (Future) File browser for indexed vault
 ├── hooks/
 │   ├── useSearch.ts     # Search query + results state
@@ -607,3 +609,5 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-20 | tauri-plugin-updater over manual update check | Official Tauri v2 plugin, Ed25519 signed artifacts, `latest.json` via GitHub Releases endpoint — zero infrastructure cost. Desktop-only (mobile uses app stores) |
 | 2026-02-20 | GitHub Releases endpoint over CrabNebula Cloud | Free, self-hosted, no vendor lock-in. `tauri-action` auto-generates `latest.json` and uploads to release. URL: `releases/latest/download/latest.json` |
 | 2026-02-20 | Silent auto-check on launch over modal-first | Background check respects privacy-first UX. Non-intrusive notification banner only when update exists. Manual check in Settings for user control |
+| 2026-02-20 | Chunked batch prefill over single-batch prefill | `LlamaBatch::new(512,1)` has capacity 512. Prompts >512 tokens (common w/ agent system prompt + tools) caused "Insufficient Space" crash. Now prefill loops in BATCH_SIZE chunks, decoding each before continuing. Last chunk kept for valid `sample()` call |
+| 2026-02-20 | Built-in MCP catalog over external registry | 30+ curated MCP servers embedded in binary — zero network required for browsing. Runtime detection (npx/node/uv/uvx/python3), one-click install (auto-config + save + connect). Inspired by Claude Desktop Extensions + Smithery.ai |
