@@ -50,11 +50,13 @@ export function StatusBar({ onSettingsClick, compact = false }: StatusBarProps) 
 
       {/* AI embedding engine */}
       <Pill
-        ok={ai ? ai.backend !== "None" : null}
-        label={ai ? `AI: ${ai.backend}` : "AI: …"}
+        ok={ai ? (ai.loading ? null : ai.backend !== "None") : null}
+        label={ai ? (ai.loading ? "AI: Loading…" : `AI: ${ai.backend}`) : "AI: …"}
         title={
           ai
-            ? `${ai.backend} — ${ai.model_name} (${ai.dimensions}D)`
+            ? ai.loading
+              ? "Loading embedding model in background…"
+              : `${ai.backend} — ${ai.model_name} (${ai.dimensions}D)`
             : "Detectando motor AI…"
         }
       />

@@ -29,10 +29,10 @@ pub struct NativeEngine {
 impl NativeEngine {
     /// Load the embedding model from HuggingFace Hub (downloads on first run).
     ///
-    /// Selects compute device: GPU (Metal/CUDA) if available, CPU otherwise.
-    /// The model is cached in the Ghost data directory.
-    pub async fn load() -> Result<Self> {
-        let hw = hardware::HardwareInfo::detect();
+    /// Uses the already-detected hardware info to select compute device,
+    /// avoiding redundant hardware detection. GPU vs CPU is selected via
+    /// `HardwareInfo::select_device("auto")` — a single unified code path.
+    pub async fn load(hw: &hardware::HardwareInfo) -> Result<Self> {
         tracing::info!(
             "Loading native embedding model ({} cores, SIMD={}, GPU={:?})",
             hw.cpu_cores,
@@ -40,8 +40,8 @@ impl NativeEngine {
             hw.gpu_backend
         );
 
-        // Select the best available compute device
-        let device = Self::select_device(&hw);
+        // Select the best available compute device (unified logic)
+        let device = hw.select_device("auto");
         tracing::info!("Embedding compute device: {:?}", device);
 
         // Download or use cached model files from HuggingFace Hub
@@ -295,34 +295,6 @@ impl NativeEngine {
         }
 
         Ok(results)
-    }
-
-    /// Select the best available compute device based on hardware detection.
-    fn select_device(hw: &hardware::HardwareInfo) -> Device {
-        match &hw.gpu_backend {
-            #[cfg(feature = "metal")]
-            Some(hardware::GpuBackend::Metal) => match Device::new_metal(0) {
-                Ok(device) => {
-                    tracing::info!("Using Metal GPU for embeddings");
-                    return device;
-                }
-                Err(e) => {
-                    tracing::warn!("Metal device creation failed, falling back to CPU: {}", e);
-                }
-            },
-            #[cfg(feature = "cuda")]
-            Some(hardware::GpuBackend::Cuda) => match Device::new_cuda(0) {
-                Ok(device) => {
-                    tracing::info!("Using CUDA GPU for embeddings");
-                    return device;
-                }
-                Err(e) => {
-                    tracing::warn!("CUDA device creation failed, falling back to CPU: {}", e);
-                }
-            },
-            _ => {}
-        }
-        Device::Cpu
     }
 
     /// Download model files from HuggingFace Hub if not already cached.

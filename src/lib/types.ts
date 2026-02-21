@@ -59,6 +59,7 @@ export interface AiStatus {
   backend: "Native" | "Ollama" | "None";
   model_name: string;
   dimensions: number;
+  loading: boolean;
   hardware: HardwareInfo;
 }
 

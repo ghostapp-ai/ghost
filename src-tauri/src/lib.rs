@@ -1688,14 +1688,14 @@ pub fn run() {
         push_log("info", "Conversation memory schema initialized".to_string());
     }
 
-    // --- Step 4: Initialize embedding engine ---
-    let embedding_engine = tauri::async_runtime::block_on(async {
-        tracing::info!("Initializing AI embedding engine...");
-        let engine = EmbeddingEngine::initialize().await;
-        tracing::info!("AI backend active: {}", engine.backend());
-        push_log("info", format!("Embedding engine: {}", engine.backend()));
-        engine
-    });
+    // --- Step 4: Create embedding engine (deferred loading) ---
+    // Like ChatEngine: start immediately with FTS5-only, load native model in background.
+    // This prevents blocking the UI during model download (~23MB) or loading (~200ms).
+    let embedding_engine = EmbeddingEngine::new(hardware.clone());
+    push_log(
+        "info",
+        "Embedding engine created (deferred loading)".to_string(),
+    );
 
     // --- Step 5: Determine chat model ---
     let model_id = if settings.chat_model == "auto" {
@@ -2022,7 +2022,33 @@ pub fn run() {
                 }
             });
 
-            // --- Background model loading ---
+            // --- Background embedding engine loading ---
+            // Load the native embedding model asynchronously (downloads ~23MB on first run).
+            // The UI is already visible — search falls back to FTS5-only until ready.
+            let state_for_embeddings = app_state.clone();
+            tauri::async_runtime::spawn(async move {
+                tracing::info!("Background: starting embedding engine load...");
+                push_log(
+                    "info",
+                    "Loading embedding model in background...".to_string(),
+                );
+                state_for_embeddings.embedding_engine.load().await;
+                let status = state_for_embeddings.embedding_engine.status();
+                push_log(
+                    "info",
+                    format!(
+                        "Embedding engine ready: {} ({}, {}D)",
+                        status.backend, status.model_name, status.dimensions
+                    ),
+                );
+                tracing::info!(
+                    "Embedding engine loaded: {} ({}D)",
+                    status.backend,
+                    status.dimensions
+                );
+            });
+
+            // --- Background chat model loading ---
             // Don't block app startup — load the chat model in a background task
             let state_for_loading = app_state.clone();
             tauri::async_runtime::spawn(async move {
