@@ -33,10 +33,79 @@ pub struct ModelProfile {
     /// Number of transformer layers in the model architecture.
     /// Used for smart GPU layer allocation (partial offload).
     pub n_layers: u32,
+    /// Model family identifier for grouping in UI.
+    pub family: &'static str,
+    /// Whether this model supports thinking mode (/think, /no_think).
+    pub supports_thinking: bool,
 }
 
 /// All available models, ordered from smallest to largest.
+///
+/// Qwen3 models are preferred (better tool calling, thinking mode, multilingual).
+/// Qwen2.5 kept as fallback for lower RAM requirements and proven stability.
 pub const MODEL_REGISTRY: &[ModelProfile] = &[
+    // ── Qwen3 family (recommended — superior tool calling + thinking mode) ──
+    ModelProfile {
+        id: "qwen3-0.6b",
+        name: "Qwen3 0.6B",
+        description: "Ultra-fast with thinking mode. Ideal for low-end hardware and phones.",
+        repo_id: "Qwen/Qwen3-0.6B-GGUF",
+        gguf_file: "Qwen3-0.6B-Q8_0.gguf",
+        tokenizer_repo: "Qwen/Qwen3-0.6B",
+        size_mb: 639,
+        min_ram_mb: 1024,
+        parameters: "0.6B",
+        quality_tier: 1,
+        n_layers: 28,
+        family: "qwen3",
+        supports_thinking: true,
+    },
+    ModelProfile {
+        id: "qwen3-1.7b",
+        name: "Qwen3 1.7B",
+        description: "Great balance of speed and quality with thinking mode.",
+        repo_id: "Qwen/Qwen3-1.7B-GGUF",
+        gguf_file: "Qwen3-1.7B-Q8_0.gguf",
+        tokenizer_repo: "Qwen/Qwen3-1.7B",
+        size_mb: 1830,
+        min_ram_mb: 2560,
+        parameters: "1.7B",
+        quality_tier: 2,
+        n_layers: 28,
+        family: "qwen3",
+        supports_thinking: true,
+    },
+    ModelProfile {
+        id: "qwen3-4b",
+        name: "Qwen3 4B",
+        description: "Strong reasoning and tool calling. Recommended for 8GB+ systems.",
+        repo_id: "Qwen/Qwen3-4B-GGUF",
+        gguf_file: "Qwen3-4B-Q4_K_M.gguf",
+        tokenizer_repo: "Qwen/Qwen3-4B",
+        size_mb: 2500,
+        min_ram_mb: 4096,
+        parameters: "4B",
+        quality_tier: 3,
+        n_layers: 36,
+        family: "qwen3",
+        supports_thinking: true,
+    },
+    ModelProfile {
+        id: "qwen3-8b",
+        name: "Qwen3 8B",
+        description: "Best quality. Thinking mode + superior tool calling. Needs 10GB+ RAM.",
+        repo_id: "Qwen/Qwen3-8B-GGUF",
+        gguf_file: "Qwen3-8B-Q4_K_M.gguf",
+        tokenizer_repo: "Qwen/Qwen3-8B",
+        size_mb: 5030,
+        min_ram_mb: 10240,
+        parameters: "8B",
+        quality_tier: 4,
+        n_layers: 36,
+        family: "qwen3",
+        supports_thinking: true,
+    },
+    // ── Qwen2.5 family (legacy — proven stability, lower RAM requirements) ──
     ModelProfile {
         id: "qwen2.5-0.5b",
         name: "Qwen2.5 0.5B",
@@ -49,6 +118,8 @@ pub const MODEL_REGISTRY: &[ModelProfile] = &[
         parameters: "0.5B",
         quality_tier: 1,
         n_layers: 24,
+        family: "qwen2.5",
+        supports_thinking: false,
     },
     ModelProfile {
         id: "qwen2.5-1.5b",
@@ -62,6 +133,8 @@ pub const MODEL_REGISTRY: &[ModelProfile] = &[
         parameters: "1.5B",
         quality_tier: 2,
         n_layers: 28,
+        family: "qwen2.5",
+        supports_thinking: false,
     },
     ModelProfile {
         id: "qwen2.5-3b",
@@ -75,6 +148,8 @@ pub const MODEL_REGISTRY: &[ModelProfile] = &[
         parameters: "3B",
         quality_tier: 3,
         n_layers: 36,
+        family: "qwen2.5",
+        supports_thinking: false,
     },
     ModelProfile {
         id: "qwen2.5-7b",
@@ -88,6 +163,8 @@ pub const MODEL_REGISTRY: &[ModelProfile] = &[
         parameters: "7B",
         quality_tier: 4,
         n_layers: 28,
+        family: "qwen2.5",
+        supports_thinking: false,
     },
 ];
 
@@ -124,22 +201,33 @@ pub fn has_gpu_runtime() -> bool {
 /// Recommend the best model that fits the available hardware.
 ///
 /// Strategy:
-/// - CPU-only (no GPU detected at runtime): cap at 1.5B for interactive speed
+/// - Prefers Qwen3 family (better tool calling, thinking mode, multilingual)
+/// - CPU-only (no GPU detected at runtime): cap at quality tier 2 for interactive speed
 /// - GPU available: pick the largest that fits in RAM
 /// - Always leave 512MB headroom for the OS and app
 pub fn recommend_model(hardware: &HardwareInfo) -> &'static ModelProfile {
     let available = hardware.available_ram_mb;
     let has_gpu = has_gpu_runtime();
 
-    // CPU-only: cap at 1.5B for acceptable inference speed.
+    // CPU-only: cap at tier 2 for acceptable inference speed.
     // 3B+ on CPU takes 10+ seconds per response which feels broken.
     let max_quality_tier: u8 = if has_gpu { 4 } else { 2 };
 
+    // Prefer Qwen3 models (first in registry), fall back to Qwen2.5
     MODEL_REGISTRY
         .iter()
+        .filter(|m| m.family == "qwen3") // Prefer Qwen3
         .rev() // Start from largest
         .find(|m| available >= m.min_ram_mb + 512 && m.quality_tier <= max_quality_tier)
-        .unwrap_or(&MODEL_REGISTRY[0]) // Fall back to smallest
+        .or_else(|| {
+            // Fall back to Qwen2.5 if no Qwen3 model fits
+            MODEL_REGISTRY
+                .iter()
+                .filter(|m| m.family == "qwen2.5")
+                .rev()
+                .find(|m| available >= m.min_ram_mb + 512 && m.quality_tier <= max_quality_tier)
+        })
+        .unwrap_or(&MODEL_REGISTRY[0]) // Absolute fallback: smallest Qwen3
 }
 
 /// Check if a model's GGUF file exists in the HuggingFace Hub cache.
@@ -187,6 +275,8 @@ pub struct ModelInfo {
     pub min_ram_mb: u64,
     pub parameters: String,
     pub quality_tier: u8,
+    pub family: String,
+    pub supports_thinking: bool,
     pub downloaded: bool,
     pub active: bool,
     pub recommended: bool,
@@ -207,6 +297,8 @@ pub fn list_models(hardware: &HardwareInfo, active_model_id: &str) -> Vec<ModelI
             min_ram_mb: profile.min_ram_mb,
             parameters: profile.parameters.to_string(),
             quality_tier: profile.quality_tier,
+            family: profile.family.to_string(),
+            supports_thinking: profile.supports_thinking,
             downloaded: is_model_cached(profile),
             active: profile.id == active_model_id,
             recommended: profile.id == recommended.id,
@@ -225,9 +317,34 @@ mod tests {
     }
 
     #[test]
+    fn test_model_registry_has_both_families() {
+        let qwen3_count = MODEL_REGISTRY
+            .iter()
+            .filter(|m| m.family == "qwen3")
+            .count();
+        let qwen25_count = MODEL_REGISTRY
+            .iter()
+            .filter(|m| m.family == "qwen2.5")
+            .count();
+        assert!(qwen3_count >= 4, "Expected at least 4 Qwen3 models");
+        assert!(qwen25_count >= 4, "Expected at least 4 Qwen2.5 models");
+    }
+
+    #[test]
     fn test_find_model() {
+        assert!(find_model("qwen3-0.6b").is_some());
         assert!(find_model("qwen2.5-0.5b").is_some());
         assert!(find_model("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_qwen3_models_have_thinking() {
+        for m in MODEL_REGISTRY.iter().filter(|m| m.family == "qwen3") {
+            assert!(m.supports_thinking, "{} should support thinking", m.id);
+        }
+        for m in MODEL_REGISTRY.iter().filter(|m| m.family == "qwen2.5") {
+            assert!(!m.supports_thinking, "{} should not support thinking", m.id);
+        }
     }
 
     #[test]
@@ -241,7 +358,8 @@ mod tests {
             available_ram_mb: 1500,
         };
         let model = recommend_model(&hw);
-        assert_eq!(model.id, "qwen2.5-0.5b");
+        // Should recommend smallest Qwen3 (0.6B)
+        assert_eq!(model.id, "qwen3-0.6b");
     }
 
     #[test]
@@ -255,19 +373,24 @@ mod tests {
             available_ram_mb: 24000,
         };
         let model = recommend_model(&hw);
-        // Without GPU at runtime, caps at 1.5B for CPU speed
-        // With GPU, would select 7B
+        // Without GPU at runtime, caps at tier 2 — Qwen3-1.7B
+        // With GPU, would select Qwen3-8B
         if has_gpu_runtime() {
-            assert_eq!(model.id, "qwen2.5-7b");
+            assert_eq!(model.id, "qwen3-8b");
         } else {
-            assert_eq!(model.id, "qwen2.5-1.5b");
+            assert_eq!(model.id, "qwen3-1.7b");
         }
     }
 
     #[test]
-    fn test_models_ordered_by_size() {
-        for window in MODEL_REGISTRY.windows(2) {
-            assert!(window[0].size_mb <= window[1].size_mb);
+    fn test_models_quality_tiers_valid() {
+        for m in MODEL_REGISTRY {
+            assert!(
+                m.quality_tier >= 1 && m.quality_tier <= 4,
+                "{} has invalid quality tier {}",
+                m.id,
+                m.quality_tier
+            );
         }
     }
 }

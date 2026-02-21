@@ -51,6 +51,7 @@ const IM_END: &str = "<|im_end|>";
 /// - Auto-detects GPU at runtime (Vulkan/CUDA/Metal)
 /// - Has proper KV cache clearing (no model reload per request)
 /// - Uses llama.cpp — the reference GGUF inference implementation
+/// - Supports Qwen3 thinking mode (/think, /no_think)
 pub struct NativeChatEngine {
     backend: Arc<LlamaBackend>,
     model: LlamaModel,
@@ -62,6 +63,8 @@ pub struct NativeChatEngine {
     n_gpu_layers: u32,
     /// Hardware-adaptive inference configuration (shared with context creation).
     profile: InferenceProfile,
+    /// Whether the model supports thinking mode (Qwen3).
+    supports_thinking: bool,
 }
 
 impl NativeChatEngine {
@@ -133,6 +136,7 @@ impl NativeChatEngine {
             gpu_backend_name,
             n_gpu_layers,
             profile: inf_profile,
+            supports_thinking: profile.supports_thinking,
         })
     }
 
@@ -162,7 +166,7 @@ impl NativeChatEngine {
     pub fn generate(&self, messages: &[ChatMessage], max_tokens: usize) -> Result<String> {
         let max_tokens = max_tokens.min(2048);
 
-        let prompt = Self::format_chat_prompt(messages);
+        let prompt = Self::format_chat_prompt(messages, self.supports_thinking);
 
         // Tokenize
         let tokens = self
@@ -264,11 +268,17 @@ impl NativeChatEngine {
 
         tracing::debug!("Generated ~{} chars from {}", output.len(), self.model_name);
 
-        Ok(output.trim().to_string())
+        // Strip <think>...</think> blocks from Qwen3 output (even /no_think can produce empty tags)
+        let cleaned = strip_think_blocks(&output);
+        Ok(cleaned.trim().to_string())
     }
 
-    /// Format messages into Qwen2.5 ChatML prompt format.
-    fn format_chat_prompt(messages: &[ChatMessage]) -> String {
+    /// Format messages into ChatML prompt format.
+    ///
+    /// For Qwen3 models: adds `/no_think` to system prompt for fast chat responses.
+    /// Thinking mode can be explicitly enabled by adding `/think` in user messages.
+    /// For Qwen2.5 models: standard ChatML without thinking directives.
+    fn format_chat_prompt(messages: &[ChatMessage], supports_thinking: bool) -> String {
         let mut prompt = String::new();
 
         // Add system message if not present
@@ -276,6 +286,10 @@ impl NativeChatEngine {
         if !has_system {
             prompt.push_str(IM_START);
             prompt.push_str("system\nYou are Ghost, a helpful local AI assistant running natively on the user's computer with zero cloud dependencies. Be concise, helpful, and direct. Respond in the same language the user writes in.");
+            // Qwen3: disable thinking by default for fast chat (user can enable with /think)
+            if supports_thinking {
+                prompt.push_str(" /no_think");
+            }
             prompt.push_str(IM_END);
             prompt.push('\n');
         }
@@ -453,9 +467,51 @@ impl NativeChatEngine {
     }
 }
 
+/// Strip `<think>...</think>` blocks from Qwen3 model output.
+///
+/// Qwen3 models may produce thinking blocks even when /no_think is set.
+/// This removes them to provide clean output to the user.
+/// If the user explicitly wants thinking output, they can add /think.
+fn strip_think_blocks(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    let mut remaining = text;
+
+    while let Some(start) = remaining.find("<think>") {
+        // Add everything before the <think> tag
+        result.push_str(&remaining[..start]);
+
+        if let Some(end) = remaining[start..].find("</think>") {
+            // Skip past the closing tag
+            remaining = &remaining[start + end + 8..]; // 8 = "</think>".len()
+        } else {
+            // Unclosed <think> — skip from <think> to end
+            remaining = "";
+        }
+    }
+    result.push_str(remaining);
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_strip_think_blocks_empty() {
+        assert_eq!(strip_think_blocks("Hello world"), "Hello world");
+    }
+
+    #[test]
+    fn test_strip_think_blocks_removes_thinking() {
+        let input = "<think>\nLet me think about this...\n</think>\nThe answer is 42.";
+        assert_eq!(strip_think_blocks(input), "\nThe answer is 42.");
+    }
+
+    #[test]
+    fn test_strip_think_blocks_empty_tags() {
+        let input = "<think>\n</think>\nHello!";
+        assert_eq!(strip_think_blocks(input), "\nHello!");
+    }
 
     #[test]
     fn test_get_or_init_backend_succeeds() {

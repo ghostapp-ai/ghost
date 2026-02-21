@@ -137,45 +137,47 @@ pub struct AgentModelTier {
 
 /// Available native GGUF model tiers for agent tasks.
 ///
-/// Qwen2.5-Instruct family — Apache 2.0 license, ChatML format,
-/// Hermes 2 Pro tool calling, grammar-constrained JSON output.
+/// Qwen3 family — Apache 2.0 license, ChatML format, thinking mode,
+/// superior tool calling, grammar-constrained JSON output.
+/// Falls back to Qwen2.5 models if Qwen3 aren't available.
+///
 /// Uses the SAME models downloaded for the chat engine (no double download).
 pub const AGENT_MODEL_TIERS: &[AgentModelTier] = &[
     AgentModelTier {
-        model_id: "qwen2.5-0.5b",
-        name: "Qwen2.5 0.5B (Agent)",
+        model_id: "qwen3-0.6b",
+        name: "Qwen3 0.6B (Agent)",
         min_ram_mb: 1024,
-        recommended_ctx: 2048,
+        recommended_ctx: 4096,
         tool_calling_reliable: false,
         quality: 1,
-        approx_usage_mb: 600,
+        approx_usage_mb: 800,
     },
     AgentModelTier {
-        model_id: "qwen2.5-1.5b",
-        name: "Qwen2.5 1.5B (Agent)",
-        min_ram_mb: 2048,
+        model_id: "qwen3-1.7b",
+        name: "Qwen3 1.7B (Agent)",
+        min_ram_mb: 2560,
         recommended_ctx: 4096,
         tool_calling_reliable: true,
         quality: 2,
-        approx_usage_mb: 1200,
+        approx_usage_mb: 2200,
     },
     AgentModelTier {
-        model_id: "qwen2.5-3b",
-        name: "Qwen2.5 3B (Agent)",
+        model_id: "qwen3-4b",
+        name: "Qwen3 4B (Agent)",
         min_ram_mb: 4096,
-        recommended_ctx: 4096,
+        recommended_ctx: 8192,
         tool_calling_reliable: true,
         quality: 3,
-        approx_usage_mb: 2400,
+        approx_usage_mb: 3200,
     },
     AgentModelTier {
-        model_id: "qwen2.5-7b",
-        name: "Qwen2.5 7B (Agent)",
-        min_ram_mb: 8192,
-        recommended_ctx: 4096,
+        model_id: "qwen3-8b",
+        name: "Qwen3 8B (Agent)",
+        min_ram_mb: 10240,
+        recommended_ctx: 8192,
         tool_calling_reliable: true,
         quality: 4,
-        approx_usage_mb: 4500,
+        approx_usage_mb: 6000,
     },
 ];
 
@@ -253,7 +255,8 @@ mod tests {
             available_ram_mb: 2048,
         };
         let (tier, _ctx) = recommend_agent_model(&hw);
-        assert_eq!(tier.model_id, "qwen2.5-0.5b");
+        // 2048 - 1024 (OS) = 1024 usable → qwen3-0.6b needs 800
+        assert_eq!(tier.model_id, "qwen3-0.6b");
     }
 
     #[test]
@@ -267,8 +270,8 @@ mod tests {
             available_ram_mb: 6144,
         };
         let (tier, _ctx) = recommend_agent_model(&hw);
-        // 6144 - 1024 (OS) = 5120 usable → qwen2.5-7b needs 4500
-        assert_eq!(tier.model_id, "qwen2.5-7b");
+        // 6144 - 1024 (OS) = 5120 usable → qwen3-4b needs 3200
+        assert_eq!(tier.model_id, "qwen3-4b");
     }
 
     #[test]
@@ -282,8 +285,8 @@ mod tests {
             available_ram_mb: 12288,
         };
         let (tier, _ctx) = recommend_agent_model(&hw);
-        // 12288 - 1024 = 11264 usable → qwen2.5-7b needs 4500 (largest)
-        assert_eq!(tier.model_id, "qwen2.5-7b");
+        // 12288 - 1024 = 11264 usable → qwen3-8b needs 6000 (largest)
+        assert_eq!(tier.model_id, "qwen3-8b");
     }
 
     #[test]
@@ -305,7 +308,7 @@ mod tests {
     #[test]
     fn test_resolve_manual() {
         let config = AgentConfig {
-            agent_model: "qwen2.5-3b".into(),
+            agent_model: "qwen3-4b".into(),
             context_window: 4096,
             ..Default::default()
         };
@@ -318,7 +321,7 @@ mod tests {
             available_ram_mb: 4096,
         };
         let (model, ctx) = resolve_agent_model(&config, &hw);
-        assert_eq!(model, "qwen2.5-3b");
+        assert_eq!(model, "qwen3-4b");
         assert_eq!(ctx, 4096);
     }
 
