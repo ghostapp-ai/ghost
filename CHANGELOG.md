@@ -1,3 +1,9 @@
+## [0.13.2](https://github.com/ghostapp-ai/ghost/compare/v0.13.1...v0.13.2) (2026-02-21)
+
+### 🐛 Bug Fixes
+
+* **ci:** replace /MP /FS with /Z7 to eliminate PDB race on Windows ([2445fed](https://github.com/ghostapp-ai/ghost/commit/2445feddce3b3b8f1660c40fee6515c96e7b587c))
+
 ## [0.13.1](https://github.com/ghostapp-ai/ghost/compare/v0.13.0...v0.13.1) (2026-02-21)
 
 ### 🐛 Bug Fixes
