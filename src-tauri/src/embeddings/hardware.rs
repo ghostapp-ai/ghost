@@ -194,13 +194,20 @@ impl HardwareInfo {
             return Some(GpuBackend::Vulkan);
         }
 
-        // CUDA detection (check for nvidia-smi)
+        // CUDA detection — prefer over Vulkan when available (better inference perf)
         #[cfg(target_os = "linux")]
         {
             if std::path::Path::new("/usr/bin/nvidia-smi").exists()
                 || std::path::Path::new("/usr/local/cuda").exists()
+                || std::path::Path::new("/opt/cuda").exists()
             {
                 return Some(GpuBackend::Cuda);
+            }
+            // Also check for NVIDIA driver loaded in kernel
+            if let Ok(content) = std::fs::read_to_string("/proc/modules") {
+                if content.contains("nvidia") {
+                    return Some(GpuBackend::Cuda);
+                }
             }
         }
 
@@ -211,12 +218,13 @@ impl HardwareInfo {
             }
         }
 
-        // Vulkan detection (Linux)
+        // Vulkan detection (Linux) — covers AMD, Intel, and NVIDIA without proprietary driver
         #[cfg(target_os = "linux")]
         {
             if std::path::Path::new("/usr/bin/vulkaninfo").exists()
                 || std::path::Path::new("/usr/lib/libvulkan.so").exists()
                 || std::path::Path::new("/usr/lib/x86_64-linux-gnu/libvulkan.so").exists()
+                || std::path::Path::new("/usr/lib/libvulkan.so.1").exists()
             {
                 return Some(GpuBackend::Vulkan);
             }

@@ -214,15 +214,21 @@ impl InferenceProfile {
 
     /// Detect the best available GPU device from llama.cpp backends.
     ///
-    /// Queries all registered backend devices and selects the GPU with the most
-    /// free VRAM. Returns `None` if no GPU devices are found (CPU-only system,
-    /// or no GPU feature compiled).
+    /// Queries all registered backend devices and selects the best GPU:
+    /// 1. **Discrete GPUs** (`Gpu` type) are always preferred over integrated (`IntegratedGpu`).
+    /// 2. Among same-type GPUs, the one with the most free VRAM wins.
+    ///
+    /// This is critical for laptops with both a dedicated GPU (NVIDIA/AMD) and
+    /// an integrated one (Intel UHD). The integrated GPU often reports system RAM
+    /// as "free memory", which would incorrectly win a pure memory comparison.
+    ///
+    /// Returns `None` if no GPU devices are found (CPU-only system).
     fn detect_best_gpu() -> Option<GpuInfo> {
         let devices = llama_cpp_2::list_llama_ggml_backend_devices();
 
         // Log all detected devices for diagnostics
         for dev in &devices {
-            tracing::debug!(
+            tracing::info!(
                 "llama.cpp device: {} ({}) — type={:?}, vram={}MB/{}MB",
                 dev.backend,
                 dev.description,
@@ -232,22 +238,50 @@ impl InferenceProfile {
             );
         }
 
-        devices
+        // Separate discrete GPUs from integrated GPUs
+        let mut discrete_gpus: Vec<_> = devices
+            .iter()
+            .filter(|d| matches!(d.device_type, llama_cpp_2::LlamaBackendDeviceType::Gpu))
+            .collect();
+
+        let mut integrated_gpus: Vec<_> = devices
             .iter()
             .filter(|d| {
                 matches!(
                     d.device_type,
-                    llama_cpp_2::LlamaBackendDeviceType::Gpu
-                        | llama_cpp_2::LlamaBackendDeviceType::IntegratedGpu
+                    llama_cpp_2::LlamaBackendDeviceType::IntegratedGpu
                 )
             })
-            .max_by_key(|d| d.memory_free)
-            .map(|d| GpuInfo {
+            .collect();
+
+        // Sort each group by free memory (descending)
+        discrete_gpus.sort_by(|a, b| b.memory_free.cmp(&a.memory_free));
+        integrated_gpus.sort_by(|a, b| b.memory_free.cmp(&a.memory_free));
+
+        // Prefer discrete GPU if any exist, regardless of memory comparison
+        let best = discrete_gpus.first().or(integrated_gpus.first()).copied();
+
+        best.map(|d| {
+            let gpu_type = if matches!(d.device_type, llama_cpp_2::LlamaBackendDeviceType::Gpu) {
+                "DiscreteGpu"
+            } else {
+                "IntegratedGpu"
+            };
+            tracing::info!(
+                "Selected GPU: {} ({}) — {} — {}MB free/{}MB total",
+                d.description,
+                d.backend,
+                gpu_type,
+                d.memory_free / (1024 * 1024),
+                d.memory_total / (1024 * 1024),
+            );
+            GpuInfo {
                 name: format!("{} ({})", d.description, d.backend),
                 vram_total_mb: (d.memory_total / (1024 * 1024)) as u64,
                 vram_free_mb: (d.memory_free / (1024 * 1024)) as u64,
-                device_type: format!("{:?}", d.device_type),
-            })
+                device_type: gpu_type.to_string(),
+            }
+        })
     }
 
     /// Calculate how many model layers can be offloaded to GPU.
