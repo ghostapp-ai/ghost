@@ -708,6 +708,105 @@ async fn remove_mcp_server_entry(
         .map_err(|e| e.to_string())
 }
 
+// --- MCP Catalog Commands ---
+
+/// Get the curated MCP tool catalog.
+#[tauri::command]
+async fn get_mcp_catalog() -> Result<serde_json::Value, String> {
+    let catalog = protocols::mcp_catalog::get_catalog();
+    let categories = protocols::mcp_catalog::get_categories();
+    Ok(serde_json::json!({
+        "entries": catalog,
+        "categories": categories,
+    }))
+}
+
+/// Detect available runtimes on the system (npx, node, python, uv, etc.).
+#[tauri::command]
+async fn detect_runtimes() -> Result<protocols::mcp_catalog::RuntimeInfo, String> {
+    Ok(protocols::mcp_catalog::detect_runtimes().await)
+}
+
+/// Install an MCP server from the catalog with one click.
+/// Takes the catalog entry ID and any required environment variables.
+/// Automatically resolves the config, saves to settings, and connects.
+#[tauri::command]
+async fn install_mcp_from_catalog(
+    catalog_id: String,
+    env_vars: std::collections::HashMap<String, String>,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<protocols::mcp_client::ConnectedServer, String> {
+    // Find catalog entry
+    let catalog = protocols::mcp_catalog::get_catalog();
+    let entry = catalog
+        .iter()
+        .find(|e| e.id == catalog_id)
+        .ok_or_else(|| format!("Catalog entry '{}' not found", catalog_id))?;
+
+    // Check runtime availability
+    let runtimes = protocols::mcp_catalog::detect_runtimes().await;
+    if !protocols::mcp_catalog::can_install(entry, &runtimes) {
+        let runtime_name = match entry.runtime.as_str() {
+            "node" => "Node.js (npx)",
+            "python" => "Python (uvx/python3)",
+            _ => &entry.runtime,
+        };
+        return Err(format!(
+            "{} is required to install '{}'. Please install it and try again.",
+            runtime_name, entry.name
+        ));
+    }
+
+    // Check required env vars
+    for env_spec in &entry.required_env {
+        if env_spec.required && !env_vars.contains_key(&env_spec.name) {
+            return Err(format!(
+                "Required configuration '{}' is missing",
+                env_spec.label
+            ));
+        }
+    }
+
+    // Build the server entry from catalog
+    let server_entry = protocols::mcp_catalog::build_server_entry(entry, env_vars);
+
+    // Save to settings (avoid duplicates)
+    {
+        let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+        settings.mcp_servers.retain(|s| s.name != server_entry.name);
+        settings.mcp_servers.push(server_entry.clone());
+        settings
+            .save(&get_app_data_dir().join("settings.json"))
+            .map_err(|e| e.to_string())?;
+    }
+
+    // Auto-connect
+    let result = state.mcp_client.connect(&server_entry).await;
+
+    tracing::info!(
+        "MCP Catalog: installed '{}' ({}): connected={}",
+        entry.name,
+        entry.id,
+        result.connected
+    );
+
+    Ok(result)
+}
+
+/// Uninstall an MCP server (disconnect + remove from settings).
+#[tauri::command]
+async fn uninstall_mcp_server(
+    name: String,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<(), String> {
+    let _ = state.mcp_client.disconnect(&name).await;
+    let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+    settings.mcp_servers.retain(|s| s.name != name);
+    settings
+        .save(&get_app_data_dir().join("settings.json"))
+        .map_err(|e| e.to_string())
+}
+
 // --- Filesystem Browsing Commands ---
 
 /// Entry in a directory listing for the file browser.
@@ -1443,6 +1542,11 @@ pub fn run() {
             list_mcp_tools,
             add_mcp_server_entry,
             remove_mcp_server_entry,
+            // MCP Catalog (App Store)
+            get_mcp_catalog,
+            detect_runtimes,
+            install_mcp_from_catalog,
+            uninstall_mcp_server,
             // Agent
             agent_chat,
             create_conversation,

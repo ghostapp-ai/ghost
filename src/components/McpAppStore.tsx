@@ -1,0 +1,594 @@
+import { useState, useCallback, useEffect, useMemo } from "react";
+import {
+  Search,
+  Loader2,
+  Download,
+  Check,
+  X,
+  AlertCircle,
+  ExternalLink,
+  Sparkles,
+  Shield,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronUp,
+  Plug,
+  Trash2,
+} from "lucide-react";
+import {
+  getMcpCatalog,
+  detectRuntimes,
+  installMcpFromCatalog,
+  uninstallMcpServer,
+  listMcpServers,
+  connectMcpServer,
+  disconnectMcpServer,
+} from "../lib/tauri";
+import type {
+  CatalogEntry,
+  CatalogCategory,
+  RuntimeInfo,
+  ConnectedServer,
+  EnvVarSpec,
+} from "../lib/types";
+
+interface McpAppStoreProps {
+  onError: (msg: string) => void;
+}
+
+export function McpAppStore({ onError }: McpAppStoreProps) {
+  const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
+  const [runtimes, setRuntimes] = useState<RuntimeInfo | null>(null);
+  const [installedServers, setInstalledServers] = useState<ConnectedServer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [installingId, setInstallingId] = useState<string | null>(null);
+  const [configEntry, setConfigEntry] = useState<CatalogEntry | null>(null);
+  const [envValues, setEnvValues] = useState<Record<string, string>>({});
+  const [showEnvPasswords, setShowEnvPasswords] = useState<Record<string, boolean>>({});
+  const [expandedInstalled, setExpandedInstalled] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const [catalogData, runtimeData, servers] = await Promise.all([
+        getMcpCatalog(),
+        detectRuntimes(),
+        listMcpServers(),
+      ]);
+      setCatalog(catalogData.entries);
+      setCategories(catalogData.categories);
+      setRuntimes(runtimeData);
+      setInstalledServers(servers);
+    } catch (e) {
+      onError(String(e));
+    }
+  }, [onError]);
+
+  useEffect(() => {
+    refresh().finally(() => setLoading(false));
+  }, [refresh]);
+
+  // Get installed server names for quick lookup
+  const installedNames = useMemo(
+    () => new Set(installedServers.map((s) => s.name)),
+    [installedServers]
+  );
+
+  // Filter catalog entries
+  const filteredEntries = useMemo(() => {
+    let entries = catalog;
+
+    // Category filter
+    if (activeCategory !== "all") {
+      entries = entries.filter((e) => e.category === activeCategory);
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      entries = entries.filter(
+        (e) =>
+          e.name.toLowerCase().includes(q) ||
+          e.description.toLowerCase().includes(q) ||
+          e.tags.some((t) => t.includes(q))
+      );
+    }
+
+    // Sort by popularity
+    return entries.sort((a, b) => a.popularity - b.popularity);
+  }, [catalog, activeCategory, searchQuery]);
+
+  // Check if runtime is available for an entry
+  const canInstall = useCallback(
+    (entry: CatalogEntry): boolean => {
+      if (!runtimes) return false;
+      if (entry.runtime === "node") {
+        return entry.command === "npx" ? runtimes.has_npx : runtimes.has_node;
+      }
+      if (entry.runtime === "python") {
+        return entry.command === "uvx" ? runtimes.has_uvx : runtimes.has_python;
+      }
+      return true;
+    },
+    [runtimes]
+  );
+
+  // Handle one-click install (no env vars needed)
+  const handleInstall = useCallback(
+    async (entry: CatalogEntry) => {
+      // If entry requires env vars, show config dialog
+      if (entry.required_env.length > 0) {
+        setConfigEntry(entry);
+        setEnvValues({});
+        return;
+      }
+
+      setInstallingId(entry.id);
+      try {
+        await installMcpFromCatalog(entry.id, {});
+        await refresh();
+      } catch (e) {
+        onError(String(e));
+      } finally {
+        setInstallingId(null);
+      }
+    },
+    [refresh, onError]
+  );
+
+  // Handle install with env vars configured
+  const handleInstallWithConfig = useCallback(async () => {
+    if (!configEntry) return;
+
+    // Validate required vars
+    for (const spec of configEntry.required_env) {
+      if (spec.required && !envValues[spec.name]?.trim()) {
+        onError(`"${spec.label}" is required`);
+        return;
+      }
+    }
+
+    setInstallingId(configEntry.id);
+    setConfigEntry(null);
+    try {
+      await installMcpFromCatalog(configEntry.id, envValues);
+      await refresh();
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setInstallingId(null);
+      setEnvValues({});
+    }
+  }, [configEntry, envValues, refresh, onError]);
+
+  // Handle uninstall
+  const handleUninstall = useCallback(
+    async (name: string) => {
+      try {
+        await uninstallMcpServer(name);
+        await refresh();
+      } catch (e) {
+        onError(String(e));
+      }
+    },
+    [refresh, onError]
+  );
+
+  // Handle reconnect
+  const handleReconnect = useCallback(
+    async (name: string) => {
+      try {
+        await connectMcpServer(name);
+        await refresh();
+      } catch (e) {
+        onError(String(e));
+      }
+    },
+    [refresh, onError]
+  );
+
+  // Handle disconnect
+  const handleDisconnect = useCallback(
+    async (name: string) => {
+      try {
+        await disconnectMcpServer(name);
+        await refresh();
+      } catch (e) {
+        onError(String(e));
+      }
+    },
+    [refresh, onError]
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-5 h-5 animate-spin text-ghost-text-dim" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Runtimes Status Banner */}
+      {runtimes && (!runtimes.has_npx || !runtimes.has_uvx) && (
+        <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-300/90">
+            {!runtimes.has_npx && (
+              <p>
+                <strong>Node.js</strong> not detected — install{" "}
+                <a
+                  href="https://nodejs.org"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  Node.js
+                </a>{" "}
+                to enable most tools
+              </p>
+            )}
+            {!runtimes.has_uvx && runtimes.has_npx && (
+              <p>
+                <strong>uv</strong> not detected — install{" "}
+                <a
+                  href="https://docs.astral.sh/uv/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  uv
+                </a>{" "}
+                for Python tools
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Installed Servers Section */}
+      {installedServers.length > 0 && (
+        <div>
+          <button
+            onClick={() => setExpandedInstalled(!expandedInstalled)}
+            className="flex items-center gap-2 w-full text-left mb-2"
+          >
+            <Plug className="w-4 h-4 text-ghost-accent" />
+            <span className="text-sm font-medium text-ghost-text flex-1">
+              Installed ({installedServers.length})
+            </span>
+            {expandedInstalled ? (
+              <ChevronUp className="w-4 h-4 text-ghost-text-dim" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-ghost-text-dim" />
+            )}
+          </button>
+          {expandedInstalled && (
+            <div className="space-y-1.5">
+              {installedServers.map((server) => (
+                <div
+                  key={server.name}
+                  className="flex items-center gap-2.5 px-3 py-2 bg-ghost-bg rounded-lg border border-ghost-border"
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      server.connected ? "bg-green-400" : "bg-ghost-text-dim/30"
+                    }`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-ghost-text truncate block">
+                      {server.name}
+                    </span>
+                    {server.connected && server.tools.length > 0 && (
+                      <span className="text-[10px] text-ghost-text-dim">
+                        {server.tools.length} tool
+                        {server.tools.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {server.error && (
+                      <span className="text-[10px] text-ghost-danger flex items-center gap-0.5">
+                        <AlertCircle className="w-2.5 h-2.5" />
+                        {server.error.length > 50
+                          ? server.error.substring(0, 50) + "..."
+                          : server.error}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {server.connected ? (
+                      <button
+                        onClick={() => handleDisconnect(server.name)}
+                        className="p-1 rounded text-ghost-text-dim hover:text-amber-400 hover:bg-amber-400/10 transition-all"
+                        title="Disconnect"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleReconnect(server.name)}
+                        className="p-1 rounded text-ghost-text-dim hover:text-ghost-accent hover:bg-ghost-accent/10 transition-all"
+                        title="Reconnect"
+                      >
+                        <Plug className="w-3 h-3" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleUninstall(server.name)}
+                      className="p-1 rounded text-ghost-text-dim hover:text-ghost-danger hover:bg-ghost-danger/10 transition-all"
+                      title="Uninstall"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ghost-text-dim/40" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search tools..."
+          className="w-full pl-9 pr-3 py-2 bg-ghost-bg border border-ghost-border rounded-xl text-sm text-ghost-text outline-none focus:border-ghost-accent/40 placeholder:text-ghost-text-dim/30 transition-colors"
+        />
+      </div>
+
+      {/* Category Chips */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.id)}
+            className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+              activeCategory === cat.id
+                ? "bg-ghost-accent/15 text-ghost-accent border border-ghost-accent/30"
+                : "bg-ghost-bg text-ghost-text-dim border border-ghost-border hover:border-ghost-accent/20 hover:text-ghost-text"
+            }`}
+          >
+            <span className="mr-1">{cat.icon}</span>
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
+      {/* Catalog Grid */}
+      <div className="space-y-2">
+        {filteredEntries.length === 0 ? (
+          <div className="py-8 text-center">
+            <Search className="w-8 h-8 text-ghost-text-dim/20 mx-auto mb-2" />
+            <p className="text-sm text-ghost-text-dim">No tools found</p>
+            <p className="text-xs text-ghost-text-dim/50 mt-0.5">
+              Try a different search or category
+            </p>
+          </div>
+        ) : (
+          filteredEntries.map((entry) => {
+            const installed = installedNames.has(entry.name);
+            const installing = installingId === entry.id;
+            const installable = canInstall(entry);
+
+            return (
+              <div
+                key={entry.id}
+                className="flex items-center gap-3 px-3 py-2.5 bg-ghost-bg rounded-xl border border-ghost-border hover:border-ghost-accent/20 transition-all group"
+              >
+                {/* Icon */}
+                <span className="text-xl shrink-0 w-8 text-center">{entry.icon}</span>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-ghost-text truncate">
+                      {entry.name}
+                    </span>
+                    {entry.official && (
+                      <span title="Official">
+                        <Shield className="w-3 h-3 text-ghost-accent shrink-0" />
+                      </span>
+                    )}
+                    {entry.is_mcp_app && (
+                      <span title="MCP App (has UI)">
+                        <Sparkles className="w-3 h-3 text-purple-400 shrink-0" />
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-ghost-text-dim/70 truncate mt-0.5">
+                    {entry.description}
+                  </p>
+                  {entry.required_env.length > 0 && !installed && (
+                    <p className="text-[10px] text-amber-400/70 mt-0.5">
+                      Requires configuration
+                    </p>
+                  )}
+                </div>
+
+                {/* Action Button */}
+                <div className="shrink-0">
+                  {installed ? (
+                    <span className="flex items-center gap-1 px-2 py-1 text-xs text-green-400 bg-green-400/10 rounded-lg">
+                      <Check className="w-3 h-3" />
+                      Installed
+                    </span>
+                  ) : installing ? (
+                    <span className="flex items-center gap-1 px-2 py-1 text-xs text-ghost-accent">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    </span>
+                  ) : !installable ? (
+                    <span
+                      className="px-2 py-1 text-[10px] text-ghost-text-dim/40 rounded-lg"
+                      title={`Requires ${entry.runtime === "node" ? "Node.js" : "Python"}`}
+                    >
+                      {entry.runtime === "node" ? "Need Node.js" : "Need Python"}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleInstall(entry)}
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-ghost-accent bg-ghost-accent/10 hover:bg-ghost-accent/20 rounded-lg transition-all"
+                    >
+                      <Download className="w-3 h-3" />
+                      Install
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Configuration Dialog (for tools that need env vars) */}
+      {configEntry && (
+        <ConfigDialog
+          entry={configEntry}
+          envValues={envValues}
+          showPasswords={showEnvPasswords}
+          onEnvChange={(name, value) =>
+            setEnvValues((prev) => ({ ...prev, [name]: value }))
+          }
+          onTogglePassword={(name) =>
+            setShowEnvPasswords((prev) => ({ ...prev, [name]: !prev[name] }))
+          }
+          onInstall={handleInstallWithConfig}
+          onCancel={() => {
+            setConfigEntry(null);
+            setEnvValues({});
+          }}
+          installing={installingId === configEntry.id}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Configuration Dialog ─────────────────────────────────
+
+interface ConfigDialogProps {
+  entry: CatalogEntry;
+  envValues: Record<string, string>;
+  showPasswords: Record<string, boolean>;
+  onEnvChange: (name: string, value: string) => void;
+  onTogglePassword: (name: string) => void;
+  onInstall: () => void;
+  onCancel: () => void;
+  installing: boolean;
+}
+
+function ConfigDialog({
+  entry,
+  envValues,
+  showPasswords,
+  onEnvChange,
+  onTogglePassword,
+  onInstall,
+  onCancel,
+  installing,
+}: ConfigDialogProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-ghost-surface border border-ghost-border rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 pt-5 pb-3">
+          <span className="text-2xl">{entry.icon}</span>
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-ghost-text">
+              Install {entry.name}
+            </h3>
+            <p className="text-[11px] text-ghost-text-dim mt-0.5">
+              Configure required settings
+            </p>
+          </div>
+          <button
+            onClick={onCancel}
+            className="p-1 rounded-lg text-ghost-text-dim hover:text-ghost-text hover:bg-ghost-surface-hover transition-all"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Config Fields */}
+        <div className="px-5 pb-3 space-y-3">
+          {entry.required_env.map((spec: EnvVarSpec) => (
+            <div key={spec.name}>
+              <label className="flex items-center gap-1 text-xs text-ghost-text-dim mb-1">
+                {spec.label}
+                {spec.required && <span className="text-ghost-danger">*</span>}
+              </label>
+              <div className="relative">
+                <input
+                  type={spec.sensitive && !showPasswords[spec.name] ? "password" : "text"}
+                  value={envValues[spec.name] || ""}
+                  onChange={(e) => onEnvChange(spec.name, e.target.value)}
+                  placeholder={spec.placeholder || ""}
+                  className="w-full px-3 py-2 bg-ghost-bg border border-ghost-border rounded-lg text-sm text-ghost-text outline-none focus:border-ghost-accent/50 pr-8 transition-colors"
+                />
+                {spec.sensitive && (
+                  <button
+                    type="button"
+                    onClick={() => onTogglePassword(spec.name)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-ghost-text-dim/40 hover:text-ghost-text-dim transition-colors"
+                  >
+                    {showPasswords[spec.name] ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                )}
+              </div>
+              <p className="text-[10px] text-ghost-text-dim/50 mt-0.5">
+                {spec.description}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-2 px-5 pb-5 pt-2">
+          <button
+            onClick={onInstall}
+            disabled={installing}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-ghost-accent text-ghost-bg rounded-xl text-sm font-medium hover:bg-ghost-accent/90 disabled:opacity-50 transition-all"
+          >
+            {installing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            Install & Connect
+          </button>
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 bg-ghost-bg border border-ghost-border text-ghost-text-dim rounded-xl text-sm hover:bg-ghost-surface-hover transition-all"
+          >
+            Cancel
+          </button>
+        </div>
+
+        {/* Repository Link */}
+        {entry.repository && (
+          <div className="px-5 pb-4 -mt-1">
+            <a
+              href={entry.repository}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[10px] text-ghost-text-dim/40 hover:text-ghost-accent transition-colors"
+            >
+              <ExternalLink className="w-2.5 h-2.5" />
+              View source
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -262,6 +262,34 @@ export async function removeMcpServerEntry(name: string): Promise<void> {
   return invoke<void>("remove_mcp_server_entry", { name });
 }
 
+// --- MCP Catalog (App Store) ---
+
+import type { CatalogResponse, RuntimeInfo } from "./types";
+
+/** Get the curated MCP tool catalog with categories. */
+export async function getMcpCatalog(): Promise<CatalogResponse> {
+  return invoke<CatalogResponse>("get_mcp_catalog");
+}
+
+/** Detect available runtimes on the system (Node.js, Python, etc.). */
+export async function detectRuntimes(): Promise<RuntimeInfo> {
+  return invoke<RuntimeInfo>("detect_runtimes");
+}
+
+/** Install an MCP server from the catalog with one click.
+ *  Provide required environment variables as key-value pairs. */
+export async function installMcpFromCatalog(
+  catalogId: string,
+  envVars: Record<string, string> = {}
+): Promise<ConnectedServer> {
+  return invoke<ConnectedServer>("install_mcp_from_catalog", { catalogId, envVars });
+}
+
+/** Uninstall an MCP server (disconnect + remove from settings). */
+export async function uninstallMcpServer(name: string): Promise<void> {
+  return invoke<void>("uninstall_mcp_server", { name });
+}
+
 // --- Platform Detection ---
 
 /** Platform information from the Rust backend. */

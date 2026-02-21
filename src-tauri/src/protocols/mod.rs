@@ -10,6 +10,7 @@
 
 pub mod a2ui;
 pub mod agui;
+pub mod mcp_catalog;
 pub mod mcp_client;
 pub mod mcp_server;
 

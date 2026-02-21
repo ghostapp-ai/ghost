@@ -166,6 +166,62 @@ export interface McpToolInfo {
   input_schema: unknown | null;
 }
 
+// --- MCP Catalog Types (App Store) ---
+
+/** A single entry in the curated MCP tool catalog. */
+export interface CatalogEntry {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  icon: string;
+  runtime: "node" | "python" | "binary";
+  transport: string;
+  command: string;
+  args: string[];
+  is_mcp_app: boolean;
+  required_env: EnvVarSpec[];
+  tags: string[];
+  popularity: number;
+  official: boolean;
+  package: string | null;
+  repository: string | null;
+}
+
+/** Specification for a required environment variable. */
+export interface EnvVarSpec {
+  name: string;
+  label: string;
+  description: string;
+  sensitive: boolean;
+  placeholder: string | null;
+  required: boolean;
+}
+
+/** Category in the MCP catalog. */
+export interface CatalogCategory {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+/** Available runtimes on the user's system. */
+export interface RuntimeInfo {
+  has_node: boolean;
+  node_version: string | null;
+  has_npx: boolean;
+  has_python: boolean;
+  python_version: string | null;
+  has_uv: boolean;
+  has_uvx: boolean;
+}
+
+/** Response from get_mcp_catalog. */
+export interface CatalogResponse {
+  entries: CatalogEntry[];
+  categories: CatalogCategory[];
+}
+
 // --- AG-UI Protocol Types ---
 
 /** AG-UI event type discriminator. */
