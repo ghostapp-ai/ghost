@@ -240,30 +240,28 @@ jobs:
       - name: Install frontend deps
         run: bun install
 
-      # ── Windows: force dynamic CRT (/MD) + Ninja generator for all C++
-      #    compiled by llama-cpp-sys-2 (both CMake and cc::Build code paths).
+      # ── Windows: fix long-path C1041 PDB error + CRT linkage.
       #
-      #    CRT linkage: Without /MD, CMake Release defaults to /MT (static CRT →
-      #    libcpmt.lib), which conflicts with Rust's /MD (dynamic CRT →
-      #    msvcprt.lib) and causes LNK2005 "multiply defined symbols".
-      #    CMAKE_MSVC_RUNTIME_LIBRARY is forwarded to CMake automatically
-      #    by the llama-cpp-sys-2 build script (it forwards all CMAKE_* vars).
-      #    CFLAGS/CXXFLAGS cover the cc::Build wrapper compilation step.
+      #    ROOT CAUSE: llama-cpp-sys-2's cmake ExternalProject for
+      #    vulkan-shaders-gen creates deeply nested TryCompile paths.
+      #    The PDB path reaches ~267 chars, exceeding Windows MAX_PATH (260).
+      #    mspdbsrv.exe uses legacy Win32 APIs and cannot open the PDB,
+      #    producing the misleading C1041 "cannot open program database"
+      #    error. Neither /FS, /Z7, nor Ninja fix the path length issue.
       #
-      #    Ninja generator: The default Visual Studio generator uses MSBuild,
-      #    which parallelizes TryCompile internally. Combined with sccache
-      #    (which silently strips /FS and /MP flags — sccache#1012), this
-      #    causes C1041 "cannot open program database" PDB race conditions
-      #    in cmake ExternalProject sub-builds (vulkan-shaders-gen).
-      #    Ninja avoids this entirely — no MSBuild, no PDB races.
-      #    Ninja is pre-installed on GitHub Actions Windows runners.
+      #    FIX: Set CARGO_TARGET_DIR to a short path (D:\b) to reduce
+      #    the nested build path from ~267 to ~238 chars (under MAX_PATH).
       #
-      #    /Z7 embeds debug info into .obj files (no shared .pdb file)
-      #    as a defense-in-depth measure for any remaining cl.exe invocations.
-      - name: Configure Windows CRT linkage
+      #    CRT linkage: /MD forces dynamic CRT to match Rust's default.
+      #    CMAKE_MSVC_RUNTIME_LIBRARY is forwarded to cmake automatically.
+      #    /Z7 embeds debug info in .obj (no PDB) as defense-in-depth.
+      #
+      #    Refs: sccache#1012 (strips /FS), Windows MAX_PATH limitation.
+      - name: Configure Windows build environment
         if: runner.os == 'Windows'
         shell: bash
         run: |
+          echo "CARGO_TARGET_DIR=D:\\b" >> "$GITHUB_ENV"
           echo "CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL" >> "$GITHUB_ENV"
           echo "CMAKE_GENERATOR=Ninja" >> "$GITHUB_ENV"
           echo "CFLAGS=/MD /Z7"   >> "$GITHUB_ENV"
