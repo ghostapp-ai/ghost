@@ -1,3 +1,9 @@
+## [0.13.1](https://github.com/ghostapp-ai/ghost/compare/v0.13.0...v0.13.1) (2026-02-21)
+
+### 🐛 Bug Fixes
+
+* **ci:** add /FS flag to Windows MSVC build to prevent PDB conflicts ([ad5714d](https://github.com/ghostapp-ai/ghost/commit/ad5714d4e1d86486acb989ea10126c9fb9dd2d7d))
+
 ## [0.13.0](https://github.com/ghostapp-ai/ghost/compare/v0.12.0...v0.13.0) (2026-02-21)
 
 ### 🚀 Features
