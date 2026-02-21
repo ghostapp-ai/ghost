@@ -7,6 +7,10 @@ import {
   Download,
   AlertCircle,
   Clock,
+  Search,
+  MessageSquare,
+  Wrench,
+  Zap,
 } from "lucide-react";
 import { DownloadProgressBar } from "./DownloadProgress";
 import { A2UIRenderer } from "./A2UIRenderer";
@@ -29,6 +33,10 @@ interface ChatMessagesProps {
   onA2uiAction?: (surfaceId: string, componentId: string, action: A2uiAction) => void;
   /** Callback when an A2UI input value changes. */
   onA2uiDataChange?: (surfaceId: string, path: string, value: unknown) => void;
+  /** Number of connected MCP tools available */
+  mcpToolCount?: number;
+  /** Number of indexed documents */
+  indexedDocs?: number;
 }
 
 function getTimeGreeting(): { greeting: string; emoji: string } {
@@ -50,54 +58,95 @@ function getFormattedDate(): string {
   });
 }
 
-function getTips(isMobile: boolean): string[] {
-  const base = [
-    "Escribe ? para preguntar algo",
-    "Busca archivos escribiendo su nombre",
-  ];
-  if (!isMobile) {
-    base.push(
-      "Ctrl+Space para mostrar/ocultar",
-      "Ctrl+, para abrir configuración",
-      "Ctrl+D para ver los logs de depuración"
-    );
-  }
-  return base;
+interface SmartGreetingProps {
+  isMobile?: boolean;
+  modelName?: string;
+  mcpToolCount?: number;
+  indexedDocs?: number;
 }
 
-function SmartGreeting({ isMobile = false }: { isMobile?: boolean }) {
+function SmartGreeting({ isMobile = false, modelName, mcpToolCount = 0, indexedDocs = 0 }: SmartGreetingProps) {
   const [time, setTime] = useState(getFormattedTime());
   const { greeting } = getTimeGreeting();
   const date = getFormattedDate();
-  const tips = useMemo(() => getTips(isMobile), [isMobile]);
-  const tip = tips[Math.floor(Math.random() * tips.length)];
 
   useEffect(() => {
     const id = setInterval(() => setTime(getFormattedTime()), 30_000);
     return () => clearInterval(id);
   }, []);
 
+  const capabilities = useMemo(() => {
+    const items: { icon: React.ReactNode; text: string }[] = [
+      {
+        icon: <Search className="w-3.5 h-3.5 text-ghost-accent" />,
+        text: indexedDocs > 0
+          ? `Buscar en ${indexedDocs.toLocaleString()} archivos indexados`
+          : "Buscar archivos por nombre o contenido",
+      },
+      {
+        icon: <MessageSquare className="w-3.5 h-3.5 text-ghost-accent" />,
+        text: modelName
+          ? `Conversar con IA (${modelName})`
+          : "Conversar con IA local — sin enviar datos a la nube",
+      },
+    ];
+    if (mcpToolCount > 0) {
+      items.push({
+        icon: <Wrench className="w-3.5 h-3.5 text-ghost-accent" />,
+        text: `${mcpToolCount} herramientas MCP conectadas`,
+      });
+    }
+    items.push({
+      icon: <Zap className="w-3.5 h-3.5 text-ghost-accent" />,
+      text: "Todo privado y local — tus datos nunca salen de tu equipo",
+    });
+    return items;
+  }, [modelName, mcpToolCount, indexedDocs]);
+
   return (
-    <div className="flex flex-col items-center justify-center flex-1 gap-4">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-ghost-accent/10 flex items-center justify-center">
-          <Sparkles className="w-6 h-6 text-ghost-accent" />
+    <div className="flex flex-col items-center justify-center flex-1 gap-5 px-4">
+      {/* Avatar + greeting */}
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-ghost-accent/20 to-ghost-accent/5 flex items-center justify-center shadow-lg shadow-ghost-accent/5">
+          <Sparkles className="w-7 h-7 text-ghost-accent" />
         </div>
-      </div>
-      <div className="text-center space-y-1.5">
-        <p className="text-base font-semibold text-ghost-text/80">
-          {greeting}
-        </p>
-        <div className="flex items-center justify-center gap-1.5 text-ghost-text-dim/40">
+        <div className="text-center space-y-1">
+          <p className="text-lg font-semibold text-ghost-text/90">
+            {greeting} 👋
+          </p>
+          <p className="text-sm text-ghost-text-dim/50">
+            Soy Ghost, tu asistente privado. ¿En qué te ayudo?
+          </p>
+        </div>
+        <div className="flex items-center justify-center gap-1.5 text-ghost-text-dim/30">
           <Clock className="w-3 h-3" />
-          <span className="text-xs font-mono">{time}</span>
-          <span className="text-xs">·</span>
-          <span className="text-xs capitalize">{date}</span>
+          <span className="text-[10px] font-mono">{time}</span>
+          <span className="text-[10px]">·</span>
+          <span className="text-[10px] capitalize">{date}</span>
         </div>
       </div>
-      <p className="text-[11px] text-ghost-text-dim/30 max-w-60 text-center">
-        {tip}
-      </p>
+
+      {/* Capabilities */}
+      <div className="w-full max-w-72 space-y-1.5">
+        {capabilities.map((cap, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-ghost-surface/50 border border-ghost-border/30"
+          >
+            {cap.icon}
+            <span className="text-[11px] text-ghost-text-dim/60 leading-tight">{cap.text}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick tips */}
+      <div className="text-center space-y-1">
+        <p className="text-[10px] text-ghost-text-dim/25">
+          {isMobile
+            ? "Escribe ? para preguntar o busca archivos por nombre"
+            : "Escribe ? para preguntar · Ctrl+Space para mostrar/ocultar · Ctrl+, configuración"}
+        </p>
+      </div>
     </div>
   );
 }
@@ -114,6 +163,8 @@ export function ChatMessages({
   a2uiSurfaces,
   onA2uiAction,
   onA2uiDataChange,
+  mcpToolCount = 0,
+  indexedDocs = 0,
 }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -138,7 +189,12 @@ export function ChatMessages({
       {messages.length === 0 && !isLoading && (
         <div className="flex flex-col items-center justify-center flex-1 text-ghost-text-dim/50 gap-3">
           {isAvailable ? (
-            <SmartGreeting isMobile={isMobile} />
+            <SmartGreeting
+              isMobile={isMobile}
+              modelName={status?.model_name || undefined}
+              mcpToolCount={mcpToolCount}
+              indexedDocs={indexedDocs}
+            />
           ) : status?.error ? (
             <>
               <div className="w-12 h-12 rounded-2xl bg-ghost-danger/10 flex items-center justify-center">

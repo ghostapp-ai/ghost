@@ -2314,7 +2314,7 @@ dependencies = [
 
 [[package]]
 name = "ghost"
-version = "0.12.0"
+version = "0.13.3"
 dependencies = [
  "anyhow",
  "async-stream",

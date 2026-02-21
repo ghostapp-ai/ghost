@@ -23,10 +23,12 @@ import {
   hideWindow,
   openFile,
   getSettings,
+  getStats,
   startWatcher,
   chatSend,
   chatStatus as fetchChatStatus,
   chatLoadModel,
+  listMcpTools,
   startDragging,
   minimizeWindow,
   toggleMaximizeWindow,
@@ -55,6 +57,10 @@ export default function App() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [tokensInfo, setTokensInfo] = useState<string | null>(null);
   const [chatSt, setChatSt] = useState<ChatStatus | null>(null);
+
+  // --- MCP & Stats for welcome message ---
+  const [mcpToolCount, setMcpToolCount] = useState(0);
+  const [indexedDocs, setIndexedDocs] = useState(0);
 
   // --- AG-UI streaming ---
   const { runState, isStreaming, sendStreaming, reset: resetAgui } = useAgui();
@@ -110,6 +116,32 @@ export default function App() {
     return () => clearInterval(id);
   }, [chatSt?.loading, chatSt?.available, refreshChatStatus]);
 
+  // --- Fetch MCP tools & indexed docs count (for welcome message) ---
+  useEffect(() => {
+    // Delay slightly to allow MCP connections to establish
+    const timer = setTimeout(() => {
+      listMcpTools()
+        .then((tools) => setMcpToolCount(tools.length))
+        .catch(() => {});
+      getStats()
+        .then((stats) => setIndexedDocs(stats.document_count))
+        .catch(() => {});
+    }, 3000);
+    // Re-check periodically (every 30s) for lazy-connected tools
+    const interval = setInterval(() => {
+      listMcpTools()
+        .then((tools) => setMcpToolCount(tools.length))
+        .catch(() => {});
+      getStats()
+        .then((stats) => setIndexedDocs(stats.document_count))
+        .catch(() => {});
+    }, 30000);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, []);
+
   // --- Auto-start watcher ---
   useEffect(() => {
     getSettings()
@@ -143,26 +175,10 @@ export default function App() {
       });
   }, []);
 
-  // --- Auto-hide on blur (desktop only, with startup grace period) ---
-  const [blurEnabled, setBlurEnabled] = useState(false);
-  useEffect(() => {
-    // Only enable auto-hide on desktop — mobile apps don't hide on blur
-    if (!platform.isDesktop) return;
-    // Give the app 2 seconds to stabilize before enabling auto-hide.
-    // This prevents the window from disappearing immediately on startup
-    // when focus hasn't been established yet (common on Linux/WSL2).
-    const timer = setTimeout(() => setBlurEnabled(true), 2000);
-    return () => clearTimeout(timer);
-  }, [platform.isDesktop]);
-
-  useEffect(() => {
-    if (!blurEnabled || !platform.isDesktop) return;
-    const handleBlur = () => {
-      if (!showSettings) hideWindow().catch(() => {});
-    };
-    window.addEventListener("blur", handleBlur);
-    return () => window.removeEventListener("blur", handleBlur);
-  }, [showSettings, blurEnabled, platform.isDesktop]);
+  // --- Window behavior ---
+  // Ghost behaves as a normal desktop application (no auto-hide on blur).
+  // Users can minimize/close via window controls, or press Escape to hide.
+  // The global shortcut (Ctrl+Space) toggles visibility from anywhere.
 
   // --- Input handling ---
   const handleQueryChange = useCallback(
@@ -302,7 +318,7 @@ export default function App() {
             const target = e.target as HTMLElement;
             // Only initiate drag on left-click, not on buttons/interactive elements
             if (e.button === 0 && !target.closest('button') && !target.closest('a') && !target.closest('input')) {
-              e.preventDefault(); // Prevent focus toggle cycle that causes minimize on Windows
+              e.preventDefault();
               startDragging().catch(() => {});
             }
           }}
@@ -464,6 +480,8 @@ export default function App() {
             onRetryDownload={() => chatLoadModel().then(refreshChatStatus).catch(() => {})}
             isMobile={platform.isMobile}
             a2uiSurfaces={runState?.a2uiSurfaces}
+            mcpToolCount={mcpToolCount}
+            indexedDocs={indexedDocs}
           />
         )}
       </main>

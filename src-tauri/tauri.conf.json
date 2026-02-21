@@ -14,13 +14,13 @@
       {
         "label": "main",
         "title": "Ghost",
-        "width": 680,
-        "height": 520,
+        "width": 800,
+        "height": 600,
         "resizable": true,
         "decorations": false,
         "transparent": false,
         "center": true,
-        "alwaysOnTop": true,
+        "alwaysOnTop": false,
         "skipTaskbar": false,
         "visible": true
       }
