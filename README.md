@@ -68,10 +68,10 @@ Ghost is the first desktop app implementing every major agent protocol — no ve
 | **MCP Catalog** | ✅ App Store | 30+ curated servers + 6,000+ from Official MCP Registry, one-click install |
 | **Runtime Bootstrap** | ✅ Zero-Config | Auto-install Node.js, uv/Python — no manual setup needed |
 | **MCP Apps** | 🔜 Next | Render interactive tool UIs in-conversation (official MCP extension) |
-| **AG-UI** | ✅ Runtime | Bidirectional agent↔user streaming — ~16 event types, SSE endpoint |
-| **A2UI** | ✅ Renderer | Generative UI — 17+ component types rendered natively as React/Tailwind |
+| **AG-UI** | ✅ Runtime | Bidirectional agent↔user streaming — 30+ event types (Reasoning, Activity, ToolCallResult), SSE endpoint |
+| **A2UI** | ✅ Renderer | Generative UI — 17+ component types (Tabs with active switching, inputs, data binding) |
 | **Skills** | ✅ Registry | YAML frontmatter skill definitions + trigger matching |
-| **A2A** | 🔜 Next | Multi-agent coordination via Agent Cards + JSON-RPC 2.0 |
+| **A2A** | ✅ Discovery | Agent Card at `/.well-known/agent.json` + JSON-RPC stub — full task wiring in Phase 2 |
 | **WebMCP** | 🔜 Planned | W3C browser bridge for structured web interactions |
 
 ### Platforms — One Codebase, Five Targets

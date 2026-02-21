@@ -373,14 +373,16 @@
 
 #### AG-UI Runtime (Agent ↔ User Interaction Protocol)
 - [x] **AG-UI event system in Rust backend**
-  - Implement ~16 AG-UI event types (TEXT_MESSAGE_CONTENT, TOOL_CALL_START, STATE_DELTA, etc.)
+  - Implement 30+ AG-UI event types (TEXT_MESSAGE_CONTENT, TOOL_CALL_START, TEXT_MESSAGE_CHUNK, TOOL_CALL_RESULT, REASONING_*, ACTIVITY_*, MESSAGES_SNAPSHOT, etc.)
   - Event bus (broadcast channel) for fan-out to multiple consumers
   - SSE endpoint on `/agui` for external clients alongside MCP `/mcp` endpoint
   - AgentRunner orchestrates chat lifecycle as AG-UI event stream
-  - Tool call event emission (TOOL_CALL_START/ARGS/END) infrastructure ready
+  - Tool call event emission (TOOL_CALL_START/ARGS/END/RESULT) infrastructure ready
 - [x] **AG-UI React client**
   - `useAgui` hook: listens to Tauri `agui://event` events, manages run state
-  - Streaming text display with real-time TEXT_MESSAGE_CONTENT deltas
+  - Handles 30+ event types: streaming text, tool calls, reasoning, activities, messages snapshot
+  - `reasoningContent` accumulator for extended thinking models (Reasoning_* events)
+  - `activities` Map for citation/annotation events (ActivitySnapshot/ActivityDelta)
   - `chat_send_streaming` Tauri command for event-driven chat
   - Fallback to non-streaming `chat_send` when model not natively available
 - [x] **AG-UI advanced features**
@@ -398,7 +400,7 @@
   - Rust module `protocols/a2ui.rs` with full A2UI v0.9 types, serialization, component builders
   - 8 unit tests for serialization, round-trip, component builders, child lists
   - React `A2UIRenderer.tsx` maps A2UI JSON → native Tailwind components
-  - Standard catalog: Text (6 variants), Image, Icon, Video, Row, Column, Card, List, Tabs, Modal, Divider, Button (4 variants), TextField, CheckBox, ChoicePicker, Slider, DateTimeInput
+  - Standard catalog: Text (6 variants), Image, Icon, Video, Row, Column, Card, List, **Tabs** (active tab switching), Modal, Divider, Button (4 variants), TextField, CheckBox, ChoicePicker, Slider, DateTimeInput
   - Data binding: JSON Pointer resolution, two-way binding for inputs
   - Adjacency list → tree resolution with automatic root detection
   - A2UI messages transported via AG-UI CUSTOM events over Tauri IPC
@@ -426,7 +428,7 @@
 - [x] Claude Desktop can search local files through Ghost MCP server
 - [ ] Ghost chat can invoke tools from at least 2 external MCP servers
 - [x] AG-UI event stream renders streaming text + tool progress in React
-- [x] A2UI renders 17+ component types (Text, Button, TextField, CheckBox, Row, Column, Card, etc.)
+- [x] A2UI renders 17+ component types with full interactivity (Tabs active switching, inputs, data binding)
 - [ ] <100ms overhead added by MCP protocol layer
 - [ ] Setup guide published for MCP server + client configuration
 
@@ -551,10 +553,12 @@
 ### Technical Deliverables
 
 #### A2A Protocol (Agent-to-Agent Communication)
-- [ ] **Ghost Agent Card**
-  - Publish `/.well-known/agent.json` on localhost
-  - Advertise Ghost's capabilities (search, file ops, OS control)
-  - OAuth 2.0 / API key authentication for local agent-to-agent calls
+- [x] **Ghost Agent Card**
+  - Published `/.well-known/agent.json` (RFC 8615) at localhost MCP server port
+  - `protocols/a2a.rs`: full A2A v0.3.0 type system (AgentCard, Task, JSON-RPC 2.0)
+  - Advertises Ghost's capabilities (file-search, file-read, shell-command, mcp-tools skills)
+  - A2A JSON-RPC endpoint at `/a2a` (stub dispatcher — full task wiring is Phase 2)
+  - OAuth 2.0 / API key authentication deferred to Phase 2
 - [ ] **A2A Client**
   - Discover and connect to other A2A-compatible agents (OpenClaw, NanoClaw instances)
   - Task delegation: send tasks to specialized remote agents
