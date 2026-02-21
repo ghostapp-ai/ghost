@@ -1,3 +1,9 @@
+## [0.13.3](https://github.com/ghostapp-ai/ghost/compare/v0.13.2...v0.13.3) (2026-02-21)
+
+### 🐛 Bug Fixes
+
+* **ci:** use Ninja generator on Windows to eliminate PDB race condition ([061e715](https://github.com/ghostapp-ai/ghost/commit/061e7156f8d2e93a08f7778c76e8a480d38d87b6)), closes [mozilla/sccache#1012](https://github.com/mozilla/sccache/issues/1012) [mozilla/sccache#1012](https://github.com/mozilla/sccache/issues/1012) [mozilla/sccache#2320](https://github.com/mozilla/sccache/issues/2320)
+
 ## [0.13.2](https://github.com/ghostapp-ai/ghost/compare/v0.13.1...v0.13.2) (2026-02-21)
 
 ### 🐛 Bug Fixes
