@@ -248,17 +248,25 @@ jobs:
       #    CMAKE_MSVC_RUNTIME_LIBRARY is forwarded to CMake automatically
       #    by the llama-cpp-sys-2 build script (it forwards all CMAKE_* vars).
       #    CFLAGS/CXXFLAGS cover the cc::Build wrapper compilation step.
-      #    /MP enables parallel C++ compilation for llama.cpp.
-      #    /FS forces synchronous PDB writes — required alongside /MP to
-      #    prevent C1041 "cannot open program database" when cmake's
-      #    TryCompile runs parallel cl.exe instances (vulkan-shaders-gen).
+      #
+      #    /Z7 embeds debug info into .obj files (no shared .pdb file).
+      #    This avoids C1041 "cannot open program database" caused by:
+      #    1. llama.cpp's CMakeLists adding /MP via add_definitions()
+      #       (fixed upstream in 7ea15bb6, not yet in llama-cpp-sys-2 v0.1.135)
+      #    2. sccache stripping /FS and /MP flags from cl.exe invocations
+      #       (sccache treats them as IgnoreWithSuffix / Ignore)
+      #    3. cmake ExternalProject (vulkan-shaders-gen) sub-builds
+      #       inheriting /MP without /FS, causing PDB write races.
+      #    /Z7 eliminates the PDB file entirely — no races possible.
+      #    cmake-level parallelism is preserved via CMAKE_BUILD_PARALLEL_LEVEL
+      #    (set automatically by llama-cpp-sys-2 build.rs).
       - name: Configure Windows CRT linkage
         if: runner.os == 'Windows'
         shell: bash
         run: |
           echo "CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL" >> "$GITHUB_ENV"
-          echo "CFLAGS=/MD /MP /FS"   >> "$GITHUB_ENV"
-          echo "CXXFLAGS=/MD /MP /FS" >> "$GITHUB_ENV"
+          echo "CFLAGS=/MD /Z7"   >> "$GITHUB_ENV"
+          echo "CXXFLAGS=/MD /Z7" >> "$GITHUB_ENV"
 
       # ── macOS signing: use real Apple certificate if configured,
       #    otherwise fall back to ad-hoc signing ("-").
