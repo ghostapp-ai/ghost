@@ -319,6 +319,19 @@ description: "Development roadmap and upcoming features for Ghost Agent OS."
   - Settings UI: MCP tab with server management (add, connect, disconnect, remove)
   - [ ] Free tier: 3 MCP server connections; Pro: unlimited
 
+#### MCP Catalog (App Store for MCP tools)
+- [x] **Built-in curated catalog** (30+ MCP servers, no network required to browse)
+  - Categories: Developer, Productivity, Data, AI/ML, Web, Communication, System
+  - Each entry: id, name, description, runtime, command, args, required env vars, tags, popularity
+  - Runtime detection: npx, node, uv, uvx, python3 (auto-detect availability + versions)
+  - One-click install: resolves config → saves to settings → auto-connects
+  - Uninstall: disconnect + remove from settings
+  - Official/MCP App badges for trusted and interactive servers
+  - Frontend: searchable/filterable `McpAppStore.tsx` with category sidebar, env var forms
+  - Tauri commands: `get_mcp_catalog`, `detect_runtimes`, `install_mcp_from_catalog`, `uninstall_mcp_server`
+  - [ ] Community catalog contributions via PR
+  - [ ] Auto-update catalog entries from remote index
+
 #### AG-UI Runtime (Agent ↔ User Interaction Protocol)
 - [x] **AG-UI event system in Rust backend**
   - Implement ~16 AG-UI event types (TEXT_MESSAGE_CONTENT, TOOL_CALL_START, STATE_DELTA, etc.)
