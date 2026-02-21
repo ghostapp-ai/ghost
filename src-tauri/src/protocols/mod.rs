@@ -13,6 +13,7 @@ pub mod agui;
 pub mod mcp_catalog;
 pub mod mcp_client;
 pub mod mcp_server;
+pub mod runtime_bootstrap;
 
 use std::sync::Arc;
 

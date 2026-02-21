@@ -63,6 +63,7 @@ impl McpClientManager {
 
     /// Connect to an MCP server via stdio transport (child process).
     /// Desktop only — spawning child processes is not supported on mobile platforms.
+    /// Automatically injects Ghost-managed runtimes into PATH.
     #[cfg(desktop)]
     pub async fn connect_stdio(&self, entry: &McpServerEntry) -> anyhow::Result<ConnectedServer> {
         let command = entry
@@ -76,10 +77,22 @@ impl McpClientManager {
             command
         );
 
-        let mut cmd = tokio::process::Command::new(command);
+        // Resolve command using managed runtimes
+        let app_data = crate::get_app_data_dir();
+        let bootstrapper = super::runtime_bootstrap::RuntimeBootstrapper::new(&app_data);
+
+        // Check if the command can be resolved from managed runtimes
+        let resolved_cmd = bootstrapper
+            .resolve_binary(command)
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| command.clone());
+
+        let mut cmd = tokio::process::Command::new(&resolved_cmd);
         for arg in &entry.args {
             cmd.arg(arg);
         }
+        // Inject managed runtimes into PATH
+        cmd.env("PATH", bootstrapper.build_env_path());
         for (key, value) in &entry.env {
             cmd.env(key, value);
         }

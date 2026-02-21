@@ -51,17 +51,17 @@ pub fn builtin_tools() -> Vec<RegisteredTool> {
                 tool_type: "function".into(),
                 function: AgentToolFunction {
                     name: "ghost_search".into(),
-                    description: "Search through the user's indexed files using hybrid semantic + keyword search. Returns relevant file snippets with paths and scores.".into(),
+                    description: "Search the user's indexed local files using hybrid semantic + keyword search. Use when the user asks about their files, documents, or stored content. Returns file snippets with paths and relevance scores. Do NOT use for general knowledge questions — answer those directly.".into(),
                     parameters: json!({
                         "type": "object",
                         "properties": {
                             "query": {
                                 "type": "string",
-                                "description": "The search query — can be natural language or keywords"
+                                "description": "Natural language or keyword search query about the user's files"
                             },
                             "limit": {
                                 "type": "integer",
-                                "description": "Maximum number of results to return (default: 10)",
+                                "description": "Maximum results to return (default: 10, max: 50)",
                                 "default": 10
                             }
                         },
@@ -77,13 +77,13 @@ pub fn builtin_tools() -> Vec<RegisteredTool> {
                 tool_type: "function".into(),
                 function: AgentToolFunction {
                     name: "ghost_read_file".into(),
-                    description: "Read the full text content of a file at the given path. Use this when the user asks about a specific file or when search results indicate a relevant file.".into(),
+                    description: "Read the text content of a file. Use after ghost_search finds a relevant file, or when the user provides a specific file path. Returns up to 100KB of text. Do NOT guess file paths — use ghost_search or ghost_list_directory first to discover them.".into(),
                     parameters: json!({
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
-                                "description": "Absolute path to the file to read"
+                                "description": "Absolute path to the file (must exist on disk)"
                             }
                         },
                         "required": ["path"]
@@ -98,7 +98,7 @@ pub fn builtin_tools() -> Vec<RegisteredTool> {
                 tool_type: "function".into(),
                 function: AgentToolFunction {
                     name: "ghost_list_directory".into(),
-                    description: "List the contents of a directory. Returns file names, sizes, and types.".into(),
+                    description: "List files and subdirectories in a directory. Returns names, sizes, and types (file/dir). Use to explore the filesystem before reading specific files. Hidden files (starting with .) are excluded.".into(),
                     parameters: json!({
                         "type": "object",
                         "properties": {
@@ -119,7 +119,7 @@ pub fn builtin_tools() -> Vec<RegisteredTool> {
                 tool_type: "function".into(),
                 function: AgentToolFunction {
                     name: "ghost_index_status".into(),
-                    description: "Get the current indexing status: number of documents, chunks, and embeddings in the vault.".into(),
+                    description: "Get the current indexing statistics: total documents, text chunks, and semantic embeddings in the user's vault. Use when the user asks about what has been indexed or how much content is searchable.".into(),
                     parameters: json!({
                         "type": "object",
                         "properties": {},
@@ -135,17 +135,17 @@ pub fn builtin_tools() -> Vec<RegisteredTool> {
                 tool_type: "function".into(),
                 function: AgentToolFunction {
                     name: "ghost_write_file".into(),
-                    description: "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Requires user approval for safety.".into(),
+                    description: "Write text content to a file. Creates the file if it doesn't exist, overwrites if it does. Creates parent directories automatically. Only use when the user explicitly asks to create or modify a file. Requires approval for sensitive paths.".into(),
                     parameters: json!({
                         "type": "object",
                         "properties": {
                             "path": {
                                 "type": "string",
-                                "description": "Absolute path to the file to write"
+                                "description": "Absolute path to the file to write (parent dirs created automatically)"
                             },
                             "content": {
                                 "type": "string",
-                                "description": "The text content to write to the file"
+                                "description": "The complete text content to write"
                             }
                         },
                         "required": ["path", "content"]
@@ -160,17 +160,17 @@ pub fn builtin_tools() -> Vec<RegisteredTool> {
                 tool_type: "function".into(),
                 function: AgentToolFunction {
                     name: "ghost_run_command".into(),
-                    description: "Execute a shell command on the user's system. DANGEROUS — always requires explicit user approval. Use only when the user explicitly asks to run a command.".into(),
+                    description: "Execute a shell command on the user's system. DANGEROUS: always requires explicit user approval. ONLY use when the user explicitly asks to run a command or perform a system operation. NEVER use proactively or to gather information that other tools can provide. Commands time out after 30 seconds. Explain what the command does before executing.".into(),
                     parameters: json!({
                         "type": "object",
                         "properties": {
                             "command": {
                                 "type": "string",
-                                "description": "The shell command to execute"
+                                "description": "Shell command to execute (single command, avoid chaining with && or pipes unless necessary)"
                             },
                             "working_directory": {
                                 "type": "string",
-                                "description": "Working directory for the command (optional, defaults to home)"
+                                "description": "Working directory (optional, defaults to user's home directory)"
                             }
                         },
                         "required": ["command"]
@@ -366,6 +366,18 @@ pub async fn execute_builtin_tool(
                 .get("command")
                 .and_then(|v| v.as_str())
                 .ok_or("Missing 'command' argument")?;
+
+            // Validate command is not empty or whitespace-only
+            let command = command.trim();
+            if command.is_empty() {
+                return Err("Command cannot be empty".into());
+            }
+
+            // Reject null bytes (command injection vector)
+            if command.contains('\0') {
+                return Err("Command contains invalid null bytes".into());
+            }
+
             let working_dir = arguments
                 .get("working_directory")
                 .and_then(|v| v.as_str())
@@ -377,12 +389,32 @@ pub async fn execute_builtin_tool(
                 .to_string();
             let cwd = working_dir.replace('~', &home);
 
-            let output = tokio::process::Command::new("sh")
+            // Verify working directory exists
+            if !std::path::Path::new(&cwd).is_dir() {
+                return Err(format!("Working directory does not exist: {}", cwd));
+            }
+
+            // Execute with timeout (30 seconds default)
+            let child = tokio::process::Command::new("sh")
                 .arg("-c")
                 .arg(command)
                 .current_dir(&cwd)
-                .output()
+                // Prevent commands from inheriting sensitive env vars
+                .env_remove("GITHUB_TOKEN")
+                .env_remove("GH_TOKEN")
+                .env_remove("AWS_SECRET_ACCESS_KEY")
+                .env_remove("OPENAI_API_KEY")
+                .env_remove("ANTHROPIC_API_KEY")
+                .output();
+
+            let output = tokio::time::timeout(std::time::Duration::from_secs(30), child)
                 .await
+                .map_err(|_| {
+                    format!(
+                        "Command timed out after 30 seconds: {}",
+                        &command[..command.len().min(100)]
+                    )
+                })?
                 .map_err(|e| format!("Failed to execute command: {}", e))?;
 
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -400,7 +432,7 @@ pub async fn execute_builtin_tool(
                 } else {
                     stdout.to_string()
                 };
-                result.push_str(&format!("stdout:\n{}", truncated));
+                result.push_str(&format!("stdout:\n{}", redact_secrets(&truncated)));
             }
             if !stderr.is_empty() {
                 let truncated = if stderr.len() > 5000 {
@@ -408,7 +440,7 @@ pub async fn execute_builtin_tool(
                 } else {
                     stderr.to_string()
                 };
-                result.push_str(&format!("\nstderr:\n{}", truncated));
+                result.push_str(&format!("\nstderr:\n{}", redact_secrets(&truncated)));
             }
             if result.is_empty() {
                 result = format!(
@@ -422,6 +454,61 @@ pub async fn execute_builtin_tool(
 
         _ => Err(format!("Unknown built-in tool: {}", name)),
     }
+}
+
+/// Redact potential secrets from tool output.
+///
+/// Matches common patterns for API keys, tokens, passwords, and secrets
+/// to prevent them from leaking into the LLM context.
+fn redact_secrets(text: &str) -> String {
+    // Patterns: key=value, key: value, "key": "value" where key suggests a secret
+    let secret_key_patterns = [
+        "api_key",
+        "apikey",
+        "api-key",
+        "secret",
+        "password",
+        "passwd",
+        "token",
+        "access_key",
+        "secret_key",
+        "private_key",
+        "auth_token",
+        "bearer",
+        "credential",
+    ];
+
+    let mut result = text.to_string();
+
+    for pattern in &secret_key_patterns {
+        // Match: PATTERN=value (env var style)
+        let env_prefix = format!("{}=", pattern.to_uppercase());
+        if let Some(pos) = result.to_uppercase().find(&env_prefix.to_uppercase()) {
+            let start = pos + env_prefix.len();
+            if let Some(end) = result[start..].find(|c: char| c.is_whitespace() || c == '\n') {
+                let end = start + end;
+                result.replace_range(start..end, "[REDACTED]");
+            } else {
+                result.replace_range(start.., "[REDACTED]");
+            }
+        }
+    }
+
+    // Redact common token formats: ghp_, sk-, gho_, xoxb-, Bearer <token>
+    let token_prefixes = [
+        "ghp_", "gho_", "ghs_", "sk-", "xoxb-", "xoxp-", "sk_live_", "pk_live_",
+    ];
+    for prefix in &token_prefixes {
+        while let Some(pos) = result.find(prefix) {
+            let end = result[pos..]
+                .find(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == '\n')
+                .map(|e| pos + e)
+                .unwrap_or(result.len());
+            result.replace_range(pos..end, "[REDACTED]");
+        }
+    }
+
+    result
 }
 
 /// Format bytes into human-readable string.
@@ -485,5 +572,39 @@ mod tests {
         assert_eq!(format_bytes(1023), "1023 B");
         assert_eq!(format_bytes(1024), "1.0 KB");
         assert_eq!(format_bytes(1048576), "1.0 MB");
+    }
+
+    #[test]
+    fn test_redact_secrets_env_vars() {
+        let input = "API_KEY=sk-abc123xyz SECRET=mysecret other=safe";
+        let output = redact_secrets(input);
+        assert!(output.contains("[REDACTED]"), "Should redact API_KEY value");
+        assert!(
+            !output.contains("sk-abc123xyz"),
+            "Should not contain the key"
+        );
+        assert!(
+            output.contains("other=safe"),
+            "Should keep non-secret values"
+        );
+    }
+
+    #[test]
+    fn test_redact_secrets_token_prefixes() {
+        let input = "token is ghp_abc123XYZ456 and sk-proj-abcdef";
+        let output = redact_secrets(input);
+        assert!(!output.contains("ghp_abc123"), "Should redact GitHub token");
+        assert!(
+            !output.contains("sk-proj-abcdef"),
+            "Should redact OpenAI key"
+        );
+        assert_eq!(output.matches("[REDACTED]").count(), 2);
+    }
+
+    #[test]
+    fn test_redact_secrets_no_false_positives() {
+        let input = "Hello world\nThis is a normal output\nFiles: api_docs.txt token_counter.py";
+        let output = redact_secrets(input);
+        assert_eq!(input, output, "Should not modify text without secrets");
     }
 }

@@ -53,6 +53,15 @@ pub struct AgentConfig {
     /// Skills directory path (default: ~/.ghost/skills/).
     #[serde(default = "default_skills_dir")]
     pub skills_dir: String,
+
+    /// Timeout for individual tool execution in milliseconds.
+    #[serde(default = "default_tool_timeout_ms")]
+    pub tool_timeout_ms: u64,
+
+    /// Maximum total tool calls allowed per single agent run.
+    /// Prevents runaway tool-calling loops.
+    #[serde(default = "default_max_tool_calls_per_run")]
+    pub max_tool_calls_per_run: usize,
 }
 
 fn default_agent_model() -> String {
@@ -62,10 +71,10 @@ fn default_max_iterations() -> usize {
     10
 }
 fn default_max_tokens() -> usize {
-    2048
+    4096
 }
 fn default_context_window() -> usize {
-    4096
+    8192
 }
 fn default_agent_temperature() -> f64 {
     0.3
@@ -81,6 +90,12 @@ fn default_skills_dir() -> String {
         .to_string_lossy()
         .to_string()
 }
+fn default_tool_timeout_ms() -> u64 {
+    30000
+}
+fn default_max_tool_calls_per_run() -> usize {
+    20
+}
 
 impl Default for AgentConfig {
     fn default() -> Self {
@@ -92,6 +107,8 @@ impl Default for AgentConfig {
             temperature: default_agent_temperature(),
             auto_approve_safe: default_auto_approve_safe(),
             skills_dir: default_skills_dir(),
+            tool_timeout_ms: default_tool_timeout_ms(),
+            max_tool_calls_per_run: default_max_tool_calls_per_run(),
         }
     }
 }
@@ -218,6 +235,10 @@ mod tests {
         let config = AgentConfig::default();
         assert_eq!(config.agent_model, "auto");
         assert_eq!(config.max_iterations, 10);
+        assert_eq!(config.max_tokens, 4096);
+        assert_eq!(config.context_window, 8192);
+        assert_eq!(config.tool_timeout_ms, 30000);
+        assert_eq!(config.max_tool_calls_per_run, 20);
         assert!(config.auto_approve_safe);
     }
 

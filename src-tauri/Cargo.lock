@@ -2326,6 +2326,7 @@ dependencies = [
  "chrono",
  "dirs",
  "encoding_rs",
+ "futures",
  "hex",
  "hf-hub",
  "llama-cpp-2",

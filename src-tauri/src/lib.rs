@@ -83,7 +83,7 @@ fn push_log(level: &str, message: String) {
 }
 
 /// Get the app data directory.
-fn get_app_data_dir() -> PathBuf {
+pub(crate) fn get_app_data_dir() -> PathBuf {
     dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("com.ghost.app")
@@ -727,6 +727,56 @@ async fn detect_runtimes() -> Result<protocols::mcp_catalog::RuntimeInfo, String
     Ok(protocols::mcp_catalog::detect_runtimes().await)
 }
 
+/// Get zero-config MCP tools that work without any API keys.
+#[tauri::command]
+async fn get_zero_config_tools() -> Result<Vec<protocols::mcp_catalog::CatalogEntry>, String> {
+    Ok(protocols::mcp_catalog::get_zero_config_tools())
+}
+
+/// Get the recommended default tools that Ghost auto-installs.
+#[tauri::command]
+async fn get_default_tools() -> Result<Vec<protocols::mcp_catalog::CatalogEntry>, String> {
+    Ok(protocols::mcp_catalog::get_default_tools())
+}
+
+/// Verify that an MCP server package responds to the MCP handshake.
+/// Spawns the server, sends initialize, and checks the response.
+#[tauri::command]
+async fn verify_mcp_package(
+    catalog_id: String,
+) -> Result<protocols::mcp_catalog::PackageVerification, String> {
+    let catalog = protocols::mcp_catalog::get_catalog();
+    let entry = catalog
+        .iter()
+        .find(|e| e.id == catalog_id)
+        .ok_or_else(|| format!("Catalog entry '{}' not found", catalog_id))?;
+    Ok(protocols::mcp_catalog::verify_server_package(entry, 30).await)
+}
+
+/// Auto-provision default tools if none are configured.
+/// Returns the number of tools provisioned.
+#[tauri::command]
+async fn auto_provision_mcp_defaults(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<usize, String> {
+    let runtimes = protocols::mcp_catalog::detect_runtimes().await;
+    let entries = protocols::mcp_catalog::auto_provision_defaults(&runtimes).await;
+    let count = entries.len();
+
+    if !entries.is_empty() {
+        let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+        for entry in entries {
+            settings.mcp_servers.retain(|s| s.name != entry.name);
+            settings.mcp_servers.push(entry);
+        }
+        settings
+            .save(&get_app_data_dir().join("settings.json"))
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(count)
+}
+
 /// Install an MCP server from the catalog with one click.
 /// Takes the catalog entry ID and any required environment variables.
 /// Automatically resolves the config, saves to settings, and connects.
@@ -906,6 +956,117 @@ async fn get_registry_status() -> Result<serde_json::Value, String> {
         "synced": meta.is_some(),
         "fresh": fresh,
         "meta": meta,
+    }))
+}
+
+// --- Runtime Bootstrap Commands ---
+
+/// Get the status of all runtimes (Node.js, uv/Python, Docker).
+/// Reports whether each runtime is installed, managed by Ghost, and its version.
+#[tauri::command]
+async fn get_runtime_bootstrap_status(
+) -> Result<protocols::runtime_bootstrap::BootstrapStatus, String> {
+    let app_data = get_app_data_dir();
+    let bootstrapper = protocols::runtime_bootstrap::RuntimeBootstrapper::new(&app_data);
+    Ok(bootstrapper.get_status().await)
+}
+
+/// Install a specific runtime managed by Ghost.
+/// Emits `runtime-install-progress` events during installation.
+#[tauri::command]
+async fn install_runtime(
+    kind: protocols::runtime_bootstrap::RuntimeKind,
+    app: tauri::AppHandle,
+) -> Result<protocols::runtime_bootstrap::InstallResult, String> {
+    let app_data = get_app_data_dir();
+    let bootstrapper = protocols::runtime_bootstrap::RuntimeBootstrapper::new(&app_data);
+
+    let app_handle = app.clone();
+    let result = bootstrapper
+        .install_runtime(kind, move |progress| {
+            let _ = app_handle.emit("runtime-install-progress", &progress);
+        })
+        .await;
+
+    Ok(result)
+}
+
+/// Bootstrap all missing runtimes needed for default MCP tools.
+/// Installs uv + Node.js if not present.
+#[tauri::command]
+async fn bootstrap_all_runtimes(
+    app: tauri::AppHandle,
+) -> Result<Vec<protocols::runtime_bootstrap::InstallResult>, String> {
+    let app_data = get_app_data_dir();
+    let bootstrapper = protocols::runtime_bootstrap::RuntimeBootstrapper::new(&app_data);
+
+    let app_handle = app.clone();
+    let results = bootstrapper
+        .bootstrap_all(move |progress| {
+            let _ = app_handle.emit("runtime-install-progress", &progress);
+        })
+        .await;
+
+    Ok(results)
+}
+
+/// AI-powered tool recommendation: find MCP tools matching a natural language query.
+/// Uses fuzzy matching against the catalog + registry.
+#[tauri::command]
+async fn recommend_mcp_tools(
+    query: String,
+) -> Result<Vec<protocols::runtime_bootstrap::ToolRecommendation>, String> {
+    let catalog = protocols::mcp_catalog::get_catalog();
+    Ok(protocols::runtime_bootstrap::recommend_tools(
+        &query, &catalog,
+    ))
+}
+
+/// Check what a tool needs before it can be installed.
+/// Returns the runtime requirements and whether they're met.
+#[tauri::command]
+async fn check_tool_requirements(catalog_id: String) -> Result<serde_json::Value, String> {
+    let catalog = protocols::mcp_catalog::get_catalog();
+    let entry = catalog
+        .iter()
+        .find(|e| e.id == catalog_id)
+        .ok_or_else(|| format!("Catalog entry '{}' not found", catalog_id))?;
+
+    let app_data = get_app_data_dir();
+    let bootstrapper = protocols::runtime_bootstrap::RuntimeBootstrapper::new(&app_data);
+    let status = bootstrapper.get_status().await;
+
+    let runtime_installed = match entry.runtime.as_str() {
+        "node" => status
+            .runtimes
+            .iter()
+            .any(|r| r.kind == protocols::runtime_bootstrap::RuntimeKind::Node && r.installed),
+        "python" => status
+            .runtimes
+            .iter()
+            .any(|r| r.kind == protocols::runtime_bootstrap::RuntimeKind::Uv && r.installed),
+        "docker" => status
+            .runtimes
+            .iter()
+            .any(|r| r.kind == protocols::runtime_bootstrap::RuntimeKind::Docker && r.installed),
+        _ => true,
+    };
+
+    let missing_env: Vec<&str> = entry
+        .required_env
+        .iter()
+        .filter(|e| e.required)
+        .map(|e| e.name.as_str())
+        .collect();
+
+    Ok(serde_json::json!({
+        "id": entry.id,
+        "name": entry.name,
+        "runtime": entry.runtime,
+        "runtime_installed": runtime_installed,
+        "can_auto_install_runtime": entry.runtime != "docker",
+        "required_env": missing_env,
+        "ready": runtime_installed && missing_env.is_empty(),
     }))
 }
 
@@ -1647,6 +1808,10 @@ pub fn run() {
             // MCP Catalog (App Store)
             get_mcp_catalog,
             detect_runtimes,
+            get_zero_config_tools,
+            get_default_tools,
+            verify_mcp_package,
+            auto_provision_mcp_defaults,
             install_mcp_from_catalog,
             install_mcp_entry,
             uninstall_mcp_server,
@@ -1654,6 +1819,12 @@ pub fn run() {
             sync_mcp_registry,
             search_mcp_registry,
             get_registry_status,
+            // Runtime Bootstrap
+            get_runtime_bootstrap_status,
+            install_runtime,
+            bootstrap_all_runtimes,
+            recommend_mcp_tools,
+            check_tool_requirements,
             // Agent
             agent_chat,
             create_conversation,
@@ -1749,6 +1920,73 @@ pub fn run() {
                     Err(e) => {
                         push_log("warn", format!("MCP server failed to start: {}", e));
                         tracing::warn!("MCP server failed to start: {}", e);
+                    }
+                }
+
+                // Auto-provision default MCP tools on first launch (when no MCP servers configured)
+                let should_provision = mcp_state
+                    .settings
+                    .lock()
+                    .map(|s| s.mcp_servers.is_empty())
+                    .unwrap_or(false);
+
+                if should_provision {
+                    tracing::info!(
+                        "MCP auto-provision: no servers configured, installing defaults..."
+                    );
+                    push_log("info", "Auto-installing default MCP tools...".into());
+
+                    // First, check if runtimes are available (including Ghost-managed)
+                    let app_data = get_app_data_dir();
+                    let bootstrapper =
+                        protocols::runtime_bootstrap::RuntimeBootstrapper::new(&app_data);
+                    let bootstrap_status = bootstrapper.get_status().await;
+
+                    if !bootstrap_status.ready_for_defaults {
+                        let missing: Vec<String> = bootstrap_status
+                            .missing_installable
+                            .iter()
+                            .map(|k| k.to_string())
+                            .collect();
+                        push_log(
+                            "info",
+                            format!(
+                                "Missing runtimes: {}. Use the Superpower Store to install them.",
+                                missing.join(", ")
+                            ),
+                        );
+                        tracing::info!("MCP auto-provision: missing runtimes {:?}", missing);
+                    }
+
+                    let runtimes = protocols::mcp_catalog::detect_runtimes().await;
+                    let default_entries =
+                        protocols::mcp_catalog::auto_provision_defaults(&runtimes).await;
+
+                    if !default_entries.is_empty() {
+                        let count = default_entries.len();
+                        if let Ok(mut settings) = mcp_state.settings.lock() {
+                            for entry in &default_entries {
+                                settings.mcp_servers.push(entry.clone());
+                            }
+                            let _ = settings.save(&get_app_data_dir().join("settings.json"));
+                        }
+
+                        push_log(
+                            "info",
+                            format!("Auto-provisioned {} default MCP tools", count),
+                        );
+                        tracing::info!("MCP auto-provision: installed {} default tools", count);
+
+                        // Pre-cache npm packages in background for faster first use
+                        tokio::spawn(async {
+                            protocols::mcp_catalog::precache_npm_packages().await;
+                        });
+                    } else {
+                        push_log(
+                            "warn",
+                            "No runtimes found (node/python). Install Node.js for MCP tools."
+                                .into(),
+                        );
                     }
                 }
 

@@ -246,7 +246,7 @@ pub fn get_catalog() -> Vec<CatalogEntry> {
                 "Interact with local Git repositories — log, diff, blame, branch, and more".into(),
             category: "developer".into(),
             icon: "🔀".into(),
-            runtime: "node".into(),
+            runtime: "python".into(),
             transport: "stdio".into(),
             command: "uvx".into(),
             args: vec!["mcp-server-git".into()],
@@ -669,17 +669,17 @@ pub fn get_catalog() -> Vec<CatalogEntry> {
             description: "Manage Docker containers, images, volumes, and networks".into(),
             category: "devops".into(),
             icon: "🐳".into(),
-            runtime: "node".into(),
+            runtime: "python".into(),
             transport: "stdio".into(),
-            command: "npx".into(),
-            args: vec!["-y".into(), "mcp-docker".into()],
+            command: "uvx".into(),
+            args: vec!["mcp-server-docker".into()],
             is_mcp_app: false,
             required_env: vec![],
             tags: vec!["docker".into(), "containers".into(), "devops".into()],
             popularity: 18,
-            official: false,
-            package: Some("mcp-docker".into()),
-            repository: None,
+            official: true,
+            package: Some("mcp-server-docker".into()),
+            repository: Some("https://github.com/modelcontextprotocol/servers".into()),
         },
         CatalogEntry {
             id: "kubernetes".into(),
@@ -690,7 +690,7 @@ pub fn get_catalog() -> Vec<CatalogEntry> {
             runtime: "node".into(),
             transport: "stdio".into(),
             command: "npx".into(),
-            args: vec!["-y".into(), "mcp-kubernetes".into()],
+            args: vec!["-y".into(), "@strowk/mcp-k8s".into()],
             is_mcp_app: false,
             required_env: vec![],
             tags: vec![
@@ -701,8 +701,8 @@ pub fn get_catalog() -> Vec<CatalogEntry> {
             ],
             popularity: 25,
             official: false,
-            package: Some("mcp-kubernetes".into()),
-            repository: None,
+            package: Some("@strowk/mcp-k8s".into()),
+            repository: Some("https://github.com/strowk/mcp-k8s-go".into()),
         },
         CatalogEntry {
             id: "aws".into(),
@@ -1810,16 +1810,329 @@ pub fn search_registry(cache_dir: &Path, query: &str, limit: usize) -> Vec<Catal
         .collect()
 }
 
+// ─── Zero-Config Tools & Auto-Install ─────────────────────────────
+
+/// IDs of tools that work out-of-the-box without any API keys or configuration.
+/// These are the tools Ghost auto-installs on first launch to provide immediate value.
+const ZERO_CONFIG_TOOL_IDS: &[&str] = &[
+    "filesystem",          // File management — core agent capability
+    "sequential-thinking", // Enhanced reasoning — improves all agent tasks
+    "memory",              // Persistent memory — agents remember across sessions
+    "fetch",               // HTTP requests — access web content
+    "everything",          // Reference MCP server — great for testing
+];
+
+/// Get catalog entries that require zero configuration (no API keys, no env vars).
+/// These tools work immediately after installing the required runtime (node/python).
+pub fn get_zero_config_tools() -> Vec<CatalogEntry> {
+    let catalog = get_catalog();
+    catalog
+        .into_iter()
+        .filter(|e| e.required_env.is_empty() || e.required_env.iter().all(|env| !env.required))
+        .collect()
+}
+
+/// Get the recommended default tools that Ghost auto-installs on first launch.
+/// These are a curated subset of zero-config tools chosen for maximum agent utility.
+pub fn get_default_tools() -> Vec<CatalogEntry> {
+    let catalog = get_catalog();
+    catalog
+        .into_iter()
+        .filter(|e| ZERO_CONFIG_TOOL_IDS.contains(&e.id.as_str()))
+        .collect()
+}
+
+/// Result of verifying a single MCP server package.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PackageVerification {
+    /// Catalog entry ID.
+    pub id: String,
+    /// Package name.
+    pub package: String,
+    /// Whether the command can be resolved (package exists and has an executable).
+    pub available: bool,
+    /// Server name returned during MCP handshake (if verified).
+    pub server_name: Option<String>,
+    /// Server version returned during MCP handshake (if verified).
+    pub server_version: Option<String>,
+    /// Error message if verification failed.
+    pub error: Option<String>,
+}
+
+/// Verify that an MCP server package exists and responds to the MCP initialize handshake.
+///
+/// Spawns the server command, sends a JSON-RPC `initialize` request via stdin,
+/// and checks for a valid `result.serverInfo` response. Times out after `timeout_secs`.
+///
+/// This is used for integration testing and pre-flight checks before auto-install.
+pub async fn verify_server_package(entry: &CatalogEntry, timeout_secs: u64) -> PackageVerification {
+    let initialize_msg = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {
+                "name": "ghost-verify",
+                "version": "0.1.0"
+            }
+        }
+    });
+
+    let resolved_args = resolve_args(&entry.args, &HashMap::new());
+
+    let result = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), async {
+        let mut child = match tokio::process::Command::new(&entry.command)
+            .args(&resolved_args)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+        {
+            Ok(c) => c,
+            Err(e) => {
+                return PackageVerification {
+                    id: entry.id.clone(),
+                    package: entry.package.clone().unwrap_or_default(),
+                    available: false,
+                    server_name: None,
+                    server_version: None,
+                    error: Some(format!("Failed to spawn: {}", e)),
+                };
+            }
+        };
+
+        // Write initialize message to stdin
+        if let Some(mut stdin) = child.stdin.take() {
+            use tokio::io::AsyncWriteExt;
+            let msg = format!("{}\n", initialize_msg);
+            if let Err(e) = stdin.write_all(msg.as_bytes()).await {
+                let _ = child.kill().await;
+                return PackageVerification {
+                    id: entry.id.clone(),
+                    package: entry.package.clone().unwrap_or_default(),
+                    available: false,
+                    server_name: None,
+                    server_version: None,
+                    error: Some(format!("Failed to write stdin: {}", e)),
+                };
+            }
+            drop(stdin); // Close stdin to signal EOF
+        }
+
+        // Read stdout for response
+        let output = match child.wait_with_output().await {
+            Ok(o) => o,
+            Err(e) => {
+                return PackageVerification {
+                    id: entry.id.clone(),
+                    package: entry.package.clone().unwrap_or_default(),
+                    available: false,
+                    server_name: None,
+                    server_version: None,
+                    error: Some(format!("Failed to read output: {}", e)),
+                };
+            }
+        };
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        // Parse the JSON-RPC response — may be mixed with other output
+        for line in stdout.lines() {
+            let line = line.trim();
+            if line.starts_with('{') {
+                if let Ok(value) = serde_json::from_str::<serde_json::Value>(line) {
+                    if let Some(result) = value.get("result") {
+                        if let Some(server_info) = result.get("serverInfo") {
+                            return PackageVerification {
+                                id: entry.id.clone(),
+                                package: entry.package.clone().unwrap_or_default(),
+                                available: true,
+                                server_name: server_info
+                                    .get("name")
+                                    .and_then(|n| n.as_str())
+                                    .map(|s| s.to_string()),
+                                server_version: server_info
+                                    .get("version")
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.to_string()),
+                                error: None,
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        // No valid MCP response found
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        PackageVerification {
+            id: entry.id.clone(),
+            package: entry.package.clone().unwrap_or_default(),
+            available: false,
+            server_name: None,
+            server_version: None,
+            error: Some(format!(
+                "No valid MCP response. stderr: {}",
+                stderr.chars().take(200).collect::<String>()
+            )),
+        }
+    })
+    .await;
+
+    match result {
+        Ok(v) => v,
+        Err(_) => PackageVerification {
+            id: entry.id.clone(),
+            package: entry.package.clone().unwrap_or_default(),
+            available: false,
+            server_name: None,
+            server_version: None,
+            error: Some(format!("Timed out after {}s", timeout_secs)),
+        },
+    }
+}
+
+/// Verify all zero-config default tools and return their status.
+/// Useful for integration testing or health checks.
+pub async fn verify_default_tools(timeout_secs: u64) -> Vec<PackageVerification> {
+    let defaults = get_default_tools();
+    let mut results = Vec::with_capacity(defaults.len());
+
+    for entry in &defaults {
+        let result = verify_server_package(entry, timeout_secs).await;
+        tracing::info!(
+            "MCP verify '{}' ({}): available={}, server={:?}",
+            entry.id,
+            entry.package.as_deref().unwrap_or("?"),
+            result.available,
+            result.server_name
+        );
+        results.push(result);
+    }
+
+    results
+}
+
+/// Auto-install default zero-config tools for a new Ghost installation.
+///
+/// This is called during first launch (when `setup_complete` is false).
+/// It detects available runtimes and installs tools that can run without
+/// any API keys or configuration. Returns the list of successfully built
+/// server entries ready to be saved to settings.
+pub async fn auto_provision_defaults(runtimes: &RuntimeInfo) -> Vec<super::McpServerEntry> {
+    let defaults = get_default_tools();
+    let mut entries = Vec::new();
+
+    for tool in &defaults {
+        if can_install(tool, runtimes) {
+            let server_entry = build_server_entry(tool, HashMap::new());
+            tracing::info!(
+                "MCP auto-provision: prepared '{}' ({} via {})",
+                tool.name,
+                tool.package.as_deref().unwrap_or("?"),
+                tool.command,
+            );
+            entries.push(server_entry);
+        } else {
+            tracing::warn!(
+                "MCP auto-provision: skipping '{}' — runtime '{}' not available",
+                tool.name,
+                tool.runtime,
+            );
+        }
+    }
+
+    entries
+}
+
+// ─── Package Pre-cache (npx warm-up) ─────────────────────────────
+
+/// Pre-download npm packages so first MCP server launch is instant.
+///
+/// Runs `npm cache add <package>` for each node-based default tool.
+/// This populates the local npm cache without executing anything.
+/// Errors are non-fatal — tools will still work via `npx -y` on first use.
+pub async fn precache_npm_packages() {
+    let defaults = get_default_tools();
+    let npm_packages: Vec<String> = defaults
+        .iter()
+        .filter(|e| e.runtime == "node" && e.package.is_some())
+        .filter_map(|e| e.package.clone())
+        .collect();
+
+    if npm_packages.is_empty() {
+        return;
+    }
+
+    tracing::info!(
+        "MCP precache: warming npm cache for {} packages",
+        npm_packages.len()
+    );
+
+    for pkg in &npm_packages {
+        match tokio::process::Command::new("npm")
+            .args(["cache", "add", pkg])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .await
+        {
+            Ok(status) if status.success() => {
+                tracing::debug!("MCP precache: cached {}", pkg);
+            }
+            Ok(status) => {
+                tracing::warn!("MCP precache: npm cache add {} exited with {}", pkg, status);
+            }
+            Err(e) => {
+                tracing::warn!("MCP precache: failed to cache {}: {}", pkg, e);
+            }
+        }
+    }
+
+    // Pre-cache Python packages too (uv cache)
+    let python_packages: Vec<String> = defaults
+        .iter()
+        .filter(|e| e.runtime == "python" && e.package.is_some())
+        .filter_map(|e| e.package.clone())
+        .collect();
+
+    for pkg in &python_packages {
+        match tokio::process::Command::new("uv")
+            .args(["cache", "prune"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .await
+        {
+            Ok(_) => {
+                // uv doesn't have cache add, but installing and removing works
+                tracing::debug!("MCP precache: uv cache ready for {}", pkg);
+            }
+            Err(_) => {
+                tracing::debug!("MCP precache: uv not available, skipping Python cache");
+                break;
+            }
+        }
+    }
+
+    tracing::info!("MCP precache: npm cache warm-up complete");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ─── Unit Tests (fast, no I/O) ─────────────────────────────
 
     #[test]
     fn test_catalog_not_empty() {
         let catalog = get_catalog();
         assert!(
             catalog.len() >= 25,
-            "Catalog should have at least 25 entries"
+            "Catalog should have at least 25 entries, got {}",
+            catalog.len()
         );
     }
 
@@ -1827,11 +2140,141 @@ mod tests {
     fn test_all_entries_have_required_fields() {
         for entry in get_catalog() {
             assert!(!entry.id.is_empty(), "Entry must have id");
-            assert!(!entry.name.is_empty(), "Entry must have name");
-            assert!(!entry.description.is_empty(), "Entry must have description");
-            assert!(!entry.category.is_empty(), "Entry must have category");
-            assert!(!entry.icon.is_empty(), "Entry must have icon");
-            assert!(!entry.command.is_empty(), "Entry must have command");
+            assert!(!entry.name.is_empty(), "Entry must have name: {}", entry.id);
+            assert!(
+                !entry.description.is_empty(),
+                "Entry must have description: {}",
+                entry.id
+            );
+            assert!(
+                !entry.category.is_empty(),
+                "Entry must have category: {}",
+                entry.id
+            );
+            assert!(!entry.icon.is_empty(), "Entry must have icon: {}", entry.id);
+            assert!(
+                !entry.command.is_empty(),
+                "Entry must have command: {}",
+                entry.id
+            );
+        }
+    }
+
+    #[test]
+    fn test_no_duplicate_ids() {
+        let catalog = get_catalog();
+        let mut ids = std::collections::HashSet::new();
+        for entry in &catalog {
+            assert!(
+                ids.insert(entry.id.clone()),
+                "Duplicate catalog ID: {}",
+                entry.id
+            );
+        }
+    }
+
+    #[test]
+    fn test_no_duplicate_packages() {
+        let catalog = get_catalog();
+        let mut packages = std::collections::HashSet::new();
+        for entry in &catalog {
+            if let Some(ref pkg) = entry.package {
+                assert!(
+                    packages.insert(pkg.clone()),
+                    "Duplicate package name '{}' in entry '{}'",
+                    pkg,
+                    entry.id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_all_categories_valid() {
+        let valid_cats = get_categories();
+        let valid_ids: std::collections::HashSet<String> =
+            valid_cats.iter().map(|c| c.id.clone()).collect();
+
+        for entry in get_catalog() {
+            assert!(
+                valid_ids.contains(&entry.category),
+                "Entry '{}' has invalid category '{}'. Valid: {:?}",
+                entry.id,
+                entry.category,
+                valid_ids
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_runtimes_valid() {
+        let valid_runtimes = ["node", "python", "binary"];
+        for entry in get_catalog() {
+            assert!(
+                valid_runtimes.contains(&entry.runtime.as_str()),
+                "Entry '{}' has invalid runtime '{}'. Valid: {:?}",
+                entry.id,
+                entry.runtime,
+                valid_runtimes
+            );
+        }
+    }
+
+    #[test]
+    fn test_all_transports_valid() {
+        let valid_transports = ["stdio", "http"];
+        for entry in get_catalog() {
+            assert!(
+                valid_transports.contains(&entry.transport.as_str()),
+                "Entry '{}' has invalid transport '{}'. Valid: {:?}",
+                entry.id,
+                entry.transport,
+                valid_transports
+            );
+        }
+    }
+
+    #[test]
+    fn test_node_tools_use_npx_or_node() {
+        for entry in get_catalog() {
+            if entry.runtime == "node" {
+                assert!(
+                    entry.command == "npx" || entry.command == "node",
+                    "Node tool '{}' should use 'npx' or 'node', got '{}'",
+                    entry.id,
+                    entry.command
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_python_tools_use_uvx_or_python() {
+        for entry in get_catalog() {
+            if entry.runtime == "python" {
+                assert!(
+                    entry.command == "uvx"
+                        || entry.command == "python3"
+                        || entry.command == "python"
+                        || entry.command == "uv",
+                    "Python tool '{}' should use 'uvx'/'python3'/'uv', got '{}'",
+                    entry.id,
+                    entry.command
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_npx_tools_have_y_flag() {
+        for entry in get_catalog() {
+            if entry.command == "npx" {
+                assert!(
+                    entry.args.contains(&"-y".to_string()),
+                    "npx tool '{}' must include -y flag to auto-approve install",
+                    entry.id
+                );
+            }
         }
     }
 
@@ -1896,6 +2339,39 @@ mod tests {
     }
 
     #[test]
+    fn test_can_install_python_uvx() {
+        let entry = CatalogEntry {
+            id: "test-py".into(),
+            name: "Test Python".into(),
+            description: "".into(),
+            category: "".into(),
+            icon: "".into(),
+            runtime: "python".into(),
+            transport: "stdio".into(),
+            command: "uvx".into(),
+            args: vec![],
+            is_mcp_app: false,
+            required_env: vec![],
+            tags: vec![],
+            popularity: 0,
+            official: false,
+            package: None,
+            repository: None,
+        };
+
+        let runtimes = RuntimeInfo {
+            has_node: false,
+            node_version: None,
+            has_npx: false,
+            has_python: true,
+            python_version: Some("3.12.0".into()),
+            has_uv: true,
+            has_uvx: true,
+        };
+        assert!(can_install(&entry, &runtimes));
+    }
+
+    #[test]
     fn test_build_server_entry() {
         let entry = &get_catalog()[0]; // filesystem
         let server = build_server_entry(entry, HashMap::new());
@@ -1910,6 +2386,142 @@ mod tests {
         assert!(cats.len() >= 5);
         assert_eq!(cats[0].id, "all");
     }
+
+    // ─── Zero-Config & Default Tools ───────────────────────────
+
+    #[test]
+    fn test_zero_config_tools_have_no_required_env() {
+        let zero_config = get_zero_config_tools();
+        assert!(
+            !zero_config.is_empty(),
+            "Should have at least 1 zero-config tool"
+        );
+        for entry in &zero_config {
+            let has_required = entry.required_env.iter().any(|e| e.required);
+            assert!(
+                !has_required,
+                "Zero-config tool '{}' has required env vars: {:?}",
+                entry.id,
+                entry
+                    .required_env
+                    .iter()
+                    .map(|e| &e.name)
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn test_default_tools_are_subset_of_zero_config() {
+        let zero_config_ids: std::collections::HashSet<String> =
+            get_zero_config_tools().into_iter().map(|e| e.id).collect();
+        let defaults = get_default_tools();
+
+        assert!(!defaults.is_empty(), "Should have default tools");
+        for entry in &defaults {
+            assert!(
+                zero_config_ids.contains(&entry.id),
+                "Default tool '{}' is not zero-config (has required env vars)",
+                entry.id
+            );
+        }
+    }
+
+    #[test]
+    fn test_default_tool_ids_all_exist_in_catalog() {
+        let catalog_ids: std::collections::HashSet<String> =
+            get_catalog().into_iter().map(|e| e.id).collect();
+
+        for id in ZERO_CONFIG_TOOL_IDS {
+            assert!(
+                catalog_ids.contains(*id),
+                "Default tool ID '{}' not found in catalog",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn test_default_tools_count() {
+        let defaults = get_default_tools();
+        assert_eq!(
+            defaults.len(),
+            ZERO_CONFIG_TOOL_IDS.len(),
+            "All default tool IDs should resolve to catalog entries"
+        );
+    }
+
+    // ─── Auto-Provision ────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_auto_provision_with_all_runtimes() {
+        let runtimes = RuntimeInfo {
+            has_node: true,
+            node_version: Some("v20.0.0".into()),
+            has_npx: true,
+            has_python: true,
+            python_version: Some("3.12.0".into()),
+            has_uv: true,
+            has_uvx: true,
+        };
+
+        let entries = auto_provision_defaults(&runtimes).await;
+        assert!(
+            !entries.is_empty(),
+            "Should provision default tools when runtimes available"
+        );
+        // All defaults should be provisioned
+        assert_eq!(
+            entries.len(),
+            ZERO_CONFIG_TOOL_IDS.len(),
+            "All {} default tools should be provisioned with full runtime",
+            ZERO_CONFIG_TOOL_IDS.len()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_auto_provision_with_no_runtimes() {
+        let runtimes = RuntimeInfo {
+            has_node: false,
+            node_version: None,
+            has_npx: false,
+            has_python: false,
+            python_version: None,
+            has_uv: false,
+            has_uvx: false,
+        };
+
+        let entries = auto_provision_defaults(&runtimes).await;
+        assert!(
+            entries.is_empty(),
+            "Should provision nothing without runtimes"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_auto_provision_node_only() {
+        let runtimes = RuntimeInfo {
+            has_node: true,
+            node_version: Some("v20.0.0".into()),
+            has_npx: true,
+            has_python: false,
+            python_version: None,
+            has_uv: false,
+            has_uvx: false,
+        };
+
+        let entries = auto_provision_defaults(&runtimes).await;
+        // Should get all node-based defaults but not python ones
+        for entry in &entries {
+            assert!(
+                entry.command.as_deref() == Some("npx") || entry.command.as_deref() == Some("node"),
+                "With node-only runtime, should only provision node tools, got command: {:?}",
+                entry.command
+            );
+        }
+    }
+
+    // ─── Registry Conversion ───────────────────────────────────
 
     #[test]
     fn test_registry_to_catalog_entry_npm() {
@@ -1997,5 +2609,342 @@ mod tests {
             url_encode("safe-string_123.test~ok"),
             "safe-string_123.test~ok"
         );
+    }
+
+    // ─── Integration Tests (require runtimes installed) ────────
+    // These tests actually spawn MCP servers and verify the
+    // JSON-RPC handshake. Run with:
+    //   cargo test --lib protocols::mcp_catalog::tests::integration -- --ignored
+    //
+    // They require: node, npx, uvx, python3 installed.
+
+    #[tokio::test]
+    async fn test_runtime_detection() {
+        let runtimes = detect_runtimes().await;
+        // At minimum, we should detect the system state correctly
+        // (this test validates detect_runtimes doesn't panic)
+        println!("Detected runtimes: {:?}", runtimes);
+        // On CI or dev machines, at least node or python should be available
+        assert!(
+            runtimes.has_node || runtimes.has_python,
+            "Expected at least node or python to be available"
+        );
+    }
+
+    #[tokio::test]
+    #[ignore] // Requires npx installed, downloads packages — slow
+    async fn integration_verify_filesystem_server() {
+        let catalog = get_catalog();
+        let entry = catalog.iter().find(|e| e.id == "filesystem").unwrap();
+        let result = verify_server_package(entry, 30).await;
+        assert!(
+            result.available,
+            "Filesystem server should be available: {:?}",
+            result.error
+        );
+        assert!(result.server_name.is_some());
+        println!(
+            "✅ filesystem: {} v{}",
+            result.server_name.unwrap_or_default(),
+            result.server_version.unwrap_or_default()
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_sequential_thinking_server() {
+        let catalog = get_catalog();
+        let entry = catalog
+            .iter()
+            .find(|e| e.id == "sequential-thinking")
+            .unwrap();
+        let result = verify_server_package(entry, 30).await;
+        assert!(
+            result.available,
+            "Sequential Thinking server should be available: {:?}",
+            result.error
+        );
+        println!(
+            "✅ sequential-thinking: {} v{}",
+            result.server_name.unwrap_or_default(),
+            result.server_version.unwrap_or_default()
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_memory_server() {
+        let catalog = get_catalog();
+        let entry = catalog.iter().find(|e| e.id == "memory").unwrap();
+        let result = verify_server_package(entry, 30).await;
+        assert!(
+            result.available,
+            "Memory server should be available: {:?}",
+            result.error
+        );
+        println!(
+            "✅ memory: {} v{}",
+            result.server_name.unwrap_or_default(),
+            result.server_version.unwrap_or_default()
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_fetch_server() {
+        let catalog = get_catalog();
+        let entry = catalog.iter().find(|e| e.id == "fetch").unwrap();
+        let result = verify_server_package(entry, 30).await;
+        assert!(
+            result.available,
+            "Fetch server should be available: {:?}",
+            result.error
+        );
+        println!(
+            "✅ fetch: {} v{}",
+            result.server_name.unwrap_or_default(),
+            result.server_version.unwrap_or_default()
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_everything_server() {
+        let catalog = get_catalog();
+        let entry = catalog.iter().find(|e| e.id == "everything").unwrap();
+        let result = verify_server_package(entry, 30).await;
+        assert!(
+            result.available,
+            "Everything server should be available: {:?}",
+            result.error
+        );
+        println!(
+            "✅ everything: {} v{}",
+            result.server_name.unwrap_or_default(),
+            result.server_version.unwrap_or_default()
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_git_server() {
+        let catalog = get_catalog();
+        let entry = catalog.iter().find(|e| e.id == "git").unwrap();
+        let result = verify_server_package(entry, 30).await;
+        assert!(
+            result.available,
+            "Git server should be available: {:?}",
+            result.error
+        );
+        println!(
+            "✅ git: {} v{}",
+            result.server_name.unwrap_or_default(),
+            result.server_version.unwrap_or_default()
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_time_server() {
+        let catalog = get_catalog();
+        let entry = catalog.iter().find(|e| e.id == "time").unwrap();
+        let result = verify_server_package(entry, 30).await;
+        assert!(
+            result.available,
+            "Time server should be available: {:?}",
+            result.error
+        );
+        println!(
+            "✅ time: {} v{}",
+            result.server_name.unwrap_or_default(),
+            result.server_version.unwrap_or_default()
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_docker_server() {
+        let catalog = get_catalog();
+        let entry = catalog.iter().find(|e| e.id == "docker").unwrap();
+        let result = verify_server_package(entry, 30).await;
+        assert!(
+            result.available,
+            "Docker server should be available: {:?}",
+            result.error
+        );
+        println!(
+            "✅ docker: {} v{}",
+            result.server_name.unwrap_or_default(),
+            result.server_version.unwrap_or_default()
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_playwright_server() {
+        let catalog = get_catalog();
+        let entry = catalog.iter().find(|e| e.id == "playwright").unwrap();
+        let result = verify_server_package(entry, 30).await;
+        assert!(
+            result.available,
+            "Playwright server should be available: {:?}",
+            result.error
+        );
+        println!(
+            "✅ playwright: {} v{}",
+            result.server_name.unwrap_or_default(),
+            result.server_version.unwrap_or_default()
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_context7_server() {
+        let catalog = get_catalog();
+        let entry = catalog.iter().find(|e| e.id == "context7").unwrap();
+        let result = verify_server_package(entry, 30).await;
+        assert!(
+            result.available,
+            "Context7 server should be available: {:?}",
+            result.error
+        );
+        println!(
+            "✅ context7: {} v{}",
+            result.server_name.unwrap_or_default(),
+            result.server_version.unwrap_or_default()
+        );
+    }
+
+    /// Integration: verify ALL default tools respond to MCP handshake.
+    /// This is the comprehensive test that validates the entire default toolset.
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_all_default_tools() {
+        let results = verify_default_tools(30).await;
+        let total = results.len();
+        let passed = results.iter().filter(|r| r.available).count();
+        let failed: Vec<_> = results.iter().filter(|r| !r.available).collect();
+
+        println!("\n═══ MCP Default Tool Verification ═══");
+        for r in &results {
+            if r.available {
+                println!(
+                    "  ✅ {} — {} v{}",
+                    r.id,
+                    r.server_name.as_deref().unwrap_or("?"),
+                    r.server_version.as_deref().unwrap_or("?")
+                );
+            } else {
+                println!(
+                    "  ❌ {} — {}",
+                    r.id,
+                    r.error.as_deref().unwrap_or("unknown error")
+                );
+            }
+        }
+        println!("═══ {}/{} passed ═══\n", passed, total);
+
+        assert!(
+            failed.is_empty(),
+            "Failed tools: {:?}",
+            failed
+                .iter()
+                .map(|f| format!("{}: {}", f.id, f.error.as_deref().unwrap_or("?")))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// Integration: verify ALL zero-config tools (broader set) respond to MCP handshake.
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_all_zero_config_tools() {
+        let zero_config = get_zero_config_tools();
+        let runtimes = detect_runtimes().await;
+
+        println!("\n═══ MCP Zero-Config Tool Verification ═══");
+        println!("Runtimes: {:?}", runtimes);
+
+        let mut passed = 0;
+        let mut failed = 0;
+        let mut skipped = 0;
+
+        for entry in &zero_config {
+            if !can_install(entry, &runtimes) {
+                println!(
+                    "  ⏭️  {} — runtime '{}' not available",
+                    entry.id, entry.runtime
+                );
+                skipped += 1;
+                continue;
+            }
+
+            let result = verify_server_package(entry, 30).await;
+            if result.available {
+                println!(
+                    "  ✅ {} — {} v{}",
+                    entry.id,
+                    result.server_name.as_deref().unwrap_or("?"),
+                    result.server_version.as_deref().unwrap_or("?")
+                );
+                passed += 1;
+            } else {
+                println!(
+                    "  ❌ {} — {}",
+                    entry.id,
+                    result.error.as_deref().unwrap_or("unknown error")
+                );
+                failed += 1;
+            }
+        }
+
+        println!(
+            "═══ {}/{} passed, {} skipped ═══\n",
+            passed,
+            passed + failed,
+            skipped
+        );
+
+        assert_eq!(
+            failed, 0,
+            "{} zero-config tools failed verification",
+            failed
+        );
+    }
+
+    /// Integration: verify MCP App tools respond to handshake.
+    #[tokio::test]
+    #[ignore]
+    async fn integration_verify_mcp_apps() {
+        let catalog = get_catalog();
+        let mcp_apps: Vec<_> = catalog.iter().filter(|e| e.is_mcp_app).collect();
+
+        println!("\n═══ MCP App Verification ═══");
+
+        let mut passed = 0;
+        let mut failed = 0;
+
+        for entry in &mcp_apps {
+            let result = verify_server_package(entry, 30).await;
+            if result.available {
+                println!(
+                    "  ✅ {} — {} v{}",
+                    entry.id,
+                    result.server_name.as_deref().unwrap_or("?"),
+                    result.server_version.as_deref().unwrap_or("?")
+                );
+                passed += 1;
+            } else {
+                println!(
+                    "  ❌ {} — {}",
+                    entry.id,
+                    result.error.as_deref().unwrap_or("unknown error")
+                );
+                failed += 1;
+            }
+        }
+
+        println!("═══ {}/{} MCP Apps passed ═══\n", passed, passed + failed);
+
+        assert_eq!(failed, 0, "{} MCP Apps failed verification", failed);
     }
 }

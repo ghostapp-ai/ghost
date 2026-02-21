@@ -12,7 +12,6 @@
 //! Uses the SAME Qwen2.5-Instruct GGUF models from the chat model registry,
 //! with Hermes 2 Pro tool-calling format + GBNF grammar-constrained generation.
 
-use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -20,11 +19,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 #[cfg(desktop)]
-use llama_cpp_2::context::params::LlamaContextParams;
-#[cfg(desktop)]
 use llama_cpp_2::llama_batch::LlamaBatch;
-#[cfg(desktop)]
-use llama_cpp_2::model::params::LlamaModelParams;
 #[cfg(desktop)]
 use llama_cpp_2::model::{AddBos, ChatTemplateResult, LlamaChatMessage, LlamaModel};
 #[cfg(desktop)]
@@ -42,7 +37,6 @@ use crate::AppState;
 /// Default sampling parameters for agent inference.
 const AGENT_TOP_P: f32 = 0.9;
 const AGENT_SEED: u32 = 42;
-const BATCH_SIZE: u32 = 512;
 
 /// Parsed LLM response — either text, tool calls, or both.
 struct LlmResponse {
@@ -179,6 +173,21 @@ impl AgentExecutor {
                 break;
             }
 
+            // Guard against runaway tool-calling loops
+            if all_tool_calls.len() >= agent_config.max_tool_calls_per_run {
+                tracing::warn!(
+                    "Agent hit max tool calls ({}/{}), forcing response",
+                    all_tool_calls.len(),
+                    agent_config.max_tool_calls_per_run
+                );
+                event_bus.emit(AgUiEvent::custom(
+                    run_id,
+                    "max_tool_calls_reached",
+                    json!({"tool_calls": all_tool_calls.len()}),
+                ));
+                break;
+            }
+
             // Emit step started
             let step_name = if iterations == 1 {
                 "thinking"
@@ -230,46 +239,111 @@ impl AgentExecutor {
                                 .await;
                         }
 
-                        // Execute each tool call
-                        for tc in &resp.tool_calls {
-                            let tool_result = self
-                                .execute_tool_call(
-                                    run_id,
-                                    &tc.function.name,
-                                    &tc.function.arguments,
-                                    &registered_tools,
-                                    &agent_config,
-                                    event_bus,
-                                )
-                                .await;
+                        // Execute tool calls — parallel when multiple, sequential when single
+                        if resp.tool_calls.len() > 1 {
+                            // Parallel execution with tokio::join_all
+                            let futures: Vec<_> = resp
+                                .tool_calls
+                                .iter()
+                                .map(|tc| {
+                                    self.execute_tool_call(
+                                        run_id,
+                                        &tc.function.name,
+                                        &tc.function.arguments,
+                                        &registered_tools,
+                                        &agent_config,
+                                        event_bus,
+                                    )
+                                })
+                                .collect();
 
-                            match tool_result {
-                                Ok(executed) => {
-                                    // Add tool result to conversation
-                                    conversation.push(AgentChatMessage {
-                                        role: "tool".into(),
-                                        content: executed.result.clone(),
-                                        tool_calls: None,
-                                    });
-                                    all_tool_calls.push(executed);
+                            let results = futures::future::join_all(futures).await;
+
+                            for (tc, tool_result) in resp.tool_calls.iter().zip(results.into_iter())
+                            {
+                                match tool_result {
+                                    Ok(executed) => {
+                                        conversation.push(AgentChatMessage {
+                                            role: "tool".into(),
+                                            content: executed.result.clone(),
+                                            tool_calls: None,
+                                        });
+                                        all_tool_calls.push(executed);
+                                    }
+                                    Err(e) => {
+                                        let error_msg =
+                                            format!("Tool '{}' failed: {}", tc.function.name, e);
+                                        conversation.push(AgentChatMessage {
+                                            role: "tool".into(),
+                                            content: error_msg.clone(),
+                                            tool_calls: None,
+                                        });
+                                        all_tool_calls.push(ExecutedToolCall {
+                                            name: tc.function.name.clone(),
+                                            arguments: tc.function.arguments.clone(),
+                                            result: error_msg,
+                                            duration_ms: 0,
+                                            risk_level: RiskLevel::Safe,
+                                        });
+                                    }
                                 }
-                                Err(e) => {
-                                    // Tool execution failed — tell the LLM
-                                    let error_msg =
-                                        format!("Tool '{}' failed: {}", tc.function.name, e);
-                                    conversation.push(AgentChatMessage {
-                                        role: "tool".into(),
-                                        content: error_msg.clone(),
-                                        tool_calls: None,
-                                    });
-                                    all_tool_calls.push(ExecutedToolCall {
-                                        name: tc.function.name.clone(),
-                                        arguments: tc.function.arguments.clone(),
-                                        result: error_msg,
-                                        duration_ms: 0,
-                                        risk_level: RiskLevel::Safe,
-                                    });
+                            }
+                        } else {
+                            // Single tool call — execute directly
+                            for tc in &resp.tool_calls {
+                                let tool_result = self
+                                    .execute_tool_call(
+                                        run_id,
+                                        &tc.function.name,
+                                        &tc.function.arguments,
+                                        &registered_tools,
+                                        &agent_config,
+                                        event_bus,
+                                    )
+                                    .await;
+
+                                match tool_result {
+                                    Ok(executed) => {
+                                        conversation.push(AgentChatMessage {
+                                            role: "tool".into(),
+                                            content: executed.result.clone(),
+                                            tool_calls: None,
+                                        });
+                                        all_tool_calls.push(executed);
+                                    }
+                                    Err(e) => {
+                                        let error_msg =
+                                            format!("Tool '{}' failed: {}", tc.function.name, e);
+                                        conversation.push(AgentChatMessage {
+                                            role: "tool".into(),
+                                            content: error_msg.clone(),
+                                            tool_calls: None,
+                                        });
+                                        all_tool_calls.push(ExecutedToolCall {
+                                            name: tc.function.name.clone(),
+                                            arguments: tc.function.arguments.clone(),
+                                            result: error_msg,
+                                            duration_ms: 0,
+                                            risk_level: RiskLevel::Safe,
+                                        });
+                                    }
                                 }
+                            }
+                        }
+
+                        // Summarize long tool results to prevent context overflow
+                        for msg in conversation.iter_mut().rev() {
+                            if msg.role == "tool" && msg.content.len() > 4000 {
+                                let summary = format!(
+                                    "{}...\n[Result summarized: {} chars total. Key content preserved above.]",
+                                    &msg.content[..3500],
+                                    msg.content.len()
+                                );
+                                msg.content = summary;
+                            }
+                            // Stop after processing this batch of tool results
+                            if msg.role == "assistant" {
+                                break;
                             }
                         }
 
@@ -390,6 +464,8 @@ impl AgentExecutor {
         let max_tokens = config.max_tokens;
         let temperature = config.temperature as f32;
         let ctx_window = context_window;
+        let model_size_mb = profile.size_mb;
+        let model_n_layers = profile.n_layers;
 
         tokio::task::spawn_blocking(move || {
             Self::run_inference(
@@ -399,6 +475,8 @@ impl AgentExecutor {
                 max_tokens,
                 temperature,
                 ctx_window,
+                model_size_mb,
+                model_n_layers,
             )
         })
         .await
@@ -482,6 +560,8 @@ impl AgentExecutor {
         max_tokens: usize,
         temperature: f32,
         context_window: usize,
+        model_size_mb: u64,
+        model_n_layers: u32,
     ) -> Result<LlmResponse, GhostError> {
         let gen_start = Instant::now();
 
@@ -489,19 +569,25 @@ impl AgentExecutor {
         let backend = crate::chat::native::get_or_init_backend()
             .map_err(|e| GhostError::Agent(format!("Failed to init llama.cpp backend: {}", e)))?;
 
-        let has_gpu = backend.supports_gpu_offload();
-        let n_gpu_layers: u32 = if has_gpu { 9999 } else { 0 };
-
-        let model_params = LlamaModelParams::default().with_n_gpu_layers(n_gpu_layers);
+        // Use the shared InferenceProfile for hardware-adaptive model loading.
+        // This detects GPU VRAM, calculates optimal layer offload, thread counts,
+        // KV cache type, flash attention, mlock — all automatically.
+        let inf_profile =
+            crate::chat::inference::InferenceProfile::auto(model_size_mb, model_n_layers);
+        let model_params = inf_profile.model_params();
         let model_path_str = model_path.to_string_lossy().to_string();
 
         let model = LlamaModel::load_from_file(&backend, &model_path_str, &model_params)
             .map_err(|e| GhostError::Agent(format!("Failed to load agent model: {}", e)))?;
 
         tracing::debug!(
-            "Agent model loaded: gpu={}, layers={}",
-            has_gpu,
-            n_gpu_layers
+            "Agent model loaded: gpu_layers={}, gpu={}",
+            inf_profile.n_gpu_layers,
+            inf_profile
+                .gpu
+                .as_ref()
+                .map(|g| g.name.as_str())
+                .unwrap_or("none"),
         );
 
         // 2. Get the model's chat template
@@ -582,18 +668,9 @@ impl AgentExecutor {
             )));
         }
 
-        // 6. Create context
-        let n_threads = (std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(4)
-            / 2)
-        .max(1) as i32;
-
-        let ctx_params = LlamaContextParams::default()
-            .with_n_ctx(NonZeroU32::new(ctx_size as u32))
-            .with_n_batch(BATCH_SIZE)
-            .with_n_threads(n_threads)
-            .with_n_threads_batch(n_threads);
+        // 6. Create context with hardware-adaptive parameters
+        let ctx_params = inf_profile.context_params(Some(ctx_size as u32));
+        let batch_size = inf_profile.n_batch;
 
         let mut ctx = model
             .new_context(&backend, ctx_params)
@@ -602,11 +679,11 @@ impl AgentExecutor {
         // 7. Build sampler chain with optional grammar constraint
         let mut sampler = Self::build_sampler(&model, &template_result, temperature)?;
 
-        // 8. Prefill: submit prompt tokens in chunks of BATCH_SIZE
-        //    When the prompt exceeds BATCH_SIZE tokens, we process it in
+        // 8. Prefill: submit prompt tokens in chunks of batch_size
+        //    When the prompt exceeds batch_size tokens, we process it in
         //    multiple batch-decode passes. Only the very last token in the
         //    full prompt needs logits=true (for sampling the first generated token).
-        let mut batch = LlamaBatch::new(BATCH_SIZE as usize, 1);
+        let mut batch = LlamaBatch::new(batch_size as usize, 1);
         let last_idx = tokens.len() as i32 - 1;
         for (i, &token) in tokens.iter().enumerate() {
             let is_last = i as i32 == last_idx;
@@ -615,7 +692,7 @@ impl AgentExecutor {
                 .map_err(|e| GhostError::Agent(format!("Batch add failed: {}", e)))?;
 
             // When the batch is full, or we've added the last token, decode it
-            if batch.n_tokens() as u32 >= BATCH_SIZE || is_last {
+            if batch.n_tokens() as u32 >= batch_size || is_last {
                 ctx.decode(&mut batch)
                     .map_err(|e| GhostError::Agent(format!("Prefill decode failed: {}", e)))?;
                 // Only clear between intermediate chunks — keep the last one so
@@ -1020,33 +1097,67 @@ impl AgentExecutor {
 }
 
 /// Build the agent system prompt with context about available tools and skills.
+///
+/// Uses XML-tagged sections for clear structure (per Anthropic best practices 2026).
+/// Includes anti-hallucination rules, tool usage order, and contextual awareness.
 pub(crate) fn build_system_prompt(state: &AppState, messages: &[ChatMessage]) -> String {
-    let mut prompt = String::from(
-        "You are Ghost, a private local-first AI assistant that runs entirely on the user's device. \
-         You have access to tools that let you search the user's files, read documents, list directories, \
-         and perform actions on their behalf.\n\n\
-         ## Guidelines\n\
-         - Be concise and helpful\n\
-         - Use tools when the user asks about their files, documents, or needs information from their system\n\
-         - For file searches, use ghost_search with natural language queries\n\
-         - Read specific files with ghost_read_file when you need their full content\n\
-         - If you're unsure, search first before answering\n\
-         - Never fabricate file contents or paths — always verify with tools\n\
-         - Respect the user's privacy — you only have access to their indexed directories\n\
-         - When using ghost_run_command, explain what the command does before executing\n\
-         - Prefer read-only operations unless the user explicitly asks for changes\n"
+    let mut prompt = String::with_capacity(2048);
+
+    // Identity
+    prompt.push_str(
+        "<identity>\n\
+         You are Ghost, a private local-first AI assistant running entirely on the user's device.\n\
+         All data stays local. You never send data to external servers.\n\
+         You communicate in the same language the user writes in.\n\
+         </identity>\n\n",
     );
 
-    // Add index stats context
+    // Capabilities
+    prompt.push_str(
+        "<capabilities>\n\
+         You can search the user's indexed files, read documents, list directories, \
+         write files, and execute shell commands on their behalf using your tools.\n\
+         </capabilities>\n\n",
+    );
+
+    // Guidelines — structured, explicit, with motivation
+    prompt.push_str(
+        "<guidelines>\n\
+         - Be concise and direct. Respond with flowing prose, not excessive bullet lists.\n\
+         - Default to action: implement changes rather than only suggesting them.\n\
+         - When the user asks about files or documents, use tools to find the answer.\n\
+         - Follow this tool order: search first → read relevant files → then answer.\n\
+         - For general knowledge questions (not about local files), answer directly without tools.\n\
+         - When using ghost_run_command, briefly explain what the command does before executing.\n\
+         - Prefer read-only operations unless the user explicitly asks for changes.\n\
+         - If a task needs multiple steps, work through them methodically.\n\
+         </guidelines>\n\n",
+    );
+
+    // Anti-hallucination constraints
+    prompt.push_str(
+        "<constraints>\n\
+         - NEVER fabricate file paths, file contents, or directory listings. Always verify with tools.\n\
+         - NEVER guess what a file contains. Use ghost_read_file to check.\n\
+         - If you don't know something and can't find it with tools, say so honestly.\n\
+         - Do not invent tool names that don't exist. Only use the tools provided.\n\
+         - When reporting search results, quote actual snippets from the results.\n\
+         - Do not make assumptions about the user's system beyond what tools reveal.\n\
+         </constraints>\n\n",
+    );
+
+    // Knowledge base context
     if let Ok(stats) = state.db.get_stats() {
         prompt.push_str(&format!(
-            "\n## Your Knowledge Base\n\
-             You have access to {} indexed documents with {} searchable text chunks ({} with semantic embeddings).\n",
+            "<context>\n\
+             Your knowledge base contains {} indexed documents, {} searchable text chunks \
+             ({} with semantic embeddings for natural language search).\n\
+             </context>\n\n",
             stats.document_count, stats.chunk_count, stats.embedded_chunk_count
         ));
     }
 
-    // Add skills context
+    // Skills context
     let skills_dir = state
         .settings
         .lock()
@@ -1057,7 +1168,6 @@ pub(crate) fn build_system_prompt(state: &AppState, messages: &[ChatMessage]) ->
         let mut registry = super::skills::SkillRegistry::new();
         registry.load_from_directory(std::path::Path::new(&skills_dir));
 
-        // Check if any user message triggers a skill
         let last_user_msg = messages
             .iter()
             .rev()
@@ -1067,7 +1177,9 @@ pub(crate) fn build_system_prompt(state: &AppState, messages: &[ChatMessage]) ->
 
         let skill_prompt = registry.build_prompt_for_query(last_user_msg);
         if !skill_prompt.is_empty() {
+            prompt.push_str("<skills>\n");
             prompt.push_str(&skill_prompt);
+            prompt.push_str("</skills>\n\n");
         }
     }
 
@@ -1137,12 +1249,12 @@ mod tests {
         }];
         let prompt = build_system_prompt(&state, &messages);
         assert!(
-            prompt.contains("Guidelines"),
+            prompt.contains("<guidelines>"),
             "Should have guidelines section"
         );
         assert!(
-            prompt.contains("ghost_search"),
-            "Should mention ghost_search tool"
+            prompt.contains("ghost_run_command"),
+            "Should mention ghost_run_command tool"
         );
         assert!(
             prompt.contains("ghost_read_file"),
@@ -1160,12 +1272,53 @@ mod tests {
         let prompt = build_system_prompt(&state, &messages);
         // In-memory DB has 0 documents but get_stats() should succeed
         assert!(
-            prompt.contains("Knowledge Base"),
-            "Should include knowledge base section"
+            prompt.contains("<context>"),
+            "Should include context section"
         );
         assert!(
             prompt.contains("0 indexed documents"),
             "Should show zero documents for empty DB"
+        );
+    }
+
+    #[test]
+    fn test_system_prompt_has_anti_hallucination() {
+        let state = test_app_state();
+        let messages = vec![ChatMessage {
+            role: "user".into(),
+            content: "test".into(),
+        }];
+        let prompt = build_system_prompt(&state, &messages);
+        assert!(
+            prompt.contains("<constraints>"),
+            "Should have constraints section"
+        );
+        assert!(
+            prompt.contains("NEVER fabricate"),
+            "Should have anti-hallucination rule"
+        );
+    }
+
+    #[test]
+    fn test_system_prompt_has_xml_structure() {
+        let state = test_app_state();
+        let messages = vec![ChatMessage {
+            role: "user".into(),
+            content: "test".into(),
+        }];
+        let prompt = build_system_prompt(&state, &messages);
+        assert!(prompt.contains("<identity>"), "Should have identity tag");
+        assert!(
+            prompt.contains("<capabilities>"),
+            "Should have capabilities tag"
+        );
+        assert!(
+            prompt.contains("<guidelines>"),
+            "Should have guidelines tag"
+        );
+        assert!(
+            prompt.contains("<constraints>"),
+            "Should have constraints tag"
         );
     }
 
