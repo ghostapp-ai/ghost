@@ -438,6 +438,16 @@ function ModelsTab({
                   <span className="text-sm font-medium text-ghost-text">
                     {model.name}
                   </span>
+                  {model.family === "qwen3" && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/20 text-purple-400">
+                      Qwen3
+                    </span>
+                  )}
+                  {model.supports_thinking && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/20 text-blue-400">
+                      Thinking
+                    </span>
+                  )}
                   {model.active && (
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-ghost-accent/20 text-ghost-accent">
                       Active

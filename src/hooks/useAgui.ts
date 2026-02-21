@@ -4,6 +4,14 @@
  * Listens to Tauri `agui://event` events and maintains streaming state.
  * Replaces the polling-based chat flow with real-time event streaming.
  *
+ * Supports all 30+ AG-UI event types including:
+ * - Text streaming (TEXT_MESSAGE_*)
+ * - Tool calls (TOOL_CALL_*)
+ * - Extended reasoning (REASONING_*)
+ * - Activity annotations (ACTIVITY_*)
+ * - State synchronization (STATE_*, MESSAGES_SNAPSHOT)
+ * - A2UI generative UI (via CUSTOM events)
+ *
  * Usage:
  *   const { runState, sendStreaming, isStreaming } = useAgui();
  *
@@ -82,6 +90,8 @@ export function useAgui() {
             error: null,
             metadata: null,
             a2uiSurfaces: new Map(),
+            reasoningContent: "",
+            activities: new Map(),
           };
         }
 
@@ -100,7 +110,8 @@ export function useAgui() {
           return prev;
         }
 
-        case "TEXT_MESSAGE_CONTENT": {
+        case "TEXT_MESSAGE_CONTENT":
+        case "TEXT_MESSAGE_CHUNK": {
           if (!prev) return prev;
           return {
             ...prev,
@@ -123,7 +134,8 @@ export function useAgui() {
           return { ...prev, activeToolCalls: toolCalls };
         }
 
-        case "TOOL_CALL_ARGS": {
+        case "TOOL_CALL_ARGS":
+        case "TOOL_CALL_CHUNK": {
           if (!prev || !event.toolCallId) return prev;
           const toolCalls = new Map(prev.activeToolCalls);
           const tc = toolCalls.get(event.toolCallId);
@@ -147,6 +159,91 @@ export function useAgui() {
             });
           }
           return { ...prev, activeToolCalls: toolCalls };
+        }
+
+        case "TOOL_CALL_RESULT": {
+          // Structured result (includes messageId, content, role)
+          if (!prev || !event.toolCallId) return prev;
+          const toolCalls = new Map(prev.activeToolCalls);
+          const tc = toolCalls.get(event.toolCallId);
+          if (tc) {
+            const resultStr =
+              typeof event.content === "string"
+                ? event.content
+                : JSON.stringify(event.content);
+            toolCalls.set(event.toolCallId, { ...tc, result: resultStr });
+          }
+          return { ...prev, activeToolCalls: toolCalls };
+        }
+
+        // ── Reasoning events (extended reasoning models) ────────────────
+        case "REASONING_START":
+        case "REASONING_MESSAGE_START": {
+          // Start of reasoning block — reset accumulator
+          if (!prev) return prev;
+          return { ...prev, reasoningContent: "" };
+        }
+
+        case "REASONING_MESSAGE_CONTENT": {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            reasoningContent: prev.reasoningContent + (event.delta ?? ""),
+          };
+        }
+
+        case "REASONING_MESSAGE_END":
+        case "REASONING_END": {
+          // Reasoning block complete
+          return prev;
+        }
+
+        case "REASONING_ENCRYPTED_VALUE": {
+          // Opaque encrypted payload — store in metadata for debugging
+          if (!prev) return prev;
+          return {
+            ...prev,
+            metadata: {
+              ...prev.metadata,
+              encryptedReasoning: event.encryptedValue,
+            },
+          };
+        }
+
+        // ── Activity events (citations, thoughts, annotations) ──────────
+        case "ACTIVITY_SNAPSHOT": {
+          if (!prev || !event.messageId || !event.activityType) return prev;
+          const activities = new Map(prev.activities);
+          activities.set(event.messageId, {
+            activityType: event.activityType,
+            content: event.content,
+          });
+          return { ...prev, activities };
+        }
+
+        case "ACTIVITY_DELTA": {
+          // JSON Patch on existing activity — apply patch client-side
+          // For simplicity, store the raw patch alongside the activity
+          if (!prev || !event.messageId) return prev;
+          const activities = new Map(prev.activities);
+          const existing = activities.get(event.messageId);
+          if (existing) {
+            activities.set(event.messageId, {
+              ...existing,
+              content: { ...(existing.content as object), _patch: event.patch },
+            });
+          }
+          return { ...prev, activities };
+        }
+
+        // ── State events ────────────────────────────────────────────────
+        case "MESSAGES_SNAPSHOT": {
+          // Full thread snapshot — store as metadata
+          if (!prev) return prev;
+          return {
+            ...prev,
+            metadata: { ...prev.metadata, messagesSnapshot: event.messages },
+          };
         }
 
         case "RUN_FINISHED": {
@@ -225,11 +322,14 @@ export function useAgui() {
                     dataModel: (udm.value ?? {}) as Record<string, unknown>,
                   });
                 } else {
-                  // Set at specific path
+                  // Set at specific path (JSON Pointer)
                   const parts = udm.path.replace(/^\//, "").split("/");
                   let current: Record<string, unknown> = dataModel;
                   for (let i = 0; i < parts.length - 1; i++) {
-                    if (current[parts[i]] === undefined || typeof current[parts[i]] !== "object") {
+                    if (
+                      current[parts[i]] === undefined ||
+                      typeof current[parts[i]] !== "object"
+                    ) {
                       current[parts[i]] = {};
                     }
                     current = current[parts[i]] as Record<string, unknown>;

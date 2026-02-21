@@ -18,7 +18,7 @@
  *   Input: Button, TextField, CheckBox, ChoicePicker, Slider, DateTimeInput
  */
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import type {
   A2uiSurfaceState,
   A2uiComponent,
@@ -105,6 +105,75 @@ function getBindingPath(
     return value.path;
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Tabs Component (extracted to own function to support useState)
+// ---------------------------------------------------------------------------
+
+/** Renders a tabbed layout — one child visible at a time. */
+function TabsComponent({
+  comp,
+  surface,
+  onAction,
+  onDataChange,
+}: {
+  comp: A2uiComponent;
+  surface: A2uiSurfaceState;
+  onAction?: A2UIRendererProps["onAction"];
+  onDataChange?: A2UIRendererProps["onDataChange"];
+}) {
+  const [activeTab, setActiveTab] = useState(0);
+
+  const childIds = Array.isArray(comp.children) ? comp.children : [];
+  const tabConfigs = comp.tabs as Array<{ title: string }> | undefined;
+
+  const getTabTitle = (index: number): string => {
+    if (tabConfigs && tabConfigs[index]?.title) return tabConfigs[index].title;
+    return `Tab ${index + 1}`;
+  };
+
+  const renderChild = (childId: string) => {
+    const child = surface.components.get(childId);
+    if (!child) return null;
+    return (
+      <RenderComponent
+        key={childId}
+        comp={child}
+        surface={surface}
+        onAction={onAction}
+        onDataChange={onDataChange}
+      />
+    );
+  };
+
+  if (childIds.length === 0) return null;
+
+  return (
+    <div className="flex flex-col" data-a2ui-id={comp.id}>
+      {/* Tab header row */}
+      <div className="flex border-b border-ghost-border/30">
+        {childIds.map((_, index) => (
+          <button
+            key={index}
+            type="button"
+            onClick={() => setActiveTab(index)}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === index
+                ? "border-b-2 border-ghost-accent text-ghost-accent -mb-px"
+                : "text-ghost-text-dim/60 hover:text-ghost-text"
+            }`}
+          >
+            {getTabTitle(index)}
+          </button>
+        ))}
+      </div>
+      {/* Active tab panel */}
+      <div className="pt-2">
+        {childIds[activeTab] !== undefined && renderChild(childIds[activeTab])}
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -287,14 +356,13 @@ function RenderComponent({
     }
 
     case "Tabs": {
-      // Simplified tabs — render all children vertically for now
       return (
-        <div
-          className="flex flex-col gap-2"
-          data-a2ui-id={comp.id}
-        >
-          {renderChildren(getChildIds())}
-        </div>
+        <TabsComponent
+          comp={comp}
+          surface={surface}
+          onAction={onAction}
+          onDataChange={onDataChange}
+        />
       );
     }
 

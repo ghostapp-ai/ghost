@@ -16,6 +16,30 @@ export default defineConfig(async () => ({
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
 
+  // ── Build optimizations ──────────────────────────────────────────
+  // Tauri WebView is modern (Chromium 120+ / WebKit 16+), target esnext
+  // for smallest output with no polyfills. Code-split React + Tauri SDK.
+  build: {
+    target: "esnext",
+    reportCompressedSize: false, // skip gzip calc → faster builds
+    // esbuild minifier (built into Vite, zero extra deps)
+    minify: "esbuild",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom"],
+          tauri: ["@tauri-apps/api"],
+        },
+      },
+    },
+  },
+
+  // ── esbuild: strip dev-only code ────────────────────────────────
+  esbuild: {
+    legalComments: "none",
+    drop: ["console", "debugger"],
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent vite from obscuring rust errors

@@ -111,6 +111,8 @@ export interface ModelInfo {
   min_ram_mb: number;
   parameters: string;
   quality_tier: number;
+  family: string;
+  supports_thinking: boolean;
   downloaded: boolean;
   active: boolean;
   recommended: boolean;
@@ -329,11 +331,23 @@ export type AgUiEventType =
   | "TEXT_MESSAGE_START"
   | "TEXT_MESSAGE_CONTENT"
   | "TEXT_MESSAGE_END"
+  | "TEXT_MESSAGE_CHUNK"
   | "TOOL_CALL_START"
   | "TOOL_CALL_ARGS"
   | "TOOL_CALL_END"
+  | "TOOL_CALL_RESULT"
+  | "TOOL_CALL_CHUNK"
   | "STATE_SNAPSHOT"
   | "STATE_DELTA"
+  | "MESSAGES_SNAPSHOT"
+  | "ACTIVITY_SNAPSHOT"
+  | "ACTIVITY_DELTA"
+  | "REASONING_START"
+  | "REASONING_MESSAGE_START"
+  | "REASONING_MESSAGE_CONTENT"
+  | "REASONING_MESSAGE_END"
+  | "REASONING_END"
+  | "REASONING_ENCRYPTED_VALUE"
   | "RAW"
   | "CUSTOM";
 
@@ -343,8 +357,7 @@ export interface AgUiEvent {
   runId: string;
   threadId?: string;
   timestamp: number;
-  // Flattened payload fields (varies by event type):
-  // TEXT_MESSAGE_START / CONTENT / END
+  // TEXT_MESSAGE_START / CONTENT / END / CHUNK
   messageId?: string;
   role?: string;
   delta?: string;
@@ -353,6 +366,8 @@ export interface AgUiEvent {
   toolCallName?: string;
   parentMessageId?: string;
   result?: string;
+  // TOOL_CALL_RESULT
+  content?: unknown;
   // STEP_STARTED / FINISHED
   stepName?: string;
   stepIndex?: number;
@@ -361,6 +376,16 @@ export interface AgUiEvent {
   code?: string;
   // STATE_SNAPSHOT / DELTA
   snapshot?: unknown;
+  // MESSAGES_SNAPSHOT
+  messages?: unknown[];
+  // ACTIVITY_SNAPSHOT / DELTA
+  activityType?: string;
+  patch?: unknown[];
+  replace?: boolean;
+  // REASONING_ENCRYPTED_VALUE
+  subtype?: string;
+  entityId?: string;
+  encryptedValue?: string;
   // CUSTOM
   name?: string;
   value?: unknown;
@@ -382,6 +407,10 @@ export interface AgUiRunState {
   metadata: Record<string, unknown> | null;
   /** A2UI surfaces received via CUSTOM events. */
   a2uiSurfaces: Map<string, A2uiSurfaceState>;
+  /** Accumulated reasoning/thinking text (from extended reasoning models). */
+  reasoningContent: string;
+  /** Activity annotations: messageId → activityType → content. */
+  activities: Map<string, { activityType: string; content: unknown }>;
 }
 
 // --- A2UI Protocol Types (Google A2UI v0.9) ---

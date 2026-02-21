@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, memo } from "react";
 import { GhostInput } from "./components/GhostInput";
-import { ResultsList } from "./components/ResultsList";
-import { ChatMessages } from "./components/ChatMessages";
-import { StatusBar } from "./components/StatusBar";
+import { ResultsList as _ResultsList } from "./components/ResultsList";
+import { ChatMessages as _ChatMessages } from "./components/ChatMessages";
+import { StatusBar as _StatusBar } from "./components/StatusBar";
 import { Settings } from "./components/Settings";
-import { DebugPanel } from "./components/DebugPanel";
+import { DebugPanel as _DebugPanel } from "./components/DebugPanel";
 import { Onboarding } from "./components/Onboarding";
 import { useSearch } from "./hooks/useSearch";
 import { useHotkey } from "./hooks/useHotkey";
@@ -13,6 +13,12 @@ import { usePlatform } from "./hooks/usePlatform";
 import { useUpdater } from "./hooks/useUpdater";
 import { UpdateNotification } from "./components/UpdateNotification";
 import { detectMode, type InputMode } from "./lib/detectMode";
+
+// Memoize heavy child components to prevent re-renders from parent state changes
+const ResultsList = memo(_ResultsList);
+const ChatMessages = memo(_ChatMessages);
+const StatusBar = memo(_StatusBar);
+const DebugPanel = memo(_DebugPanel);
 import {
   hideWindow,
   openFile,
@@ -85,13 +91,24 @@ export default function App() {
   // Effective mode: manual override wins, then auto-detected
   const activeMode = modeOverride ?? mode;
 
-  // --- Poll chat status ---
-  useEffect(() => {
-    const refresh = () => fetchChatStatus().then(setChatSt).catch(() => {});
-    refresh();
-    const id = setInterval(refresh, 2000);
-    return () => clearInterval(id);
+  // --- Smart adaptive chat status polling ---
+  // Polls quickly during loading (2s), slows to 10s when stable, stops when available.
+  // Immediate refresh triggered by user actions (sendStreaming, chatLoadModel).
+  const refreshChatStatus = useCallback(() => {
+    fetchChatStatus().then(setChatSt).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    refreshChatStatus();
+    // Adaptive interval: fast during loading, slow when idle
+    const getInterval = () => {
+      if (chatSt?.loading) return 2000;     // Loading → poll fast
+      if (chatSt?.available) return 30000;  // Ready → poll rarely (health check)
+      return 10000;                          // Not available → moderate poll
+    };
+    const id = setInterval(refreshChatStatus, getInterval());
+    return () => clearInterval(id);
+  }, [chatSt?.loading, chatSt?.available, refreshChatStatus]);
 
   // --- Auto-start watcher ---
   useEffect(() => {
@@ -361,7 +378,7 @@ export default function App() {
               </button>
             )}
             <span className="text-[10px] text-ghost-text-dim/30 font-mono">
-              v0.1.0
+              v{__APP_VERSION__}
             </span>
           </div>
         </div>
@@ -444,7 +461,7 @@ export default function App() {
             status={chatSt}
             tokensInfo={tokensInfo}
             error={chatError}
-            onRetryDownload={() => chatLoadModel().catch(() => {})}
+            onRetryDownload={() => chatLoadModel().then(refreshChatStatus).catch(() => {})}
             isMobile={platform.isMobile}
             a2uiSurfaces={runState?.a2uiSurfaces}
           />
