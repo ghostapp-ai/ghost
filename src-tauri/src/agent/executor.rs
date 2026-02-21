@@ -1358,7 +1358,8 @@ mod tests {
 
         let executor = AgentExecutor::new(state.clone());
 
-        // The run will fail (no model available in CI) but should emit RUN_STARTED + RUN_ERROR
+        // The run may fail (no model in CI) or succeed (model cached locally).
+        // Either way it MUST emit RUN_STARTED and then RUN_FINISHED or RUN_ERROR.
         let messages = vec![ChatMessage {
             role: "user".into(),
             content: "Hello".into(),
@@ -1367,19 +1368,19 @@ mod tests {
         let run_id = "test-run-001";
         let result = executor.run(run_id, &messages, None, event_bus).await;
 
-        // We expect an error since there's no model downloaded in test
-        assert!(result.is_err(), "Should fail without a downloaded model");
-
-        // But we should have received at least RUN_STARTED event
+        // Drain available events
         let mut got_run_started = false;
+        let mut got_run_finished = false;
         let mut got_run_error = false;
 
-        // Drain available events
         while let Ok(event) = rx.try_recv() {
             if event.run_id == run_id {
                 match event.event_type {
                     crate::protocols::agui::EventType::RunStarted => {
                         got_run_started = true;
+                    }
+                    crate::protocols::agui::EventType::RunFinished => {
+                        got_run_finished = true;
                     }
                     crate::protocols::agui::EventType::RunError => {
                         got_run_error = true;
@@ -1390,10 +1391,27 @@ mod tests {
         }
 
         assert!(got_run_started, "Should have emitted RUN_STARTED event");
-        assert!(
-            got_run_error,
-            "Should have emitted RUN_ERROR event on failure"
-        );
+
+        match result {
+            Ok(agent_result) => {
+                // Model was available — run completed successfully
+                assert!(
+                    got_run_finished,
+                    "Should have emitted RUN_FINISHED on success"
+                );
+                assert!(
+                    !agent_result.content.is_empty(),
+                    "Agent should have produced some content"
+                );
+            }
+            Err(_) => {
+                // Model not available — expect RUN_ERROR
+                assert!(
+                    got_run_error,
+                    "Should have emitted RUN_ERROR event on failure"
+                );
+            }
+        }
     }
 
     // ==========================================
