@@ -1,3 +1,15 @@
+## [0.13.5](https://github.com/ghostapp-ai/ghost/compare/v0.13.4...v0.13.5) (2026-02-21)
+
+### 🐛 Bug Fixes
+
+* **chat:** add CPU fallback when GPU model loading fails ([e49ceb3](https://github.com/ghostapp-ai/ghost/commit/e49ceb3561b76ecafed994511bcf411a06c2a0b7))
+* **inference:** prefer discrete GPU over integrated in detection ([b0ec1fb](https://github.com/ghostapp-ai/ghost/commit/b0ec1fb49411298be82b419e40b68f3def21a645))
+* **mcp:** detect Ghost-managed runtimes and suppress terminal windows ([7eb4ae7](https://github.com/ghostapp-ai/ghost/commit/7eb4ae7584e9124e7dcd65e989c681ad498a66fa))
+
+### ♻️ Code Refactoring
+
+* **ui:** make Ghost a normal desktop app with smart welcome ([54d77f8](https://github.com/ghostapp-ai/ghost/commit/54d77f83ab3c7108b89cd1e6255388d14699c375))
+
 ## [0.13.4](https://github.com/ghostapp-ai/ghost/compare/v0.13.3...v0.13.4) (2026-02-21)
 
 ### 🐛 Bug Fixes
