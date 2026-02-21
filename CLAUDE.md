@@ -68,10 +68,8 @@ src-tauri/src/
 │   ├── extractor.rs    # Text extraction (PDF, DOCX, XLSX, TXT)
 │   └── chunker.rs      # Text chunking strategy (512 tokens, 64 overlap)
 ├── db/
-│   ├── mod.rs          # Database initialization and migrations
-│   ├── schema.rs       # Table definitions and migrations
-│   ├── documents.rs    # Document CRUD operations
-│   └── search.rs       # FTS5 + sqlite-vec hybrid search queries
+│   ├── mod.rs          # Database initialization, migrations, and CRUD operations
+│   └── schema.rs       # Table definitions and migrations
 ├── embeddings/
 │   ├── mod.rs          # EmbeddingEngine (fallback chain: Native → Ollama → None)
 │   ├── native.rs       # Candle-based in-process BERT inference (all-MiniLM-L6-v2)
@@ -79,8 +77,9 @@ src-tauri/src/
 │   └── hardware.rs     # Hardware detection (CPU cores, SIMD, GPU backend, RAM)
 ├── chat/
 │   ├── mod.rs          # ChatEngine orchestration, model lifecycle, Ollama fallback
-│   ├── native.rs       # Candle GGUF inference (Qwen2.5-Instruct, any size)
-│   └── models.rs       # Model registry, auto-selection, HF Hub cache detection
+│   ├── native.rs       # llama-cpp-2 GGUF inference (Qwen2.5/3-Instruct, desktop-only)
+│   ├── models.rs       # Model registry, auto-selection, HF Hub cache detection
+│   └── inference.rs    # Hardware-adaptive inference profiles (GPU layers, threads, batch size)
 ├── search/
 │   ├── mod.rs          # Search engine combining FTS5 + vector
 │   └── ranking.rs      # RRF (Reciprocal Rank Fusion) implementation
@@ -90,23 +89,21 @@ src-tauri/src/
 │   ├── mcp_client.rs   # Ghost connects to external MCP servers (rmcp ClientHandler)
 │   ├── mcp_catalog.rs  # Curated MCP catalog (30+ servers) + one-click install + runtime detection
 │   ├── runtime_bootstrap.rs # Zero-config runtime installer (Node.js, uv/Python, Docker detection)
-│   ├── agui.rs         # AG-UI event system (~16 event types, bidirectional streaming)
-│   ├── a2ui.rs         # A2UI v0.9 generative UI (Google spec, JSON → React components)
-│   ├── a2a.rs          # (Phase 2) A2A Agent Card + task delegation
-│   ├── webmcp.rs       # (Phase 2.5) WebMCP browser bridge
-│   └── skills.rs       # Skills.md parser + skill registry
+│   ├── agui.rs         # AG-UI event system (30+ event types, broadcast bus, SSE endpoint)
+│   ├── a2ui.rs         # A2UI v0.9 generative UI types + component builders (Google spec)
+│   └── a2a.rs          # A2A v0.3.0 types (AgentCard, Task, JSON-RPC) + stub dispatcher
 ├── agent/              # (Phase 1.5+) Agent Engine — ReAct loop + tool calling
 │   ├── mod.rs          # Shared types (ToolCall, OllamaTool, AgentRunResult, ExecutedToolCall)
-│   ├── config.rs       # AgentConfig, hardware-adaptive model tiers (Qwen3 0.6B-32B)
-│   ├── executor.rs     # ReAct loop: Ollama /api/chat with tools[] + AG-UI streaming
+│   ├── config.rs       # AgentConfig, hardware-adaptive model tiers (Qwen2.5 0.5B-7B + Qwen3 0.6B-8B)
+│   ├── executor.rs     # ReAct loop: native llama-cpp-2 with GBNF grammar + AG-UI streaming
 │   ├── tools.rs        # Tool registry (6 built-in + MCP external), execution engine
 │   ├── safety.rs       # 3-tier risk classification (Safe/Moderate/Dangerous)
 │   ├── memory.rs       # Conversation persistence (SQLite + FTS5 search)
 │   └── skills.rs       # SKILL.md parser (YAML frontmatter), SkillRegistry, trigger matching
-└── automation/         # (Phase 2+) OS UI automation
-    ├── mod.rs
-    ├── windows.rs      # uiautomation crate wrapper
-    └── macos.rs        # AXUIElement wrapper (future)
+└── automation/         # (Phase 2+, NOT YET CREATED) OS UI automation
+    ├── mod.rs          # (planned)
+    ├── windows.rs      # (planned) uiautomation crate wrapper
+    └── macos.rs        # (planned) AXUIElement wrapper
 ```
 
 #### Rust Conventions

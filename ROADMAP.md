@@ -77,7 +77,7 @@
 
 ### Exit Criteria
 - [x] `bun run build` compiles frontend with zero errors (181KB JS bundle)
-- [x] `cargo test` passes all 27 tests
+- [x] `cargo test` passes all 215 tests
 - [x] `cargo check` compiles with zero errors, zero warnings
 - [ ] Insert 100 real documents from your machine *(manual validation pending)*
 - [ ] RAM usage idle <50MB *(benchmarking pending)*
@@ -396,7 +396,7 @@
   - True token-by-token streaming from Ollama (replace word-chunking)
 
 #### A2UI Renderer (Generative UI)
-- [x] **A2UI JSON → React component renderer**
+- [x] **A2UI JSON → React component renderer** *(types + renderer complete, not yet wired to agent output)*
   - Rust module `protocols/a2ui.rs` with full A2UI v0.9 types, serialization, component builders
   - 8 unit tests for serialization, round-trip, component builders, child lists
   - React `A2UIRenderer.tsx` maps A2UI JSON → native Tailwind components
@@ -407,13 +407,14 @@
   - `useAgui` hook processes A2UI createSurface/updateComponents/updateDataModel/deleteSurface
   - Theme integration with Ghost's CSS custom properties
   - +9.8 KB JS bundle cost (245.8 KB total, well within 500 KB budget)
+  - [ ] Agent executor emits A2UI surfaces for rich tool results (wiring pending)
 - [ ] **MCP Apps support**
   - Sandboxed iframe renderer for MCP App HTML content
   - Communication bridge: MCP App ↔ Ghost host via postMessage
   - Security: CSP headers, no external network access from sandbox
 
 #### Skills System
-- [x] **Skills.md format support**
+- [x] **Skills.md format support** *(implemented in `agent/skills.rs`, not `protocols/`)*
   - Define agent capabilities in markdown files (OpenClaw-compatible)
   - SKILL.md parser: YAML frontmatter (name, description, triggers, tools, enabled) + Markdown instructions body
   - Skill discovery: scan `~/.ghost/skills/` directory (configurable)
@@ -422,13 +423,13 @@
   - Three-tier loading: metadata (~100 tokens) → instructions (<5000 tokens) → resources
   - `list_skills` Tauri command for frontend
   - Community skills: shareable via Git repos
-  - 5 unit tests passing
+  - 6 unit tests passing
 
 ### Exit Criteria
 - [x] Claude Desktop can search local files through Ghost MCP server
 - [ ] Ghost chat can invoke tools from at least 2 external MCP servers
 - [x] AG-UI event stream renders streaming text + tool progress in React
-- [x] A2UI renders 17+ component types with full interactivity (Tabs active switching, inputs, data binding)
+- [x] A2UI renders 17+ component types with full interactivity (types + renderer — agent wiring pending)
 - [ ] <100ms overhead added by MCP protocol layer
 - [ ] Setup guide published for MCP server + client configuration
 
@@ -538,7 +539,7 @@
 
 ### Exit Criteria
 - [x] `bun run build` compiles frontend with zero errors (245.96 KB JS)
-- [x] `cargo check` + `cargo test` (34 tests) + `cargo clippy -- -D warnings` all pass clean
+- [x] `cargo check` + `cargo test` (248 tests) + `cargo clippy -- -D warnings` all pass clean
 - [x] All responsive adaptations compile and render correctly on desktop
 - [x] `tauri android build --target aarch64` produces a working APK (39MB) + AAB (16MB)
 - [ ] `tauri ios build` produces a working IPA (requires macOS)
@@ -553,12 +554,13 @@
 ### Technical Deliverables
 
 #### A2A Protocol (Agent-to-Agent Communication)
-- [x] **Ghost Agent Card**
+- [x] **Ghost Agent Card** *(types + endpoint live, task execution stubbed for Phase 2)*
   - Published `/.well-known/agent.json` (RFC 8615) at localhost MCP server port
-  - `protocols/a2a.rs`: full A2A v0.3.0 type system (AgentCard, Task, JSON-RPC 2.0)
+  - `protocols/a2a.rs`: full A2A v0.3.0 type system (AgentCard, Task, JSON-RPC 2.0, 5 tests)
   - Advertises Ghost's capabilities (file-search, file-read, shell-command, mcp-tools skills)
-  - A2A JSON-RPC endpoint at `/a2a` (stub dispatcher — full task wiring is Phase 2)
-  - OAuth 2.0 / API key authentication deferred to Phase 2
+  - A2A JSON-RPC endpoint at `/a2a` — `dispatch_request()` returns "Phase 2 planned" errors
+  - [ ] Wire A2A dispatcher to agent executor for real task execution
+  - [ ] OAuth 2.0 / API key authentication
 - [ ] **A2A Client**
   - Discover and connect to other A2A-compatible agents (OpenClaw, NanoClaw instances)
   - Task delegation: send tasks to specialized remote agents
@@ -593,7 +595,7 @@
   - Pipe-based installer detection (curl | sh, wget | bash)
   - External MCP tools classified as Moderate by default
   - Human-in-the-loop: approval events emitted via AG-UI CUSTOM for dangerous actions
-  - 7 unit tests passing
+  - 8 unit tests passing
 - [x] **Conversation memory (SQLite)**
   - conversations + messages tables with FTS5 search
   - Full CRUD: create, list, get messages, delete, update title
