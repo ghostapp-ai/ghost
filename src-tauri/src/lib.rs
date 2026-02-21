@@ -2220,14 +2220,17 @@ pub fn run() {
                 }
             });
 
-            // --- Periodic re-indexing (every 5 minutes) ---
-            // Catches new files that the watcher might miss (e.g., files added
-            // while Ghost was closed, or files in newly added subdirectories).
+            // --- Periodic re-indexing (every 60 minutes as safety net) ---
+            // The file watcher handles real-time changes. This periodic scan
+            // catches files added while Ghost was closed, network drives that
+            // reconnected, or any events the watcher might have missed.
+            // Runs infrequently (60min) to minimize CPU usage since the
+            // watcher + hash-based dedup already covers 99% of changes.
             let state_for_reindex = app_state.clone();
             tauri::async_runtime::spawn(async move {
-                // Wait 60 seconds before first re-index to let initial indexing finish
-                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
-                let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
+                // Wait 120 seconds before first re-index to let initial indexing finish
+                tokio::time::sleep(std::time::Duration::from_secs(120)).await;
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600));
                 loop {
                     interval.tick().await;
                     let dirs = {

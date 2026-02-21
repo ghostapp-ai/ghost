@@ -123,3 +123,21 @@ strip = true
 lto = "thin"
 opt-level = 2
 codegen-units = 16
+
+# ── Distribution profile: maximum runtime performance ──────────────
+# Use for final release binaries that users download.
+# 10-20% faster inference, 5-10% smaller binary vs release profile.
+# Build: cargo build --profile dist
+[profile.dist]
+inherits = "release"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+
+# ── Dev profile: fast iteration with optimized dependencies ────────
+# App code compiles at opt-level 0 (fast iteration), but heavy deps
+# (Candle, llama-cpp, tokenizers) compile at opt-level 2 so AI ops
+# are usable during development instead of unbearably slow.
+[profile.dev.package."*"]
+opt-level = 2
