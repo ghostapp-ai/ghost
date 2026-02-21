@@ -10,7 +10,7 @@ export default defineConfig({
     starlight({
       title: "Ghost",
       description:
-        "Ghost is a private, local-first Agent OS for desktop and mobile. Run AI agents, search files semantically, and connect to thousands of tools — all without sending data to the cloud.",
+        "Ghost is a private, local-first Agent OS for desktop and mobile. The first app implementing the complete 2026 agent protocol stack — MCP, MCP Apps, AG-UI, A2UI, A2A. Run AI agents, search files semantically, and connect to thousands of tools with on-device inference.",
       logo: {
         src: "./src/assets/ghost-icon.svg",
         replacesTitle: false,
@@ -100,7 +100,7 @@ export default defineConfig({
           attrs: {
             name: "keywords",
             content:
-              "ghost,agent os,local ai,private ai,mcp,desktop ai,semantic search,vector search,tauri,rust,on-device ai,open source,privacy first,local first,agentic,tool calling,protocol hub",
+              "ghost,agent os,local ai,private ai,mcp,mcp apps,desktop ai,semantic search,vector search,tauri,rust,on-device ai,on-device inference,sovereign ai,open source,privacy first,local first,agentic,tool calling,agent orchestration,protocol hub,generative ui,a2ui,ag-ui,a2a",
           },
         },
         {
@@ -131,14 +131,14 @@ export default defineConfig({
             applicationSubCategory: "AI Agent",
             operatingSystem: "Windows, macOS, Linux, Android",
             description:
-              "Ghost is a private, local-first Agent OS for desktop and mobile. Index files, run AI agents, connect to 10,000+ tools via open protocols — all without sending data to the cloud.",
+              "Ghost is a private, local-first Agent OS for desktop and mobile. The first app with the complete 2026 agent protocol stack (MCP, MCP Apps, AG-UI, A2UI, A2A). On-device inference, zero cloud, zero telemetry.",
             url: "https://ghostapp-ai.github.io/ghost",
             downloadUrl:
               "https://github.com/ghostapp-ai/ghost/releases/latest",
             softwareVersion: "0.11.0",
             license: "https://opensource.org/licenses/MIT",
             featureList:
-              "Hybrid search (FTS5 + vector), Native AI inference, ReAct agent engine, MCP protocol hub, AG-UI streaming, A2UI generative UI, Skills system, Zero telemetry, Cross-platform",
+              "Hybrid search (FTS5 + vector), Native AI inference, ReAct agent engine, MCP protocol hub, MCP Apps renderer, AG-UI streaming, A2UI generative UI, A2A multi-agent, Skills system, Zero telemetry, Cross-platform, On-device inference",
             author: {
               "@type": "Organization",
               name: "ghostapp-ai",

@@ -1,9 +1,9 @@
 ---
 title: Ghost — The Private Agent OS
-description: "Ghost is a private, local-first Agent OS for desktop and mobile. Index your files, connect to 10,000+ tools via open protocols, and run AI agents — all without sending data to the cloud. Available for Windows, macOS, Linux, and Android."
+description: "Ghost is a private, local-first Agent OS for desktop and mobile. The first app implementing the complete 2026 agent protocol stack (MCP, MCP Apps, AG-UI, A2UI, A2A). Index your files, connect to 10,000+ tools, and run AI agents — all without sending data to the cloud."
 template: splash
 hero:
-  tagline: "Your data never leaves your machine. Ghost runs AI locally — search, chat, and automate without the cloud."
+  tagline: "The first desktop app with the complete agent protocol stack. Search, chat, and automate — 100% on your hardware."
   image:
     file: ../../assets/ghost-icon.svg
   actions:
@@ -21,7 +21,7 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 <a href="https://github.com/ghostapp-ai/ghost/releases/latest" class="eyebrow-banner">
   <span class="badge">NEW</span>
-  v0.11 — Agent Engine + A2UI Generative UI + Skills System →
+  v0.11 — MCP + AG-UI + A2UI + ReAct Agent + Skills · MCP Apps coming next →
 </a>
 
 <div class="stats-row">
@@ -104,14 +104,15 @@ The **ReAct agent** reasons, calls tools, observes results, and iterates — wit
 
 <hr class="section-divider" />
 
-## The Protocol Stack
+## The Complete 2026 Agent Protocol Stack
 
-Ghost implements 5 open protocols to connect with the entire AI ecosystem — locally.
+Ghost is the first desktop app implementing every major agent protocol — locally.
 
 <div class="protocol-stack">
   <div class="protocol-layer">🌐 <strong>WebMCP</strong> — W3C browser tool contracts · navigator.modelContext API</div>
   <div class="protocol-layer">🤝 <strong>A2A</strong> — Agent-to-Agent coordination · JSON-RPC 2.0 · Agent Cards</div>
   <div class="protocol-layer">🎨 <strong>A2UI</strong> — Generative UI · 17+ component types · data binding</div>
+  <div class="protocol-layer">📦 <strong>MCP Apps</strong> — Interactive tool UIs · sandboxed iframes · official MCP extension</div>
   <div class="protocol-layer">📡 <strong>AG-UI</strong> — Agent↔User streaming · ~16 event types · bidirectional</div>
   <div class="protocol-layer">🔧 <strong>MCP</strong> — Model Context Protocol · 10,000+ servers · rmcp SDK</div>
 </div>

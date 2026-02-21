@@ -57,8 +57,13 @@
     "skills-system",
     "file-search",
     "knowledge-base",
-    "react-loop",
-    "tool-calling"
+    "react-agent",
+    "tool-calling",
+    "mcp-apps",
+    "agent-orchestration",
+    "sovereign-ai",
+    "on-device-inference",
+    "generative-ui"
   ],
   "type": "module",
   "scripts": {

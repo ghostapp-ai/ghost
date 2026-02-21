@@ -2,8 +2,8 @@
 
 > Ghost is a private, local-first **Agent OS** for desktop (Windows, macOS, Linux) and mobile (Android, iOS).
 > It indexes local files, provides hybrid semantic + keyword search, connects to 10,000+ tools via
-> open protocols (MCP, A2A, AG-UI, A2UI, WebMCP), and evolves into a full AI agent that takes
-> actions on your behalf — all without sending data to the cloud.
+> the complete 2026 agent protocol stack (MCP, MCP Apps, AG-UI, A2UI, A2A, WebMCP), and runs AI agents
+> that take actions on your behalf — all with on-device inference, zero cloud dependencies.
 
 ## Key Facts
 
@@ -24,7 +24,7 @@ Ghost uses a 6-layer Agent OS architecture:
 2. **AG-UI Runtime**: Bidirectional agent↔user streaming (~16 event types via CopilotKit protocol)
 3. **IPC Bridge**: Tauri v2 command system (type-safe invoke)
 4. **Agent Engine**: ReAct loop with native llama.cpp grammar-constrained tool calling, 3-tier safety, conversation memory
-5. **Protocol Hub**: MCP Server + Client (rmcp), A2A (Google), AG-UI (CopilotKit), A2UI (Google), WebMCP (W3C)
+5. **Protocol Hub**: MCP Server + Client (rmcp), MCP Apps (coming), A2A (Google), AG-UI (CopilotKit), A2UI (Google), WebMCP (W3C)
 6. **Core Engine + AI Layer**: File watcher, text extraction, Candle embeddings (all-MiniLM-L6-v2 384D), Qwen2.5-Instruct GGUF (0.5B–7B), sqlite-vec, FTS5
 
 ## Core Features
@@ -36,6 +36,7 @@ Ghost uses a 6-layer Agent OS architecture:
 - **MCP Protocol Hub**: Server (expose Ghost tools) + Client (connect to 10,000+ external MCP servers) via rmcp
 - **AG-UI Streaming**: ~16 event types, SSE endpoint, Tauri IPC events, useAgui React hook
 - **A2UI Renderer**: Google A2UI v0.9 — 17+ component types rendered as React/Tailwind with data binding
+- **MCP Apps**: Sandboxed interactive tool UIs rendered in-conversation (official MCP extension, coming next)
 - **Skills System**: SKILL.md parser with YAML frontmatter, trigger matching, SkillRegistry
 - **Spotlight-like UX**: Ctrl/Cmd+Space floating window, auto-hide, keyboard-first
 - **File Indexing**: PDF, DOCX, XLSX, TXT, Markdown, 50+ code file types
@@ -46,6 +47,7 @@ Ghost uses a 6-layer Agent OS architecture:
 | Protocol | Standard | Purpose |
 | --- | --- | --- |
 | MCP | Linux Foundation / AAIF | Tool integration (10,000+ servers) |
+| MCP Apps | Anthropic / MCP Extension | Interactive tool UIs in-conversation |
 | AG-UI | CopilotKit (MIT) | Agent↔user real-time streaming |
 | A2UI | Google (Apache 2.0) | Generative UI from JSON |
 | A2A | Google / Linux Foundation | Multi-agent coordination |

@@ -40,7 +40,7 @@ Ghost is a private, local-first **Agent OS** for desktop and mobile. It indexes 
 
 **Your data should never leave your machine to get things done.**
 
-Ghost runs AI natively on your hardware — no cloud APIs, no GPU requirements, no external dependencies. From semantic search to agentic tool calling, everything happens locally.
+Ghost runs AI natively on your hardware — no cloud APIs, no GPU requirements, no external dependencies. From semantic search to agentic tool calling, everything happens locally. It speaks the complete 2026 agent protocol stack (MCP, AG-UI, A2UI, A2A) so you connect to every AI ecosystem without giving up privacy.
 
 ## Features
 
@@ -58,13 +58,14 @@ Ghost runs AI natively on your hardware — no cloud APIs, no GPU requirements, 
 - Zero-config: detect hardware → select model → download from HuggingFace Hub → load in background
 - Graceful fallback: Native GGUF → Ollama HTTP → offline mode
 
-### Protocols — Open & Interoperable
+### Protocols — The Complete 2026 Agent Stack
 
-Ghost speaks every major agent protocol — no vendor lock-in, no proprietary APIs.
+Ghost is the first desktop app implementing every major agent protocol — no vendor lock-in, no proprietary APIs.
 
 | Protocol | Status | What it does |
 |----------|--------|--------------|
 | **MCP** | ✅ Server + Client | Expose Ghost tools + connect to 10,000+ external servers via `rmcp` |
+| **MCP Apps** | 🔜 Next | Render interactive tool UIs in-conversation (official MCP extension) |
 | **AG-UI** | ✅ Runtime | Bidirectional agent↔user streaming — ~16 event types, SSE endpoint |
 | **A2UI** | ✅ Renderer | Generative UI — 17+ component types rendered natively as React/Tailwind |
 | **Skills** | ✅ Registry | YAML frontmatter skill definitions + trigger matching |
@@ -82,7 +83,7 @@ Ghost speaks every major agent protocol — no vendor lock-in, no proprietary AP
 
 See [**ROADMAP.md →**](ROADMAP.md) for the full development plan.
 
-- **Next**: A2A multi-agent coordination, MCP Apps, OS UI automation
+- **Next**: MCP Apps interactive UIs, A2A multi-agent coordination, OS UI automation
 - **Then**: WebMCP browser bridge, Skills Marketplace, B2B/Teams
 
 ## Architecture
@@ -103,7 +104,7 @@ Ghost uses a 6-layer **Agent OS** architecture where each layer is independently
 │  Executor │ Tools │ Safety │ Memory │ Skills           │
 ├──────────────────────────────────────────────────────┤
 │              Protocol Hub (Rust — rmcp + custom)       │
-│  MCP Server │ MCP Client │ A2A │ WebMCP │ Skills       │
+│  MCP Server │ MCP Client │ MCP Apps │ A2A │ WebMCP     │
 ├──────────────────────────────────────────────────────┤
 │              Core Engine (Rust)                        │
 │  File Watcher │ Text Extractor │ Embedding Engine      │
@@ -136,7 +137,7 @@ The Fast Layer uses OS accessibility APIs and FTS5 keyword search. The Smart Lay
 | Database | SQLite + sqlite-vec + FTS5 | Vectors + text + metadata in one `.db` |
 | Embeddings | Candle + all-MiniLM-L6-v2 | 384D, ~23MB, in-process, zero deps |
 | Chat / Agent | Candle GGUF + Qwen2.5-Instruct | 0.5B–7B tiers, tool calling, ReAct |
-| Protocols | rmcp · AG-UI · A2UI · A2A | MCP server+client, streaming, gen UI |
+| Protocols | rmcp · AG-UI · A2UI · MCP Apps · A2A | MCP server+client, streaming, gen UI |
 | Extraction | lopdf · zip · calamine | PDF, DOCX, XLSX — pure Rust |
 
 ## Download
