@@ -17,3 +17,18 @@ pre-commit:
     - name: ts-check
       glob: "*.{ts,tsx}"
       run: bun run build
+
+# ── Pre-push: heavier checks that mirror CI ──
+# Prevents clippy/test failures from reaching GitHub.
+pre-push:
+  parallel: true
+  jobs:
+    - name: cargo-clippy
+      glob: "*.rs"
+      root: "src-tauri/"
+      run: cargo clippy --tests -- -D warnings
+
+    - name: cargo-test
+      glob: "*.rs"
+      root: "src-tauri/"
+      run: cargo test

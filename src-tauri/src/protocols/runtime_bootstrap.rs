@@ -1350,7 +1350,7 @@ mod tests {
     fn runtime_kind_clone_copy() {
         let a = RuntimeKind::Node;
         let b = a; // Copy
-        let c = a.clone(); // Clone
+        let c = a; // Copy (not clone — RuntimeKind is Copy)
         assert_eq!(a, b);
         assert_eq!(b, c);
     }
@@ -2672,20 +2672,22 @@ mod tests {
         assert!(result.status.installed);
         assert!(result.status.managed);
 
-        // Verify progress stages
-        let stages = stages.lock().unwrap();
-        assert!(
-            stages.contains(&"downloading".to_string()),
-            "Should have downloading stage"
-        );
-        assert!(
-            stages.contains(&"extracting".to_string()),
-            "Should have extracting stage"
-        );
-        assert!(
-            stages.contains(&"complete".to_string()),
-            "Should have complete stage"
-        );
+        // Verify progress stages (scoped to drop MutexGuard before await)
+        {
+            let stages = stages.lock().unwrap();
+            assert!(
+                stages.contains(&"downloading".to_string()),
+                "Should have downloading stage"
+            );
+            assert!(
+                stages.contains(&"extracting".to_string()),
+                "Should have extracting stage"
+            );
+            assert!(
+                stages.contains(&"complete".to_string()),
+                "Should have complete stage"
+            );
+        }
 
         // Verify uv binary works
         let status = bs.detect_uv().await;
@@ -2724,11 +2726,13 @@ mod tests {
         assert!(result.status.installed);
         assert!(result.status.managed);
 
-        // Verify progress stages
-        let stages = stages.lock().unwrap();
-        assert!(stages.contains(&"downloading".to_string()));
-        assert!(stages.contains(&"extracting".to_string()));
-        assert!(stages.contains(&"complete".to_string()));
+        // Verify progress stages (scoped to drop MutexGuard before await)
+        {
+            let stages = stages.lock().unwrap();
+            assert!(stages.contains(&"downloading".to_string()));
+            assert!(stages.contains(&"extracting".to_string()));
+            assert!(stages.contains(&"complete".to_string()));
+        }
 
         // Verify node binary works
         let status = bs.detect_node().await;
