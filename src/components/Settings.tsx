@@ -17,9 +17,6 @@ import {
   Monitor,
   Zap,
   Plug,
-  Play,
-  Square,
-  AlertCircle,
 } from "lucide-react";
 import {
   getSettings,
@@ -34,23 +31,17 @@ import {
   addWatchDirectory,
   removeWatchDirectory,
   getMcpServerStatus,
-  listMcpServers,
-  connectMcpServer,
-  disconnectMcpServer,
-  addMcpServerEntry,
-  removeMcpServerEntry,
 } from "../lib/tauri";
 import { usePlatform } from "../hooks/usePlatform";
 import { useUpdater } from "../hooks/useUpdater";
 import { CheckUpdateButton } from "./UpdateNotification";
+import { McpAppStore } from "./McpAppStore";
 import type {
   Settings as SettingsType,
   ModelInfo,
   HardwareInfo,
   FsEntry,
   McpServerStatus,
-  ConnectedServer,
-  McpServerEntry,
 } from "../lib/types";
 
 interface SettingsProps {
@@ -772,84 +763,14 @@ function DirectoriesTab({
 
 function McpTab({ onError }: { onError: (msg: string) => void }) {
   const [serverStatus, setServerStatus] = useState<McpServerStatus | null>(null);
-  const [servers, setServers] = useState<ConnectedServer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
-
-  // Form state for adding a new server
-  const [newName, setNewName] = useState("");
-  const [newTransport, setNewTransport] = useState<"stdio" | "http">("stdio");
-  const [newCommand, setNewCommand] = useState("");
-  const [newArgs, setNewArgs] = useState("");
-  const [newUrl, setNewUrl] = useState("");
-
-  const refresh = useCallback(async () => {
-    try {
-      const [status, srvs] = await Promise.all([
-        getMcpServerStatus(),
-        listMcpServers(),
-      ]);
-      setServerStatus(status);
-      setServers(srvs);
-    } catch (e) {
-      onError(String(e));
-    }
-  }, [onError]);
 
   useEffect(() => {
-    refresh().finally(() => setLoading(false));
-  }, [refresh]);
-
-  const handleConnect = async (name: string) => {
-    try {
-      await connectMcpServer(name);
-      await refresh();
-    } catch (e) {
-      onError(String(e));
-    }
-  };
-
-  const handleDisconnect = async (name: string) => {
-    try {
-      await disconnectMcpServer(name);
-      await refresh();
-    } catch (e) {
-      onError(String(e));
-    }
-  };
-
-  const handleRemove = async (name: string) => {
-    try {
-      await removeMcpServerEntry(name);
-      await refresh();
-    } catch (e) {
-      onError(String(e));
-    }
-  };
-
-  const handleAdd = async () => {
-    if (!newName.trim()) return;
-    const entry: McpServerEntry = {
-      name: newName.trim(),
-      transport: newTransport,
-      command: newTransport === "stdio" ? newCommand.trim() || null : null,
-      args: newTransport === "stdio" ? newArgs.split(/\s+/).filter(Boolean) : [],
-      url: newTransport === "http" ? newUrl.trim() || null : null,
-      enabled: true,
-      env: {},
-    };
-    try {
-      await addMcpServerEntry(entry);
-      setShowAdd(false);
-      setNewName("");
-      setNewCommand("");
-      setNewArgs("");
-      setNewUrl("");
-      await refresh();
-    } catch (e) {
-      onError(String(e));
-    }
-  };
+    getMcpServerStatus()
+      .then(setServerStatus)
+      .catch((e) => onError(String(e)))
+      .finally(() => setLoading(false));
+  }, [onError]);
 
   if (loading) {
     return (
@@ -893,183 +814,8 @@ function McpTab({ onError }: { onError: (msg: string) => void }) {
         </div>
       </Section>
 
-      {/* External MCP Servers */}
-      <Section title="External MCP Servers" icon={<Zap className="w-4 h-4" />}>
-        <p className="text-xs text-ghost-text-dim mb-3">
-          Connect to external MCP servers (GitHub, filesystem, databases, etc.)
-        </p>
-
-        {servers.length === 0 && !showAdd && (
-          <div className="px-4 py-8 bg-ghost-bg rounded-xl border border-ghost-border text-center">
-            <Plug className="w-8 h-8 text-ghost-text-dim/20 mx-auto mb-2" />
-            <p className="text-sm text-ghost-text-dim">No external MCP servers configured</p>
-            <p className="text-xs text-ghost-text-dim/60 mt-1">
-              Add servers to extend Ghost with external tools
-            </p>
-          </div>
-        )}
-
-        {servers.map((server) => (
-          <div
-            key={server.name}
-            className="flex items-center gap-3 px-4 py-3 bg-ghost-bg rounded-xl border border-ghost-border mb-2"
-          >
-            <span
-              className={`w-2 h-2 rounded-full shrink-0 ${
-                server.connected ? "bg-green-400" : "bg-ghost-text-dim/30"
-              }`}
-            />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-ghost-text truncate">
-                  {server.name}
-                </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-ghost-surface-hover text-ghost-text-dim">
-                  {server.transport}
-                </span>
-              </div>
-              {server.connected && server.tools.length > 0 && (
-                <p className="text-xs text-ghost-text-dim mt-0.5">
-                  {server.tools.length} tool{server.tools.length !== 1 ? "s" : ""} available
-                </p>
-              )}
-              {server.error && (
-                <p className="text-xs text-ghost-danger mt-0.5 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  {server.error}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {server.connected ? (
-                <button
-                  onClick={() => handleDisconnect(server.name)}
-                  className="p-1.5 rounded-lg text-ghost-text-dim hover:text-ghost-danger hover:bg-ghost-danger/10 transition-all"
-                  title="Disconnect"
-                >
-                  <Square className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleConnect(server.name)}
-                  className="p-1.5 rounded-lg text-ghost-text-dim hover:text-ghost-accent hover:bg-ghost-accent/10 transition-all"
-                  title="Connect"
-                >
-                  <Play className="w-3.5 h-3.5" />
-                </button>
-              )}
-              <button
-                onClick={() => handleRemove(server.name)}
-                className="p-1.5 rounded-lg text-ghost-text-dim hover:text-ghost-danger hover:bg-ghost-danger/10 transition-all"
-                title="Remove"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {/* Add Server Form */}
-        {showAdd ? (
-          <div className="px-4 py-4 bg-ghost-bg rounded-xl border border-ghost-accent/30 space-y-3">
-            <div>
-              <label className="text-xs text-ghost-text-dim block mb-1">Name</label>
-              <input
-                type="text"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g. github, filesystem"
-                className="w-full px-3 py-2 bg-ghost-surface border border-ghost-border rounded-lg text-sm text-ghost-text outline-none focus:border-ghost-accent/50"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-ghost-text-dim block mb-1">Transport</label>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setNewTransport("stdio")}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm border transition-all ${
-                    newTransport === "stdio"
-                      ? "bg-ghost-accent/10 border-ghost-accent/30 text-ghost-accent"
-                      : "bg-ghost-surface border-ghost-border text-ghost-text-dim hover:border-ghost-border"
-                  }`}
-                >
-                  stdio
-                </button>
-                <button
-                  onClick={() => setNewTransport("http")}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm border transition-all ${
-                    newTransport === "http"
-                      ? "bg-ghost-accent/10 border-ghost-accent/30 text-ghost-accent"
-                      : "bg-ghost-surface border-ghost-border text-ghost-text-dim hover:border-ghost-border"
-                  }`}
-                >
-                  HTTP
-                </button>
-              </div>
-            </div>
-            {newTransport === "stdio" ? (
-              <>
-                <div>
-                  <label className="text-xs text-ghost-text-dim block mb-1">Command</label>
-                  <input
-                    type="text"
-                    value={newCommand}
-                    onChange={(e) => setNewCommand(e.target.value)}
-                    placeholder="e.g. npx, uvx, node"
-                    className="w-full px-3 py-2 bg-ghost-surface border border-ghost-border rounded-lg text-sm text-ghost-text outline-none focus:border-ghost-accent/50"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-ghost-text-dim block mb-1">
-                    Arguments <span className="text-ghost-text-dim/40">(space separated)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={newArgs}
-                    onChange={(e) => setNewArgs(e.target.value)}
-                    placeholder="e.g. -y @modelcontextprotocol/server-filesystem /home"
-                    className="w-full px-3 py-2 bg-ghost-surface border border-ghost-border rounded-lg text-sm text-ghost-text outline-none focus:border-ghost-accent/50"
-                  />
-                </div>
-              </>
-            ) : (
-              <div>
-                <label className="text-xs text-ghost-text-dim block mb-1">URL</label>
-                <input
-                  type="text"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  placeholder="e.g. http://localhost:3000/mcp"
-                  className="w-full px-3 py-2 bg-ghost-surface border border-ghost-border rounded-lg text-sm text-ghost-text outline-none focus:border-ghost-accent/50"
-                />
-              </div>
-            )}
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={handleAdd}
-                disabled={!newName.trim()}
-                className="flex-1 px-3 py-2 bg-ghost-accent text-ghost-bg rounded-lg text-sm font-medium disabled:opacity-40 hover:bg-ghost-accent/90 transition-all"
-              >
-                Add Server
-              </button>
-              <button
-                onClick={() => setShowAdd(false)}
-                className="px-3 py-2 bg-ghost-surface border border-ghost-border text-ghost-text-dim rounded-lg text-sm hover:bg-ghost-surface-hover transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2.5 w-full bg-ghost-bg border border-dashed border-ghost-border rounded-xl text-sm text-ghost-text-dim hover:text-ghost-text hover:border-ghost-accent/30 transition-all mt-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add External MCP Server
-          </button>
-        )}
-      </Section>
+      {/* MCP App Store */}
+      <McpAppStore onError={onError} />
     </div>
   );
 }
