@@ -240,31 +240,32 @@ jobs:
       - name: Install frontend deps
         run: bun install
 
-      # ── Windows: force dynamic CRT (/MD) for all C++ compiled by
-      #    llama-cpp-sys-2 (both CMake and cc::Build code paths).
-      #    Without this, CMake Release defaults to /MT (static CRT →
+      # ── Windows: force dynamic CRT (/MD) + Ninja generator for all C++
+      #    compiled by llama-cpp-sys-2 (both CMake and cc::Build code paths).
+      #
+      #    CRT linkage: Without /MD, CMake Release defaults to /MT (static CRT →
       #    libcpmt.lib), which conflicts with Rust's /MD (dynamic CRT →
       #    msvcprt.lib) and causes LNK2005 "multiply defined symbols".
       #    CMAKE_MSVC_RUNTIME_LIBRARY is forwarded to CMake automatically
       #    by the llama-cpp-sys-2 build script (it forwards all CMAKE_* vars).
       #    CFLAGS/CXXFLAGS cover the cc::Build wrapper compilation step.
       #
-      #    /Z7 embeds debug info into .obj files (no shared .pdb file).
-      #    This avoids C1041 "cannot open program database" caused by:
-      #    1. llama.cpp's CMakeLists adding /MP via add_definitions()
-      #       (fixed upstream in 7ea15bb6, not yet in llama-cpp-sys-2 v0.1.135)
-      #    2. sccache stripping /FS and /MP flags from cl.exe invocations
-      #       (sccache treats them as IgnoreWithSuffix / Ignore)
-      #    3. cmake ExternalProject (vulkan-shaders-gen) sub-builds
-      #       inheriting /MP without /FS, causing PDB write races.
-      #    /Z7 eliminates the PDB file entirely — no races possible.
-      #    cmake-level parallelism is preserved via CMAKE_BUILD_PARALLEL_LEVEL
-      #    (set automatically by llama-cpp-sys-2 build.rs).
+      #    Ninja generator: The default Visual Studio generator uses MSBuild,
+      #    which parallelizes TryCompile internally. Combined with sccache
+      #    (which silently strips /FS and /MP flags — sccache#1012), this
+      #    causes C1041 "cannot open program database" PDB race conditions
+      #    in cmake ExternalProject sub-builds (vulkan-shaders-gen).
+      #    Ninja avoids this entirely — no MSBuild, no PDB races.
+      #    Ninja is pre-installed on GitHub Actions Windows runners.
+      #
+      #    /Z7 embeds debug info into .obj files (no shared .pdb file)
+      #    as a defense-in-depth measure for any remaining cl.exe invocations.
       - name: Configure Windows CRT linkage
         if: runner.os == 'Windows'
         shell: bash
         run: |
           echo "CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL" >> "$GITHUB_ENV"
+          echo "CMAKE_GENERATOR=Ninja" >> "$GITHUB_ENV"
           echo "CFLAGS=/MD /Z7"   >> "$GITHUB_ENV"
           echo "CXXFLAGS=/MD /Z7" >> "$GITHUB_ENV"
 
