@@ -3,17 +3,20 @@
 //! Implements the AG-UI event-based protocol for real-time bidirectional
 //! communication between the Ghost agent (Rust backend) and the React frontend.
 //!
-//! AG-UI defines 17 event types across 5 categories:
-//! - Lifecycle: RUN_STARTED, RUN_FINISHED, RUN_ERROR, STEP_STARTED, STEP_FINISHED
-//! - Text Messages: TEXT_MESSAGE_START, TEXT_MESSAGE_CONTENT, TEXT_MESSAGE_END
-//! - Tool Calls: TOOL_CALL_START, TOOL_CALL_ARGS, TOOL_CALL_END
-//! - State Management: STATE_SNAPSHOT, STATE_DELTA
-//! - Special: RAW, CUSTOM
+//! AG-UI defines 30+ event types across 7 categories:
+//! - Lifecycle:      RUN_STARTED, RUN_FINISHED, RUN_ERROR, STEP_STARTED, STEP_FINISHED
+//! - Text Messages:  TEXT_MESSAGE_START, TEXT_MESSAGE_CONTENT, TEXT_MESSAGE_END, TEXT_MESSAGE_CHUNK
+//! - Tool Calls:     TOOL_CALL_START, TOOL_CALL_ARGS, TOOL_CALL_END, TOOL_CALL_RESULT
+//! - State:          STATE_SNAPSHOT, STATE_DELTA, MESSAGES_SNAPSHOT
+//! - Activity:       ACTIVITY_SNAPSHOT, ACTIVITY_DELTA
+//! - Reasoning:      REASONING_START, REASONING_MESSAGE_START, REASONING_MESSAGE_CONTENT,
+//!   REASONING_MESSAGE_END, REASONING_END, REASONING_ENCRYPTED_VALUE
+//! - Special:        RAW, CUSTOM
 //!
 //! Transport: Tauri events (frontend↔backend IPC) for desktop use.
 //! The protocol is also exposed via SSE on the MCP HTTP server for external clients.
 //!
-//! Reference: https://docs.ag-ui.com/
+//! Reference: https://docs.ag-ui.com/concepts/events
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -24,7 +27,7 @@ use tokio::sync::broadcast;
 use crate::AppState;
 
 // ---------------------------------------------------------------------------
-// AG-UI Event Types (all 17 per spec)
+// AG-UI Event Types (30+ per spec)
 // ---------------------------------------------------------------------------
 
 /// AG-UI event type discriminator.
@@ -41,13 +44,32 @@ pub enum EventType {
     TextMessageStart,
     TextMessageContent,
     TextMessageEnd,
+    /// Convenience chunk: combines Start + Content (or just Content).
+    TextMessageChunk,
     // Tool call events
     ToolCallStart,
     ToolCallArgs,
     ToolCallEnd,
+    /// Tool result (after execution) — includes content + role.
+    ToolCallResult,
+    /// Convenience chunk: combines Start + Args.
+    ToolCallChunk,
     // State management events
     StateSnapshot,
     StateDelta,
+    /// Snapshot of all messages in the thread.
+    MessagesSnapshot,
+    // Activity events (agent thought annotations, citations, etc.)
+    ActivitySnapshot,
+    ActivityDelta,
+    // Reasoning/thinking events (extended reasoning models)
+    ReasoningStart,
+    ReasoningMessageStart,
+    ReasoningMessageContent,
+    ReasoningMessageEnd,
+    ReasoningEnd,
+    /// Encrypted reasoning for API-level privacy.
+    ReasoningEncryptedValue,
     // Special events
     Raw,
     Custom,
@@ -140,10 +162,87 @@ pub enum EventPayload {
         #[serde(skip_serializing_if = "Option::is_none")]
         result: Option<String>,
     },
+    /// TOOL_CALL_RESULT — structured result after execution.
+    ToolCallResult {
+        #[serde(rename = "messageId")]
+        message_id: String,
+        #[serde(rename = "toolCallId")]
+        tool_call_id: String,
+        /// The tool result content (text or JSON).
+        content: serde_json::Value,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        role: Option<String>,
+    },
+    /// TOOL_CALL_CHUNK — convenience event combining Start + Args.
+    ToolCallChunk {
+        #[serde(rename = "toolCallId", skip_serializing_if = "Option::is_none")]
+        tool_call_id: Option<String>,
+        #[serde(rename = "toolCallName", skip_serializing_if = "Option::is_none")]
+        tool_call_name: Option<String>,
+        #[serde(rename = "parentMessageId", skip_serializing_if = "Option::is_none")]
+        parent_message_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        delta: Option<String>,
+    },
     /// STATE_SNAPSHOT — full state replacement.
     StateSnapshot { snapshot: serde_json::Value },
-    /// STATE_DELTA — incremental state update (JSON Patch).
+    /// STATE_DELTA — incremental state update (JSON Patch, RFC 6902).
     StateDelta { delta: Vec<serde_json::Value> },
+    /// MESSAGES_SNAPSHOT — full snapshot of all thread messages.
+    MessagesSnapshot { messages: Vec<serde_json::Value> },
+    /// ACTIVITY_SNAPSHOT — agent annotation (citations, thoughts, etc.).
+    ActivitySnapshot {
+        #[serde(rename = "messageId")]
+        message_id: String,
+        #[serde(rename = "activityType")]
+        activity_type: String,
+        content: serde_json::Value,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        replace: Option<bool>,
+    },
+    /// ACTIVITY_DELTA — incremental activity update (JSON Patch).
+    ActivityDelta {
+        #[serde(rename = "messageId")]
+        message_id: String,
+        #[serde(rename = "activityType")]
+        activity_type: String,
+        patch: Vec<serde_json::Value>,
+    },
+    /// REASONING_START — beginning of a reasoning block.
+    ReasoningStart {
+        #[serde(rename = "messageId")]
+        message_id: String,
+    },
+    /// REASONING_MESSAGE_START — beginning of a reasoning message stream.
+    ReasoningMessageStart {
+        #[serde(rename = "messageId")]
+        message_id: String,
+        role: String,
+    },
+    /// REASONING_MESSAGE_CONTENT — streaming reasoning text chunk.
+    ReasoningMessageContent {
+        #[serde(rename = "messageId")]
+        message_id: String,
+        delta: String,
+    },
+    /// REASONING_MESSAGE_END — end of a reasoning message stream.
+    ReasoningMessageEnd {
+        #[serde(rename = "messageId")]
+        message_id: String,
+    },
+    /// REASONING_END — end of a reasoning block.
+    ReasoningEnd {
+        #[serde(rename = "messageId")]
+        message_id: String,
+    },
+    /// REASONING_ENCRYPTED_VALUE — encrypted reasoning for privacy.
+    ReasoningEncryptedValue {
+        subtype: String,
+        #[serde(rename = "entityId")]
+        entity_id: String,
+        #[serde(rename = "encryptedValue")]
+        encrypted_value: String,
+    },
     /// RAW — passthrough from external system.
     RawEvent {
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -343,6 +442,99 @@ impl AgUiEvent {
             thread_id: None,
             timestamp: Self::now_ms(),
             payload: EventPayload::StateDelta { delta },
+        }
+    }
+
+    /// Create a MESSAGES_SNAPSHOT event.
+    pub fn messages_snapshot(run_id: &str, messages: Vec<serde_json::Value>) -> Self {
+        Self {
+            event_type: EventType::MessagesSnapshot,
+            run_id: run_id.to_string(),
+            thread_id: None,
+            timestamp: Self::now_ms(),
+            payload: EventPayload::MessagesSnapshot { messages },
+        }
+    }
+
+    /// Create a TOOL_CALL_RESULT event (structured result after execution).
+    pub fn tool_call_result(
+        run_id: &str,
+        message_id: &str,
+        tool_call_id: &str,
+        content: serde_json::Value,
+    ) -> Self {
+        Self {
+            event_type: EventType::ToolCallResult,
+            run_id: run_id.to_string(),
+            thread_id: None,
+            timestamp: Self::now_ms(),
+            payload: EventPayload::ToolCallResult {
+                message_id: message_id.to_string(),
+                tool_call_id: tool_call_id.to_string(),
+                content,
+                role: Some("tool".to_string()),
+            },
+        }
+    }
+
+    /// Create an ACTIVITY_SNAPSHOT event (agent thought, citation, etc.).
+    pub fn activity_snapshot(
+        run_id: &str,
+        message_id: &str,
+        activity_type: &str,
+        content: serde_json::Value,
+    ) -> Self {
+        Self {
+            event_type: EventType::ActivitySnapshot,
+            run_id: run_id.to_string(),
+            thread_id: None,
+            timestamp: Self::now_ms(),
+            payload: EventPayload::ActivitySnapshot {
+                message_id: message_id.to_string(),
+                activity_type: activity_type.to_string(),
+                content,
+                replace: Some(true),
+            },
+        }
+    }
+
+    /// Create a REASONING_START event.
+    pub fn reasoning_start(run_id: &str, message_id: &str) -> Self {
+        Self {
+            event_type: EventType::ReasoningStart,
+            run_id: run_id.to_string(),
+            thread_id: None,
+            timestamp: Self::now_ms(),
+            payload: EventPayload::ReasoningStart {
+                message_id: message_id.to_string(),
+            },
+        }
+    }
+
+    /// Create a REASONING_MESSAGE_CONTENT event (streaming reasoning chunk).
+    pub fn reasoning_content(run_id: &str, message_id: &str, delta: &str) -> Self {
+        Self {
+            event_type: EventType::ReasoningMessageContent,
+            run_id: run_id.to_string(),
+            thread_id: None,
+            timestamp: Self::now_ms(),
+            payload: EventPayload::ReasoningMessageContent {
+                message_id: message_id.to_string(),
+                delta: delta.to_string(),
+            },
+        }
+    }
+
+    /// Create a REASONING_END event.
+    pub fn reasoning_end(run_id: &str, message_id: &str) -> Self {
+        Self {
+            event_type: EventType::ReasoningEnd,
+            run_id: run_id.to_string(),
+            thread_id: None,
+            timestamp: Self::now_ms(),
+            payload: EventPayload::ReasoningEnd {
+                message_id: message_id.to_string(),
+            },
         }
     }
 
@@ -646,5 +838,80 @@ mod tests {
             serde_json::to_string(&EventType::ToolCallStart).unwrap(),
             "\"TOOL_CALL_START\""
         );
+        assert_eq!(
+            serde_json::to_string(&EventType::ReasoningStart).unwrap(),
+            "\"REASONING_START\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EventType::ActivitySnapshot).unwrap(),
+            "\"ACTIVITY_SNAPSHOT\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EventType::MessagesSnapshot).unwrap(),
+            "\"MESSAGES_SNAPSHOT\""
+        );
+        assert_eq!(
+            serde_json::to_string(&EventType::ToolCallResult).unwrap(),
+            "\"TOOL_CALL_RESULT\""
+        );
+    }
+
+    #[test]
+    fn test_tool_call_result_event() {
+        let event = AgUiEvent::tool_call_result(
+            "run-1",
+            "msg-1",
+            "tc-1",
+            serde_json::json!({"files": ["a.txt", "b.txt"]}),
+        );
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"type\":\"TOOL_CALL_RESULT\""));
+        assert!(json.contains("\"toolCallId\":\"tc-1\""));
+        assert!(json.contains("\"role\":\"tool\""));
+        assert!(json.contains("a.txt"));
+    }
+
+    #[test]
+    fn test_reasoning_events() {
+        let start = AgUiEvent::reasoning_start("run-1", "msg-r1");
+        let start_json = serde_json::to_string(&start).unwrap();
+        assert!(start_json.contains("\"type\":\"REASONING_START\""));
+        assert!(start_json.contains("\"messageId\":\"msg-r1\""));
+
+        let content = AgUiEvent::reasoning_content("run-1", "msg-r1", "hmm, thinking...");
+        let content_json = serde_json::to_string(&content).unwrap();
+        assert!(content_json.contains("\"type\":\"REASONING_MESSAGE_CONTENT\""));
+        assert!(content_json.contains("\"delta\":\"hmm, thinking...\""));
+
+        let end = AgUiEvent::reasoning_end("run-1", "msg-r1");
+        let end_json = serde_json::to_string(&end).unwrap();
+        assert!(end_json.contains("\"type\":\"REASONING_END\""));
+    }
+
+    #[test]
+    fn test_activity_snapshot_event() {
+        let event = AgUiEvent::activity_snapshot(
+            "run-1",
+            "msg-1",
+            "citation",
+            serde_json::json!({"source": "ghost://file.txt", "quote": "relevant text"}),
+        );
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"type\":\"ACTIVITY_SNAPSHOT\""));
+        assert!(json.contains("\"activityType\":\"citation\""));
+        assert!(json.contains("\"replace\":true"));
+    }
+
+    #[test]
+    fn test_messages_snapshot_event() {
+        let msgs = vec![
+            serde_json::json!({"role": "user", "content": "hello"}),
+            serde_json::json!({"role": "assistant", "content": "hi there"}),
+        ];
+        let event = AgUiEvent::messages_snapshot("run-1", msgs);
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("\"type\":\"MESSAGES_SNAPSHOT\""));
+        assert!(json.contains("\"messages\""));
+        assert!(json.contains("\"hello\""));
     }
 }

@@ -303,9 +303,29 @@ pub async fn start_server(state: Arc<AppState>, addr: &str) -> anyhow::Result<St
         }
     });
 
+    // A2A Agent Card: published at /.well-known/agent.json (RFC 8615)
+    let a2a_base_url = format!("http://{}", addr_owned);
+    let a2a_card_handler = axum::routing::get(move || {
+        let base = a2a_base_url.clone();
+        async move {
+            let card = super::a2a::ghost_agent_card(&base);
+            axum::Json(card)
+        }
+    });
+
+    // A2A JSON-RPC endpoint: receives tasks from remote agents
+    let a2a_jsonrpc_handler = axum::routing::post(
+        |axum::Json(req): axum::Json<super::a2a::JsonRpcRequest>| async move {
+            let resp = super::a2a::dispatch_request(req).await;
+            axum::Json(resp)
+        },
+    );
+
     let router = axum::Router::new()
         .route("/mcp", axum::routing::any_service(service))
-        .route("/agui", agui_sse_handler);
+        .route("/agui", agui_sse_handler)
+        .route("/.well-known/agent.json", a2a_card_handler)
+        .route("/a2a", a2a_jsonrpc_handler);
 
     let listener = tokio::net::TcpListener::bind(&addr_owned).await?;
     let actual_addr = listener.local_addr()?;
@@ -313,6 +333,10 @@ pub async fn start_server(state: Arc<AppState>, addr: &str) -> anyhow::Result<St
 
     tracing::info!("MCP server listening on http://{}/mcp", addr_str);
     tracing::info!("AG-UI SSE endpoint on http://{}/agui", addr_str);
+    tracing::info!(
+        "A2A Agent Card at http://{}/.well-known/agent.json",
+        addr_str
+    );
 
     tokio::spawn(async move {
         if let Err(e) = axum::serve(listener, router).await {

@@ -8,6 +8,7 @@
 //! - **A2A**: Agent-to-Agent coordination (Phase 2)
 //! - **WebMCP**: Browser tool contracts (Phase 2.5)
 
+pub mod a2a;
 pub mod a2ui;
 pub mod agui;
 pub mod mcp_catalog;
