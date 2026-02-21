@@ -1996,6 +1996,7 @@ pub async fn verify_server_package(entry: &CatalogEntry, timeout_secs: u64) -> P
 
 /// Verify all zero-config default tools and return their status.
 /// Useful for integration testing or health checks.
+#[allow(dead_code)]
 pub async fn verify_default_tools(timeout_secs: u64) -> Vec<PackageVerification> {
     let defaults = get_default_tools();
     let mut results = Vec::with_capacity(defaults.len());

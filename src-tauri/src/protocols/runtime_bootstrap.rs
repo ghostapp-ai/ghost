@@ -147,6 +147,7 @@ impl RuntimeBootstrapper {
     }
 
     /// Get the runtimes directory path.
+    #[allow(dead_code)]
     pub fn runtimes_dir(&self) -> &Path {
         &self.runtimes_dir
     }
@@ -578,6 +579,7 @@ impl RuntimeBootstrapper {
     }
 
     /// Build environment variables map with managed runtimes in PATH.
+    #[allow(dead_code)]
     pub fn build_env(&self) -> HashMap<String, String> {
         let mut env = HashMap::new();
         env.insert("PATH".to_string(), self.build_env_path());
@@ -587,6 +589,7 @@ impl RuntimeBootstrapper {
     /// Get a command builder that includes managed runtimes in PATH.
     /// This is the key function: when Ghost spawns MCP servers, it uses this
     /// to ensure they can find node/npx/uv/uvx regardless of system config.
+    #[allow(dead_code)]
     pub fn command(&self, program: &str) -> tokio::process::Command {
         let mut cmd = tokio::process::Command::new(program);
 
