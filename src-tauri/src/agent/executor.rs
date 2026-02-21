@@ -602,20 +602,32 @@ impl AgentExecutor {
         // 7. Build sampler chain with optional grammar constraint
         let mut sampler = Self::build_sampler(&model, &template_result, temperature)?;
 
-        // 8. Prefill: submit all prompt tokens
+        // 8. Prefill: submit prompt tokens in chunks of BATCH_SIZE
+        //    When the prompt exceeds BATCH_SIZE tokens, we process it in
+        //    multiple batch-decode passes. Only the very last token in the
+        //    full prompt needs logits=true (for sampling the first generated token).
         let mut batch = LlamaBatch::new(BATCH_SIZE as usize, 1);
         let last_idx = tokens.len() as i32 - 1;
         for (i, &token) in tokens.iter().enumerate() {
+            let is_last = i as i32 == last_idx;
             batch
-                .add(token, i as i32, &[0], i as i32 == last_idx)
+                .add(token, i as i32, &[0], is_last)
                 .map_err(|e| GhostError::Agent(format!("Batch add failed: {}", e)))?;
+
+            // When the batch is full, or we've added the last token, decode it
+            if batch.n_tokens() as u32 >= BATCH_SIZE || is_last {
+                ctx.decode(&mut batch)
+                    .map_err(|e| GhostError::Agent(format!("Prefill decode failed: {}", e)))?;
+                // Only clear between intermediate chunks — keep the last one so
+                // batch.n_tokens()-1 remains valid for the first sampler call.
+                if !is_last {
+                    batch.clear();
+                }
+            }
         }
 
-        ctx.decode(&mut batch)
-            .map_err(|e| GhostError::Agent(format!("Prefill decode failed: {}", e)))?;
-
         // 9. Generation loop
-        let mut n_cur = batch.n_tokens();
+        let mut n_cur = tokens.len() as i32;
         let mut decoder = encoding_rs::UTF_8.new_decoder();
         let mut generated_text = String::new();
 
