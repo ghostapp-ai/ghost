@@ -793,6 +793,68 @@ async fn install_mcp_from_catalog(
     Ok(result)
 }
 
+/// Install an MCP server from a CatalogEntry directly (for registry entries).
+/// Unlike `install_mcp_from_catalog` which looks up by ID in the curated catalog,
+/// this accepts a full CatalogEntry — used for servers discovered from the registry.
+#[tauri::command]
+async fn install_mcp_entry(
+    entry: protocols::mcp_catalog::CatalogEntry,
+    env_vars: std::collections::HashMap<String, String>,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<protocols::mcp_client::ConnectedServer, String> {
+    // Check runtime availability (skip for remote/http servers)
+    if entry.transport != "http" {
+        let runtimes = protocols::mcp_catalog::detect_runtimes().await;
+        if !protocols::mcp_catalog::can_install(&entry, &runtimes) {
+            let runtime_name = match entry.runtime.as_str() {
+                "node" => "Node.js (npx)",
+                "python" => "Python (uvx/python3)",
+                "docker" => "Docker",
+                _ => &entry.runtime,
+            };
+            return Err(format!(
+                "{} is required to install '{}'. Please install it and try again.",
+                runtime_name, entry.name
+            ));
+        }
+    }
+
+    // Check required env vars
+    for env_spec in &entry.required_env {
+        if env_spec.required && !env_vars.contains_key(&env_spec.name) {
+            return Err(format!(
+                "Required configuration '{}' is missing",
+                env_spec.label
+            ));
+        }
+    }
+
+    // Build the server entry from catalog
+    let server_entry = protocols::mcp_catalog::build_server_entry(&entry, env_vars);
+
+    // Save to settings (avoid duplicates)
+    {
+        let mut settings = state.settings.lock().map_err(|e| e.to_string())?;
+        settings.mcp_servers.retain(|s| s.name != server_entry.name);
+        settings.mcp_servers.push(server_entry.clone());
+        settings
+            .save(&get_app_data_dir().join("settings.json"))
+            .map_err(|e| e.to_string())?;
+    }
+
+    // Auto-connect
+    let result = state.mcp_client.connect(&server_entry).await;
+
+    tracing::info!(
+        "MCP Registry: installed '{}' ({}): connected={}",
+        entry.name,
+        entry.id,
+        result.connected
+    );
+
+    Ok(result)
+}
+
 /// Uninstall an MCP server (disconnect + remove from settings).
 #[tauri::command]
 async fn uninstall_mcp_server(
@@ -805,6 +867,46 @@ async fn uninstall_mcp_server(
     settings
         .save(&get_app_data_dir().join("settings.json"))
         .map_err(|e| e.to_string())
+}
+
+// --- MCP Registry Commands ---
+
+/// Sync the official MCP Registry to local cache.
+/// Fetches all servers from registry.modelcontextprotocol.io and caches locally.
+/// This is an opt-in action — respects Ghost's privacy-first design.
+#[tauri::command]
+async fn sync_mcp_registry() -> Result<protocols::mcp_catalog::RegistrySyncResult, String> {
+    let cache_dir = get_app_data_dir();
+    std::fs::create_dir_all(&cache_dir).map_err(|e| format!("Cannot create cache dir: {}", e))?;
+    Ok(protocols::mcp_catalog::sync_registry(&cache_dir).await)
+}
+
+/// Search the cached MCP Registry for servers matching a query.
+/// Returns CatalogEntry items ready for installation.
+/// Requires a prior `sync_mcp_registry` call to populate the cache.
+#[tauri::command]
+async fn search_mcp_registry(
+    query: String,
+    limit: Option<usize>,
+) -> Result<Vec<protocols::mcp_catalog::CatalogEntry>, String> {
+    let cache_dir = get_app_data_dir();
+    let limit = limit.unwrap_or(50);
+    Ok(protocols::mcp_catalog::search_registry(
+        &cache_dir, &query, limit,
+    ))
+}
+
+/// Get the registry cache status (last sync time, server count, freshness).
+#[tauri::command]
+async fn get_registry_status() -> Result<serde_json::Value, String> {
+    let cache_dir = get_app_data_dir();
+    let meta = protocols::mcp_catalog::get_cache_meta(&cache_dir);
+    let fresh = protocols::mcp_catalog::is_cache_fresh(&cache_dir);
+    Ok(serde_json::json!({
+        "synced": meta.is_some(),
+        "fresh": fresh,
+        "meta": meta,
+    }))
 }
 
 // --- Filesystem Browsing Commands ---
@@ -1546,7 +1648,12 @@ pub fn run() {
             get_mcp_catalog,
             detect_runtimes,
             install_mcp_from_catalog,
+            install_mcp_entry,
             uninstall_mcp_server,
+            // MCP Registry
+            sync_mcp_registry,
+            search_mcp_registry,
+            get_registry_status,
             // Agent
             agent_chat,
             create_conversation,

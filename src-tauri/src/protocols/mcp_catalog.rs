@@ -1,16 +1,35 @@
-//! MCP Tool Catalog — Curated app store for one-click MCP server installation.
+//! MCP Tool Catalog — Curated app store + Official MCP Registry integration.
 //!
 //! Provides:
 //! - A built-in catalog of 30+ popular MCP servers (no network required)
+//! - Integration with the Official MCP Registry (6,000+ servers at registry.modelcontextprotocol.io)
 //! - Runtime detection (npx, node, uv, uvx, python3)
 //! - One-click install: auto-configures and connects MCP servers
+//! - Background sync with local cache for offline search
 //!
 //! Inspired by Claude Desktop Extensions, Smithery.ai, and Cursor's MCP marketplace.
 //! The goal is to make installing MCP tools as easy as installing an app from an app store.
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+
+/// Simple percent-encoding for URL query parameters.
+fn url_encode(s: &str) -> String {
+    let mut encoded = String::with_capacity(s.len() * 2);
+    for byte in s.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                encoded.push(byte as char);
+            }
+            _ => {
+                encoded.push_str(&format!("%{:02X}", byte));
+            }
+        }
+    }
+    encoded
+}
 
 /// A single entry in the MCP tool catalog.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1161,10 +1180,634 @@ pub fn build_server_entry(
         transport: entry.transport.clone(),
         command: Some(entry.command.clone()),
         args: resolved_args,
-        url: None,
+        url: if entry.transport == "http" {
+            // For remote servers, the URL is in args[0] or env
+            entry.args.first().cloned()
+        } else {
+            None
+        },
         enabled: true,
         env: env_vars,
     }
+}
+
+// ─── Official MCP Registry Client ─────────────────────────────
+
+/// Base URL for the official MCP Registry API.
+const REGISTRY_BASE_URL: &str = "https://registry.modelcontextprotocol.io";
+
+/// API version path.
+const REGISTRY_API_VERSION: &str = "v0.1";
+
+/// Maximum entries per page (registry limit).
+const REGISTRY_PAGE_LIMIT: u32 = 100;
+
+/// Maximum pages to fetch in a single sync (safety limit).
+const REGISTRY_MAX_PAGES: u32 = 80;
+
+/// Cache file name.
+const REGISTRY_CACHE_FILE: &str = "mcp_registry_cache.json";
+
+/// Cache metadata file name.
+const REGISTRY_CACHE_META: &str = "mcp_registry_cache_meta.json";
+
+/// Cache TTL in seconds (24 hours).
+const REGISTRY_CACHE_TTL_SECS: u64 = 86400;
+
+/// A server entry from the official MCP Registry (server.json format).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryServer {
+    /// Unique reverse-domain name (e.g., "io.github.user/server-name").
+    pub name: String,
+    /// Human-readable title.
+    pub title: Option<String>,
+    /// Server description.
+    pub description: String,
+    /// Semantic version.
+    pub version: String,
+    /// Installable packages (npm, pypi, oci, nuget, mcpb).
+    #[serde(default)]
+    pub packages: Vec<RegistryPackage>,
+    /// Remote server endpoints (streamable-http, sse).
+    #[serde(default)]
+    pub remotes: Vec<RegistryRemote>,
+    /// Server icons.
+    #[serde(default)]
+    pub icons: Vec<RegistryIcon>,
+    /// Source repository.
+    pub repository: Option<RegistryRepository>,
+    /// Website URL.
+    #[serde(rename = "websiteUrl")]
+    pub website_url: Option<String>,
+}
+
+/// A package in the MCP Registry (how to install/run the server).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryPackage {
+    /// Package registry type: "npm", "pypi", "oci", "nuget", "mcpb".
+    #[serde(rename = "registryType")]
+    pub registry_type: String,
+    /// Package identifier (e.g., "@modelcontextprotocol/server-filesystem").
+    pub identifier: String,
+    /// Package version.
+    pub version: Option<String>,
+    /// Transport configuration.
+    pub transport: Option<RegistryTransport>,
+    /// Required environment variables.
+    #[serde(rename = "environmentVariables", default)]
+    pub environment_variables: Vec<RegistryEnvVar>,
+    /// Runtime hint (e.g., "node", "python", "docker", "dnx").
+    #[serde(rename = "runtimeHint")]
+    pub runtime_hint: Option<String>,
+}
+
+/// Transport info from registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryTransport {
+    /// Transport type: "stdio", "streamable-http", "sse".
+    #[serde(rename = "type")]
+    pub transport_type: String,
+    /// URL for HTTP transports.
+    pub url: Option<String>,
+}
+
+/// Environment variable from registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryEnvVar {
+    /// Variable name.
+    pub name: String,
+    /// Description.
+    #[serde(default)]
+    pub description: String,
+    /// Whether required.
+    #[serde(rename = "isRequired", default)]
+    pub is_required: bool,
+    /// Whether the value is secret (API keys, tokens).
+    #[serde(rename = "isSecret", default)]
+    pub is_secret: bool,
+    /// Default value.
+    pub default: Option<String>,
+}
+
+/// Remote server endpoint from registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryRemote {
+    /// Type: "streamable-http", "sse".
+    #[serde(rename = "type")]
+    pub remote_type: String,
+    /// Server URL.
+    pub url: String,
+}
+
+/// Icon from registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryIcon {
+    /// Icon URL.
+    pub src: String,
+    /// MIME type.
+    #[serde(rename = "mimeType")]
+    pub mime_type: Option<String>,
+}
+
+/// Repository from registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryRepository {
+    /// Repository URL.
+    pub url: Option<String>,
+    /// Source type (e.g., "github").
+    pub source: Option<String>,
+}
+
+/// API response wrapper from registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RegistryApiResponse {
+    servers: Vec<RegistryServerWrapper>,
+    metadata: RegistryMetadata,
+}
+
+/// Wrapper around a server entry in the API response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RegistryServerWrapper {
+    server: RegistryServer,
+}
+
+/// Pagination metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RegistryMetadata {
+    #[serde(rename = "nextCursor")]
+    next_cursor: Option<String>,
+    count: Option<u32>,
+}
+
+/// Cache metadata — tracks sync state.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistryCacheMeta {
+    /// When the cache was last fully synced (ISO 8601).
+    pub last_sync: String,
+    /// Total number of cached servers.
+    pub total_servers: usize,
+    /// Number of installable servers (have packages).
+    pub installable_count: usize,
+}
+
+/// Result of a registry sync operation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistrySyncResult {
+    /// Whether the sync was successful.
+    pub success: bool,
+    /// Total servers in cache after sync.
+    pub total_servers: usize,
+    /// Number of installable servers.
+    pub installable_count: usize,
+    /// Error message if sync failed.
+    pub error: Option<String>,
+    /// Whether data was loaded from cache (not freshly synced).
+    pub from_cache: bool,
+}
+
+/// Sync the official MCP Registry to a local cache.
+///
+/// Fetches all servers from `registry.modelcontextprotocol.io` using cursor-based
+/// pagination (100 per page) and saves to a local JSON file for offline search.
+///
+/// This is an opt-in operation — Ghost never phones home without user action.
+pub async fn sync_registry(cache_dir: &Path) -> RegistrySyncResult {
+    tracing::info!("MCP Registry: starting sync from {}", REGISTRY_BASE_URL);
+
+    let client = match reqwest::Client::builder()
+        .user_agent("Ghost/0.11 (https://github.com/ghostapp-ai/ghost)")
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            return RegistrySyncResult {
+                success: false,
+                total_servers: 0,
+                installable_count: 0,
+                error: Some(format!("Failed to create HTTP client: {}", e)),
+                from_cache: false,
+            }
+        }
+    };
+
+    let mut all_servers: Vec<RegistryServer> = Vec::new();
+    let mut cursor: Option<String> = None;
+    let mut pages_fetched = 0u32;
+
+    loop {
+        if pages_fetched >= REGISTRY_MAX_PAGES {
+            tracing::warn!(
+                "MCP Registry: hit max pages limit ({}), stopping",
+                REGISTRY_MAX_PAGES
+            );
+            break;
+        }
+
+        let mut url = format!(
+            "{}/{}/servers?limit={}",
+            REGISTRY_BASE_URL, REGISTRY_API_VERSION, REGISTRY_PAGE_LIMIT
+        );
+        if let Some(ref c) = cursor {
+            url.push_str(&format!("&cursor={}", url_encode(c)));
+        }
+
+        match client.get(&url).send().await {
+            Ok(resp) => {
+                if !resp.status().is_success() {
+                    let status = resp.status();
+                    tracing::error!("MCP Registry: API returned {}", status);
+                    return RegistrySyncResult {
+                        success: false,
+                        total_servers: all_servers.len(),
+                        installable_count: 0,
+                        error: Some(format!("Registry API returned HTTP {}", status)),
+                        from_cache: false,
+                    };
+                }
+
+                match resp.json::<RegistryApiResponse>().await {
+                    Ok(data) => {
+                        let count = data.servers.len();
+                        for wrapper in data.servers {
+                            all_servers.push(wrapper.server);
+                        }
+                        pages_fetched += 1;
+
+                        tracing::debug!(
+                            "MCP Registry: page {} — {} servers (total: {})",
+                            pages_fetched,
+                            count,
+                            all_servers.len()
+                        );
+
+                        // Check if we've reached the end
+                        if count < REGISTRY_PAGE_LIMIT as usize
+                            || data.metadata.next_cursor.is_none()
+                        {
+                            break;
+                        }
+                        cursor = data.metadata.next_cursor;
+                    }
+                    Err(e) => {
+                        tracing::error!("MCP Registry: failed to parse response: {}", e);
+                        return RegistrySyncResult {
+                            success: false,
+                            total_servers: all_servers.len(),
+                            installable_count: 0,
+                            error: Some(format!("Failed to parse registry response: {}", e)),
+                            from_cache: false,
+                        };
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("MCP Registry: network error: {}", e);
+                return RegistrySyncResult {
+                    success: false,
+                    total_servers: 0,
+                    installable_count: 0,
+                    error: Some(format!("Network error: {}", e)),
+                    from_cache: false,
+                };
+            }
+        }
+    }
+
+    let installable = all_servers
+        .iter()
+        .filter(|s| !s.packages.is_empty())
+        .count();
+
+    tracing::info!(
+        "MCP Registry: synced {} servers ({} installable) in {} pages",
+        all_servers.len(),
+        installable,
+        pages_fetched
+    );
+
+    // Save cache
+    let cache_path = cache_dir.join(REGISTRY_CACHE_FILE);
+    let meta_path = cache_dir.join(REGISTRY_CACHE_META);
+
+    if let Err(e) = std::fs::create_dir_all(cache_dir) {
+        tracing::error!("MCP Registry: failed to create cache dir: {}", e);
+    }
+
+    if let Ok(json) = serde_json::to_string(&all_servers) {
+        if let Err(e) = std::fs::write(&cache_path, &json) {
+            tracing::error!("MCP Registry: failed to write cache: {}", e);
+        }
+    }
+
+    let meta = RegistryCacheMeta {
+        last_sync: chrono::Utc::now().to_rfc3339(),
+        total_servers: all_servers.len(),
+        installable_count: installable,
+    };
+    if let Ok(json) = serde_json::to_string_pretty(&meta) {
+        let _ = std::fs::write(&meta_path, &json);
+    }
+
+    RegistrySyncResult {
+        success: true,
+        total_servers: all_servers.len(),
+        installable_count: installable,
+        error: None,
+        from_cache: false,
+    }
+}
+
+/// Load the registry cache from disk.
+pub fn load_registry_cache(cache_dir: &Path) -> Option<Vec<RegistryServer>> {
+    let cache_path = cache_dir.join(REGISTRY_CACHE_FILE);
+    let meta_path = cache_dir.join(REGISTRY_CACHE_META);
+
+    // Check if cache exists and is fresh
+    if let Ok(meta_str) = std::fs::read_to_string(&meta_path) {
+        if let Ok(meta) = serde_json::from_str::<RegistryCacheMeta>(&meta_str) {
+            if let Ok(last_sync) = chrono::DateTime::parse_from_rfc3339(&meta.last_sync) {
+                let age = chrono::Utc::now()
+                    .signed_duration_since(last_sync)
+                    .num_seconds();
+                if age > REGISTRY_CACHE_TTL_SECS as i64 {
+                    tracing::info!(
+                        "MCP Registry: cache expired (age: {}s > TTL: {}s)",
+                        age,
+                        REGISTRY_CACHE_TTL_SECS
+                    );
+                    // Cache is stale but we can still return it
+                }
+            }
+        }
+    }
+
+    match std::fs::read_to_string(&cache_path) {
+        Ok(json) => match serde_json::from_str::<Vec<RegistryServer>>(&json) {
+            Ok(servers) => {
+                tracing::info!("MCP Registry: loaded {} servers from cache", servers.len());
+                Some(servers)
+            }
+            Err(e) => {
+                tracing::error!("MCP Registry: failed to parse cache: {}", e);
+                None
+            }
+        },
+        Err(_) => None,
+    }
+}
+
+/// Get cache metadata (sync status, counts).
+pub fn get_cache_meta(cache_dir: &Path) -> Option<RegistryCacheMeta> {
+    let meta_path = cache_dir.join(REGISTRY_CACHE_META);
+    std::fs::read_to_string(&meta_path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+}
+
+/// Check if the cache is fresh (within TTL).
+pub fn is_cache_fresh(cache_dir: &Path) -> bool {
+    get_cache_meta(cache_dir)
+        .and_then(|meta| chrono::DateTime::parse_from_rfc3339(&meta.last_sync).ok())
+        .map(|last_sync| {
+            chrono::Utc::now()
+                .signed_duration_since(last_sync)
+                .num_seconds()
+                < REGISTRY_CACHE_TTL_SECS as i64
+        })
+        .unwrap_or(false)
+}
+
+/// Convert a registry server entry to a Ghost CatalogEntry for the UI.
+///
+/// Maps `registryType` to the appropriate local command:
+/// - `npm` → `npx -y <identifier>` (stdio)
+/// - `pypi` → `uvx <identifier>` (stdio)
+/// - `oci` → `docker run -i --rm <identifier>` (stdio)
+/// - Remote servers → HTTP transport with URL
+///
+/// Returns `None` if the server can't be auto-installed.
+pub fn registry_to_catalog_entry(server: &RegistryServer) -> Option<CatalogEntry> {
+    // Try installable packages first (prefer npm > pypi > oci)
+    let preferred_order = ["npm", "pypi", "oci"];
+
+    let package = preferred_order
+        .iter()
+        .find_map(|rt| server.packages.iter().find(|p| p.registry_type == *rt))
+        .or_else(|| server.packages.first());
+
+    // Determine runtime, command, args, transport
+    let (runtime, transport, command, args, url) = if let Some(pkg) = package {
+        match pkg.registry_type.as_str() {
+            "npm" => (
+                "node".to_string(),
+                "stdio".to_string(),
+                "npx".to_string(),
+                vec!["-y".to_string(), pkg.identifier.clone()],
+                None,
+            ),
+            "pypi" => (
+                "python".to_string(),
+                "stdio".to_string(),
+                "uvx".to_string(),
+                vec![pkg.identifier.clone()],
+                None,
+            ),
+            "oci" => (
+                "docker".to_string(),
+                "stdio".to_string(),
+                "docker".to_string(),
+                vec![
+                    "run".to_string(),
+                    "-i".to_string(),
+                    "--rm".to_string(),
+                    pkg.identifier.clone(),
+                ],
+                None,
+            ),
+            _ => return None, // nuget, mcpb — not yet supported
+        }
+    } else if let Some(remote) = server.remotes.first() {
+        // Remote-only server — no local install needed
+        (
+            "remote".to_string(),
+            "http".to_string(),
+            String::new(),
+            vec![remote.url.clone()],
+            Some(remote.url.clone()),
+        )
+    } else {
+        return None; // No installable package and no remote — skip
+    };
+
+    // Extract env vars from the best package
+    let required_env: Vec<EnvVarSpec> = package
+        .map(|pkg| {
+            pkg.environment_variables
+                .iter()
+                .map(|ev| EnvVarSpec {
+                    name: ev.name.clone(),
+                    label: ev.name.replace('_', " ").to_string(),
+                    description: ev.description.clone(),
+                    sensitive: ev.is_secret,
+                    placeholder: ev.default.clone(),
+                    required: ev.is_required,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // Generate a short display name from the registry name
+    let display_name = server
+        .title
+        .clone()
+        .unwrap_or_else(|| {
+            // "io.github.user/server-name" → "Server Name"
+            server
+                .name
+                .rsplit('/')
+                .next()
+                .unwrap_or(&server.name)
+                .replace('-', " ")
+                .replace("mcp", "")
+                .replace("server", "")
+                .split_whitespace()
+                .map(|w| {
+                    let mut chars = w.chars();
+                    match chars.next() {
+                        None => String::new(),
+                        Some(c) => c.to_uppercase().to_string() + &chars.as_str().to_lowercase(),
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .trim()
+        .to_string();
+
+    // Use first icon or generate from category
+    let icon = if url.is_some() { "🌐" } else { "📦" }.to_string();
+
+    // Derive category from name/description heuristics
+    let desc_lower = server.description.to_lowercase();
+    let name_lower = server.name.to_lowercase();
+    let category = if desc_lower.contains("database")
+        || desc_lower.contains("sql")
+        || name_lower.contains("postgres")
+        || name_lower.contains("redis")
+        || name_lower.contains("mongo")
+    {
+        "data"
+    } else if desc_lower.contains("github")
+        || desc_lower.contains("git")
+        || desc_lower.contains("code")
+        || desc_lower.contains("developer")
+    {
+        "developer"
+    } else if desc_lower.contains("search")
+        || desc_lower.contains("browse")
+        || desc_lower.contains("web")
+    {
+        "search"
+    } else if desc_lower.contains("slack")
+        || desc_lower.contains("discord")
+        || desc_lower.contains("email")
+        || desc_lower.contains("chat")
+    {
+        "communication"
+    } else if desc_lower.contains("docker")
+        || desc_lower.contains("kubernetes")
+        || desc_lower.contains("aws")
+        || desc_lower.contains("cloud")
+        || desc_lower.contains("deploy")
+    {
+        "devops"
+    } else if desc_lower.contains("file")
+        || desc_lower.contains("document")
+        || desc_lower.contains("pdf")
+        || desc_lower.contains("note")
+    {
+        "productivity"
+    } else {
+        "utility"
+    }
+    .to_string();
+
+    let repo_url = server.repository.as_ref().and_then(|r| r.url.clone());
+
+    let pkg_name = package.map(|p| p.identifier.clone());
+
+    Some(CatalogEntry {
+        id: server.name.clone(),
+        name: display_name,
+        description: server.description.clone(),
+        category,
+        icon,
+        runtime,
+        transport,
+        command,
+        args,
+        is_mcp_app: false,
+        required_env,
+        tags: vec![],
+        popularity: 1000, // Registry entries sort after curated
+        official: false,
+        package: pkg_name,
+        repository: repo_url,
+    })
+}
+
+/// Search the registry cache, converting matches to CatalogEntry format.
+///
+/// Filters by query string (matched against name, title, description).
+/// Ignores entries that already exist in the curated catalog (by package name).
+pub fn search_registry(cache_dir: &Path, query: &str, limit: usize) -> Vec<CatalogEntry> {
+    let servers = match load_registry_cache(cache_dir) {
+        Some(s) => s,
+        None => return vec![],
+    };
+
+    // Get curated package names to avoid duplicates
+    let curated_ids: std::collections::HashSet<String> = get_catalog()
+        .into_iter()
+        .filter_map(|e| e.package)
+        .collect();
+
+    let query_lower = query.to_lowercase();
+    let query_words: Vec<&str> = query_lower.split_whitespace().collect();
+
+    servers
+        .iter()
+        .filter(|s| {
+            // Skip servers already in curated catalog
+            if s.packages
+                .iter()
+                .any(|p| curated_ids.contains(&p.identifier))
+            {
+                return false;
+            }
+
+            // Must have installable package or remote
+            if s.packages.is_empty() && s.remotes.is_empty() {
+                return false;
+            }
+
+            // Match query words (all words must match in name, title, or description)
+            if query_words.is_empty() {
+                return true;
+            }
+            let haystack = format!(
+                "{} {} {}",
+                s.name.to_lowercase(),
+                s.title.as_deref().unwrap_or("").to_lowercase(),
+                s.description.to_lowercase()
+            );
+            query_words.iter().all(|w| haystack.contains(w))
+        })
+        .take(limit * 2) // Take extra to account for conversion failures
+        .filter_map(registry_to_catalog_entry)
+        .take(limit)
+        .collect()
 }
 
 #[cfg(test)]
@@ -1266,5 +1909,93 @@ mod tests {
         let cats = get_categories();
         assert!(cats.len() >= 5);
         assert_eq!(cats[0].id, "all");
+    }
+
+    #[test]
+    fn test_registry_to_catalog_entry_npm() {
+        let server = RegistryServer {
+            name: "io.github.user/my-mcp-server".into(),
+            title: Some("My MCP Server".into()),
+            description: "A useful database tool for querying SQL".into(),
+            version: "1.0.0".into(),
+            packages: vec![RegistryPackage {
+                registry_type: "npm".into(),
+                identifier: "@user/my-mcp-server".into(),
+                version: Some("1.0.0".into()),
+                transport: None,
+                environment_variables: vec![RegistryEnvVar {
+                    name: "API_KEY".into(),
+                    description: "Your API key".into(),
+                    is_required: true,
+                    is_secret: true,
+                    default: None,
+                }],
+                runtime_hint: None,
+            }],
+            remotes: vec![],
+            icons: vec![],
+            repository: None,
+            website_url: None,
+        };
+
+        let entry = registry_to_catalog_entry(&server).expect("Should convert npm server");
+        assert_eq!(entry.name, "My MCP Server");
+        assert_eq!(entry.runtime, "node");
+        assert_eq!(entry.command, "npx");
+        assert_eq!(entry.args, vec!["-y", "@user/my-mcp-server"]);
+        assert_eq!(entry.category, "data");
+        assert_eq!(entry.required_env.len(), 1);
+        assert_eq!(entry.required_env[0].name, "API_KEY");
+        assert!(entry.required_env[0].sensitive);
+    }
+
+    #[test]
+    fn test_registry_to_catalog_entry_remote() {
+        let server = RegistryServer {
+            name: "com.example/remote-tool".into(),
+            title: None,
+            description: "A remote search tool".into(),
+            version: "2.0.0".into(),
+            packages: vec![],
+            remotes: vec![RegistryRemote {
+                remote_type: "streamable-http".into(),
+                url: "https://example.com/mcp".into(),
+            }],
+            icons: vec![],
+            repository: None,
+            website_url: None,
+        };
+
+        let entry = registry_to_catalog_entry(&server).expect("Should convert remote server");
+        assert_eq!(entry.name, "Remote Tool");
+        assert_eq!(entry.transport, "http");
+        assert_eq!(entry.runtime, "remote");
+        assert_eq!(entry.icon, "🌐");
+    }
+
+    #[test]
+    fn test_registry_to_catalog_entry_no_packages_no_remotes() {
+        let server = RegistryServer {
+            name: "empty".into(),
+            title: None,
+            description: "Nothing here".into(),
+            version: "0.0.0".into(),
+            packages: vec![],
+            remotes: vec![],
+            icons: vec![],
+            repository: None,
+            website_url: None,
+        };
+        assert!(registry_to_catalog_entry(&server).is_none());
+    }
+
+    #[test]
+    fn test_url_encode() {
+        assert_eq!(url_encode("hello world"), "hello%20world");
+        assert_eq!(url_encode("a+b=c"), "a%2Bb%3Dc");
+        assert_eq!(
+            url_encode("safe-string_123.test~ok"),
+            "safe-string_123.test~ok"
+        );
     }
 }

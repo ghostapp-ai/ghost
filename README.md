@@ -65,7 +65,7 @@ Ghost is the first desktop app implementing every major agent protocol — no ve
 | Protocol | Status | What it does |
 |----------|--------|--------------|
 | **MCP** | ✅ Server + Client | Expose Ghost tools + connect to 10,000+ external servers via `rmcp` |
-| **MCP Catalog** | ✅ App Store | 30+ curated MCP servers with one-click install, runtime detection |
+| **MCP Catalog** | ✅ App Store | 30+ curated servers + 6,000+ from Official MCP Registry, one-click install |
 | **MCP Apps** | 🔜 Next | Render interactive tool UIs in-conversation (official MCP extension) |
 | **AG-UI** | ✅ Runtime | Bidirectional agent↔user streaming — ~16 event types, SSE endpoint |
 | **A2UI** | ✅ Renderer | Generative UI — 17+ component types rendered natively as React/Tailwind |

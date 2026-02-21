@@ -15,15 +15,22 @@ import {
   ChevronUp,
   Plug,
   Trash2,
+  Globe,
+  RefreshCw,
+  CloudDownload,
 } from "lucide-react";
 import {
   getMcpCatalog,
   detectRuntimes,
   installMcpFromCatalog,
+  installMcpEntry,
   uninstallMcpServer,
   listMcpServers,
   connectMcpServer,
   disconnectMcpServer,
+  syncMcpRegistry,
+  searchMcpRegistry,
+  getRegistryStatus,
 } from "../lib/tauri";
 import type {
   CatalogEntry,
@@ -31,6 +38,7 @@ import type {
   RuntimeInfo,
   ConnectedServer,
   EnvVarSpec,
+  RegistryStatus,
 } from "../lib/types";
 
 interface McpAppStoreProps {
@@ -51,17 +59,32 @@ export function McpAppStore({ onError }: McpAppStoreProps) {
   const [showEnvPasswords, setShowEnvPasswords] = useState<Record<string, boolean>>({});
   const [expandedInstalled, setExpandedInstalled] = useState(true);
 
+  // Registry state
+  const [registryStatus, setRegistryStatus] = useState<RegistryStatus | null>(null);
+  const [registrySyncing, setRegistrySyncing] = useState(false);
+  const [registryQuery, setRegistryQuery] = useState("");
+  const [registryResults, setRegistryResults] = useState<CatalogEntry[]>([]);
+  const [registrySearching, setRegistrySearching] = useState(false);
+  const [expandedRegistry, setExpandedRegistry] = useState(false);
+  // Track registry entry IDs for install routing
+  const registryEntryIds = useMemo(
+    () => new Set(registryResults.map((e) => e.id)),
+    [registryResults]
+  );
+
   const refresh = useCallback(async () => {
     try {
-      const [catalogData, runtimeData, servers] = await Promise.all([
+      const [catalogData, runtimeData, servers, regStatus] = await Promise.all([
         getMcpCatalog(),
         detectRuntimes(),
         listMcpServers(),
+        getRegistryStatus().catch(() => null),
       ]);
       setCatalog(catalogData.entries);
       setCategories(catalogData.categories);
       setRuntimes(runtimeData);
       setInstalledServers(servers);
+      if (regStatus) setRegistryStatus(regStatus);
     } catch (e) {
       onError(String(e));
     }
@@ -118,7 +141,7 @@ export function McpAppStore({ onError }: McpAppStoreProps) {
 
   // Handle one-click install (no env vars needed)
   const handleInstall = useCallback(
-    async (entry: CatalogEntry) => {
+    async (entry: CatalogEntry, fromRegistry = false) => {
       // If entry requires env vars, show config dialog
       if (entry.required_env.length > 0) {
         setConfigEntry(entry);
@@ -128,7 +151,11 @@ export function McpAppStore({ onError }: McpAppStoreProps) {
 
       setInstallingId(entry.id);
       try {
-        await installMcpFromCatalog(entry.id, {});
+        if (fromRegistry || registryEntryIds.has(entry.id)) {
+          await installMcpEntry(entry, {});
+        } else {
+          await installMcpFromCatalog(entry.id, {});
+        }
         await refresh();
       } catch (e) {
         onError(String(e));
@@ -136,7 +163,7 @@ export function McpAppStore({ onError }: McpAppStoreProps) {
         setInstallingId(null);
       }
     },
-    [refresh, onError]
+    [refresh, onError, registryEntryIds]
   );
 
   // Handle install with env vars configured
@@ -152,9 +179,14 @@ export function McpAppStore({ onError }: McpAppStoreProps) {
     }
 
     setInstallingId(configEntry.id);
+    const isReg = registryEntryIds.has(configEntry.id);
     setConfigEntry(null);
     try {
-      await installMcpFromCatalog(configEntry.id, envValues);
+      if (isReg) {
+        await installMcpEntry(configEntry, envValues);
+      } else {
+        await installMcpFromCatalog(configEntry.id, envValues);
+      }
       await refresh();
     } catch (e) {
       onError(String(e));
@@ -162,7 +194,7 @@ export function McpAppStore({ onError }: McpAppStoreProps) {
       setInstallingId(null);
       setEnvValues({});
     }
-  }, [configEntry, envValues, refresh, onError]);
+  }, [configEntry, envValues, refresh, onError, registryEntryIds]);
 
   // Handle uninstall
   const handleUninstall = useCallback(
@@ -202,6 +234,61 @@ export function McpAppStore({ onError }: McpAppStoreProps) {
     },
     [refresh, onError]
   );
+
+  // --- Registry Handlers ---
+
+  // Sync the official MCP Registry
+  const handleRegistrySync = useCallback(async () => {
+    setRegistrySyncing(true);
+    try {
+      const result = await syncMcpRegistry();
+      if (result.success) {
+        const status = await getRegistryStatus();
+        setRegistryStatus(status);
+        setExpandedRegistry(true);
+      } else {
+        onError(result.error || "Registry sync failed");
+      }
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setRegistrySyncing(false);
+    }
+  }, [onError]);
+
+  // Search the registry cache
+  const handleRegistrySearch = useCallback(
+    async (query: string) => {
+      setRegistryQuery(query);
+      if (!query.trim()) {
+        setRegistryResults([]);
+        return;
+      }
+      setRegistrySearching(true);
+      try {
+        const results = await searchMcpRegistry(query, 30);
+        setRegistryResults(results);
+      } catch (e) {
+        onError(String(e));
+      } finally {
+        setRegistrySearching(false);
+      }
+    },
+    [onError]
+  );
+
+  // Debounced registry search
+  useEffect(() => {
+    if (!registryQuery.trim()) {
+      setRegistryResults([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      handleRegistrySearch(registryQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registryQuery]);
 
   if (loading) {
     return (
@@ -443,6 +530,203 @@ export function McpAppStore({ onError }: McpAppStoreProps) {
               </div>
             );
           })
+        )}
+      </div>
+
+      {/* ─── Official MCP Registry Section ─── */}
+      <div className="pt-3 border-t border-ghost-border/50">
+        <button
+          onClick={() => setExpandedRegistry(!expandedRegistry)}
+          className="flex items-center gap-2 w-full text-left mb-2"
+        >
+          <Globe className="w-4 h-4 text-ghost-accent" />
+          <span className="text-sm font-medium text-ghost-text flex-1">
+            Official MCP Registry
+            {registryStatus?.meta && (
+              <span className="text-[10px] text-ghost-text-dim/60 font-normal ml-1.5">
+                ({registryStatus.meta.installable_count.toLocaleString()} installable servers)
+              </span>
+            )}
+          </span>
+          {expandedRegistry ? (
+            <ChevronUp className="w-4 h-4 text-ghost-text-dim" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-ghost-text-dim" />
+          )}
+        </button>
+
+        {expandedRegistry && (
+          <div className="space-y-3">
+            {/* Sync Status & Button */}
+            {!registryStatus?.synced ? (
+              <div className="flex flex-col items-center gap-3 py-6 px-4 bg-ghost-bg/50 rounded-xl border border-ghost-border border-dashed">
+                <CloudDownload className="w-8 h-8 text-ghost-text-dim/30" />
+                <div className="text-center">
+                  <p className="text-sm text-ghost-text">
+                    Browse 6,000+ MCP Servers
+                  </p>
+                  <p className="text-[11px] text-ghost-text-dim/60 mt-0.5">
+                    Sync the official registry to discover and install any MCP tool
+                  </p>
+                </div>
+                <button
+                  onClick={handleRegistrySync}
+                  disabled={registrySyncing}
+                  className="flex items-center gap-2 px-4 py-2 bg-ghost-accent/10 text-ghost-accent rounded-xl text-sm font-medium hover:bg-ghost-accent/20 disabled:opacity-50 transition-all"
+                >
+                  {registrySyncing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      Sync Registry
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Registry Search */}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ghost-text-dim/40" />
+                    <input
+                      type="text"
+                      value={registryQuery}
+                      onChange={(e) => setRegistryQuery(e.target.value)}
+                      placeholder="Search 6,000+ servers (e.g., slack, database, stripe)..."
+                      className="w-full pl-9 pr-3 py-2 bg-ghost-bg border border-ghost-border rounded-xl text-sm text-ghost-text outline-none focus:border-ghost-accent/40 placeholder:text-ghost-text-dim/30 transition-colors"
+                    />
+                    {registrySearching && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-ghost-accent" />
+                    )}
+                  </div>
+                  <button
+                    onClick={handleRegistrySync}
+                    disabled={registrySyncing}
+                    className="p-2 rounded-xl border border-ghost-border text-ghost-text-dim hover:text-ghost-accent hover:border-ghost-accent/30 transition-all disabled:opacity-50"
+                    title={registryStatus.fresh ? "Registry is up to date" : "Refresh registry cache"}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${registrySyncing ? "animate-spin" : ""}`} />
+                  </button>
+                </div>
+
+                {/* Cache Info */}
+                {registryStatus.meta && (
+                  <p className="text-[10px] text-ghost-text-dim/40 -mt-1">
+                    {registryStatus.meta.total_servers.toLocaleString()} servers cached
+                    {registryStatus.meta.last_sync && (
+                      <> · Last synced {new Date(registryStatus.meta.last_sync).toLocaleDateString()}</>
+                    )}
+                    {!registryStatus.fresh && (
+                      <span className="text-amber-400/60"> · Cache expired</span>
+                    )}
+                  </p>
+                )}
+
+                {/* Registry Results */}
+                {registryQuery.trim() && (
+                  <div className="space-y-2">
+                    {registryResults.length === 0 && !registrySearching ? (
+                      <div className="py-6 text-center">
+                        <Search className="w-6 h-6 text-ghost-text-dim/20 mx-auto mb-1.5" />
+                        <p className="text-xs text-ghost-text-dim">
+                          No servers found for "{registryQuery}"
+                        </p>
+                      </div>
+                    ) : (
+                      registryResults.map((entry) => {
+                        const installed = installedNames.has(entry.name);
+                        const installing = installingId === entry.id;
+                        const installable = canInstall(entry) || entry.transport === "http";
+
+                        return (
+                          <div
+                            key={entry.id}
+                            className="flex items-center gap-3 px-3 py-2.5 bg-ghost-bg rounded-xl border border-ghost-border hover:border-ghost-accent/20 transition-all group"
+                          >
+                            <span className="text-xl shrink-0 w-8 text-center">{entry.icon}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-medium text-ghost-text truncate">
+                                  {entry.name}
+                                </span>
+                                <span className="px-1.5 py-0.5 text-[9px] font-medium bg-ghost-accent/10 text-ghost-accent rounded">
+                                  Registry
+                                </span>
+                                {entry.transport === "http" && (
+                                  <span className="px-1.5 py-0.5 text-[9px] font-medium bg-purple-400/10 text-purple-400 rounded">
+                                    Remote
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-ghost-text-dim/70 truncate mt-0.5">
+                                {entry.description}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] text-ghost-text-dim/40">
+                                  {entry.runtime === "remote" ? "HTTP" : entry.runtime}
+                                </span>
+                                {entry.package && (
+                                  <span className="text-[10px] text-ghost-text-dim/40 truncate">
+                                    {entry.package}
+                                  </span>
+                                )}
+                                {entry.required_env.length > 0 && (
+                                  <span className="text-[10px] text-amber-400/70">
+                                    Requires config
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="shrink-0">
+                              {installed ? (
+                                <span className="flex items-center gap-1 px-2 py-1 text-xs text-green-400 bg-green-400/10 rounded-lg">
+                                  <Check className="w-3 h-3" />
+                                  Installed
+                                </span>
+                              ) : installing ? (
+                                <span className="flex items-center gap-1 px-2 py-1 text-xs text-ghost-accent">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                </span>
+                              ) : !installable ? (
+                                <span
+                                  className="px-2 py-1 text-[10px] text-ghost-text-dim/40 rounded-lg"
+                                  title={`Requires ${entry.runtime}`}
+                                >
+                                  Need {entry.runtime === "node" ? "Node.js" : entry.runtime === "python" ? "Python" : entry.runtime}
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleInstall(entry, true)}
+                                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-ghost-accent bg-ghost-accent/10 hover:bg-ghost-accent/20 rounded-lg transition-all"
+                                >
+                                  <Download className="w-3 h-3" />
+                                  Install
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+
+                {/* Empty state when no search */}
+                {!registryQuery.trim() && (
+                  <div className="py-4 text-center">
+                    <p className="text-xs text-ghost-text-dim/50">
+                      Type a search term to discover servers from the official MCP Registry
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
 

@@ -327,7 +327,16 @@
   - Frontend: searchable/filterable `McpAppStore.tsx` with category sidebar, env var forms
   - Tauri commands: `get_mcp_catalog`, `detect_runtimes`, `install_mcp_from_catalog`, `uninstall_mcp_server`
   - [ ] Community catalog contributions via PR
-  - [ ] Auto-update catalog entries from remote index
+  - [x] **Official MCP Registry integration** (6,000+ servers at registry.modelcontextprotocol.io)
+    - Background sync: paginated fetch of all servers, cached locally as JSON
+    - Local search: multi-word query matching against name, title, description
+    - Auto-conversion: `server.json` → `CatalogEntry` (npm→npx, pypi→uvx, oci→docker, remotes→http)
+    - Deduplication against curated catalog to avoid double entries
+    - Registry UI: expandable section in MCP App Store with dedicated search, sync status
+    - `install_mcp_entry` command: accepts full CatalogEntry directly for registry servers
+    - Tauri commands: `sync_mcp_registry`, `search_mcp_registry`, `get_registry_status`
+    - Privacy-first: opt-in sync — only fetches when user explicitly browses the registry
+    - Cache TTL: 24 hours, stale cache still usable, refresh button available
 
 #### AG-UI Runtime (Agent ↔ User Interaction Protocol)
 - [x] **AG-UI event system in Rust backend**

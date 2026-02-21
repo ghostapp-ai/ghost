@@ -75,9 +75,12 @@ export async function showWindow(): Promise<void> {
   return invoke<void>("show_window");
 }
 
-/** Programmatic window drag — fallback for data-tauri-drag-region issues. */
+/** Programmatic window drag — uses direct Tauri API (no IPC roundtrip).
+ * Must be called synchronously on mousedown for the OS drag loop to take over.
+ * Using invoke() caused focus toggle → minimize bugs on Windows (#10767). */
 export async function startDragging(): Promise<void> {
-  return invoke<void>("start_dragging");
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  return getCurrentWindow().startDragging();
 }
 
 /** Minimize the main window. */
@@ -264,7 +267,7 @@ export async function removeMcpServerEntry(name: string): Promise<void> {
 
 // --- MCP Catalog (App Store) ---
 
-import type { CatalogResponse, RuntimeInfo } from "./types";
+import type { CatalogEntry, CatalogResponse, RuntimeInfo, RegistrySyncResult, RegistryStatus } from "./types";
 
 /** Get the curated MCP tool catalog with categories. */
 export async function getMcpCatalog(): Promise<CatalogResponse> {
@@ -288,6 +291,39 @@ export async function installMcpFromCatalog(
 /** Uninstall an MCP server (disconnect + remove from settings). */
 export async function uninstallMcpServer(name: string): Promise<void> {
   return invoke<void>("uninstall_mcp_server", { name });
+}
+
+// --- MCP Registry ---
+
+/** Install an MCP server from a CatalogEntry directly (for registry entries).
+ *  Unlike installMcpFromCatalog (which looks up by curated catalog ID),
+ *  this accepts a full CatalogEntry — used for servers discovered from the registry. */
+export async function installMcpEntry(
+  entry: CatalogEntry,
+  envVars: Record<string, string> = {}
+): Promise<ConnectedServer> {
+  return invoke<ConnectedServer>("install_mcp_entry", { entry, envVars });
+}
+
+/** Sync the official MCP Registry to local cache.
+ *  Fetches all 6,000+ servers from registry.modelcontextprotocol.io.
+ *  This is opt-in — only triggered when user explicitly browses the registry. */
+export async function syncMcpRegistry(): Promise<RegistrySyncResult> {
+  return invoke<RegistrySyncResult>("sync_mcp_registry");
+}
+
+/** Search the cached MCP Registry for servers matching a query.
+ *  Requires a prior syncMcpRegistry() call to populate the cache. */
+export async function searchMcpRegistry(
+  query: string,
+  limit?: number
+): Promise<CatalogEntry[]> {
+  return invoke<CatalogEntry[]>("search_mcp_registry", { query, limit });
+}
+
+/** Get the registry cache status (synced, fresh, metadata). */
+export async function getRegistryStatus(): Promise<RegistryStatus> {
+  return invoke<RegistryStatus>("get_registry_status");
 }
 
 // --- Platform Detection ---

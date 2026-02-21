@@ -175,7 +175,7 @@ export interface CatalogEntry {
   description: string;
   category: string;
   icon: string;
-  runtime: "node" | "python" | "binary";
+  runtime: string;
   transport: string;
   command: string;
   args: string[];
@@ -220,6 +220,31 @@ export interface RuntimeInfo {
 export interface CatalogResponse {
   entries: CatalogEntry[];
   categories: CatalogCategory[];
+}
+
+// --- MCP Registry Types ---
+
+/** Result of syncing the official MCP Registry. */
+export interface RegistrySyncResult {
+  success: boolean;
+  total_servers: number;
+  installable_count: number;
+  error: string | null;
+  from_cache: boolean;
+}
+
+/** Metadata about the local registry cache. */
+export interface RegistryCacheMeta {
+  last_sync: string;
+  total_servers: number;
+  installable_count: number;
+}
+
+/** Status of the local registry cache. */
+export interface RegistryStatus {
+  synced: boolean;
+  fresh: boolean;
+  meta: RegistryCacheMeta | null;
 }
 
 // --- AG-UI Protocol Types ---
