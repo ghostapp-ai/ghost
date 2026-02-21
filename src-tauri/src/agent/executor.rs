@@ -574,15 +574,48 @@ impl AgentExecutor {
         // KV cache type, flash attention, mlock — all automatically.
         let inf_profile =
             crate::chat::inference::InferenceProfile::auto(model_size_mb, model_n_layers);
-        let model_params = inf_profile.model_params();
+        let mut model_params = inf_profile.model_params();
         let model_path_str = model_path.to_string_lossy().to_string();
 
-        let model = LlamaModel::load_from_file(&backend, &model_path_str, &model_params)
-            .map_err(|e| GhostError::Agent(format!("Failed to load agent model: {}", e)))?;
+        // Load model with GPU offload. If it fails (VRAM exhaustion, driver
+        // issues, integrated GPU limitations), retry with CPU-only.
+        let (model, actual_gpu_layers) =
+            match LlamaModel::load_from_file(&backend, &model_path_str, &model_params) {
+                Ok(m) => (m, inf_profile.n_gpu_layers),
+                Err(e) if inf_profile.n_gpu_layers > 0 => {
+                    tracing::warn!(
+                        "Agent GPU model load failed (n_gpu_layers={}): {}. Retrying CPU-only...",
+                        inf_profile.n_gpu_layers,
+                        e
+                    );
+                    model_params = llama_cpp_2::model::params::LlamaModelParams::default()
+                        .with_n_gpu_layers(0)
+                        .with_use_mlock(inf_profile.use_mlock);
+                    let m = LlamaModel::load_from_file(&backend, &model_path_str, &model_params)
+                        .map_err(|e2| {
+                            GhostError::Agent(format!(
+                                "Failed to load agent model (GPU failed: {}, CPU also failed: {})",
+                                e, e2
+                            ))
+                        })?;
+                    (m, 0)
+                }
+                Err(e) => {
+                    return Err(GhostError::Agent(format!(
+                        "Failed to load agent model: {}",
+                        e
+                    )));
+                }
+            };
 
         tracing::debug!(
-            "Agent model loaded: gpu_layers={}, gpu={}",
-            inf_profile.n_gpu_layers,
+            "Agent model loaded: gpu_layers={}{}, gpu={}",
+            actual_gpu_layers,
+            if actual_gpu_layers != inf_profile.n_gpu_layers {
+                " (CPU fallback)"
+            } else {
+                ""
+            },
             inf_profile
                 .gpu
                 .as_ref()

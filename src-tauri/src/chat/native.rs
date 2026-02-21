@@ -8,6 +8,7 @@ use std::sync::{Arc, OnceLock};
 
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
+use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::model::{AddBos, LlamaModel};
 use llama_cpp_2::sampling::LlamaSampler;
 
@@ -111,13 +112,48 @@ impl NativeChatEngine {
             .map(|g| g.name.clone())
             .unwrap_or_else(|| "CPU".to_string());
 
-        // Load model with hardware-optimized parameters
-        let model_params = inf_profile.model_params();
-        let n_gpu_layers = inf_profile.n_gpu_layers;
+        // Load model with hardware-optimized parameters.
+        // If GPU offload fails (common: VRAM exhaustion, driver issues, shared memory
+        // on integrated GPUs), automatically retry with CPU-only (n_gpu_layers=0).
+        let mut model_params = inf_profile.model_params();
+        let mut n_gpu_layers = inf_profile.n_gpu_layers;
 
         let model_path_str = model_path.to_string_lossy().to_string();
-        let model = LlamaModel::load_from_file(&backend, &model_path_str, &model_params)
-            .map_err(|e| GhostError::Chat(format!("Failed to load GGUF model: {}", e)))?;
+        let model = match LlamaModel::load_from_file(&backend, &model_path_str, &model_params) {
+            Ok(m) => m,
+            Err(e) if n_gpu_layers > 0 => {
+                tracing::warn!(
+                    "GPU model load failed (n_gpu_layers={}): {}. Retrying with CPU-only...",
+                    n_gpu_layers,
+                    e
+                );
+                n_gpu_layers = 0;
+                model_params = LlamaModelParams::default()
+                    .with_n_gpu_layers(0)
+                    .with_use_mlock(inf_profile.use_mlock);
+                LlamaModel::load_from_file(&backend, &model_path_str, &model_params).map_err(
+                    |e2| {
+                        GhostError::Chat(format!(
+                            "Failed to load GGUF model (GPU failed: {}, CPU also failed: {})",
+                            e, e2
+                        ))
+                    },
+                )?
+            }
+            Err(e) => {
+                return Err(GhostError::Chat(format!(
+                    "Failed to load GGUF model: {}",
+                    e
+                )));
+            }
+        };
+
+        // Update GPU backend name if we fell back to CPU
+        let gpu_backend_name = if n_gpu_layers == 0 && inf_profile.n_gpu_layers > 0 {
+            "CPU (GPU fallback)".to_string()
+        } else {
+            gpu_backend_name
+        };
 
         tracing::info!(
             "Native chat engine ready: {} (gpu={}, n_gpu_layers={})",
