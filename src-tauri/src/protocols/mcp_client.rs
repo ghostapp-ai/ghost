@@ -97,6 +97,13 @@ impl McpClientManager {
             cmd.env(key, value);
         }
 
+        // Suppress console/terminal window creation on Windows
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+
         let transport = rmcp::transport::TokioChildProcess::new(cmd)?;
         let service = ().serve(transport).await?;
 

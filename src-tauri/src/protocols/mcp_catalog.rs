@@ -104,35 +104,76 @@ pub struct RuntimeInfo {
     pub has_uvx: bool,
 }
 
-/// Detect available runtimes on the system.
-/// This runs quick `which`/`where` checks for each runtime.
+/// Detect available runtimes on the system AND Ghost-managed runtimes.
+/// Checks Ghost-managed runtimes first (in `<app_data>/runtimes/`),
+/// then falls back to system PATH via `which`/`where`.
 pub async fn detect_runtimes() -> RuntimeInfo {
-    let (has_node, node_version) = check_command_version("node", &["--version"]).await;
-    let has_npx = check_command_exists("npx").await;
-    let (has_python, python_version) = detect_python().await;
-    let has_uv = check_command_exists("uv").await;
-    let has_uvx = check_command_exists("uvx").await;
+    // First, check Ghost-managed runtimes (they take priority)
+    let app_data = crate::get_app_data_dir();
+    let bootstrapper = super::runtime_bootstrap::RuntimeBootstrapper::new(&app_data);
+
+    let managed_node = bootstrapper.resolve_binary("node").is_some();
+    let managed_npx = bootstrapper.resolve_binary("npx").is_some();
+    let managed_uv = bootstrapper.resolve_binary("uv").is_some();
+    let managed_uvx = bootstrapper.resolve_binary("uvx").is_some();
+    let managed_python = bootstrapper.resolve_binary("python3").is_some();
+
+    // Then check system PATH as fallback
+    let (sys_node, node_version) = if managed_node {
+        (true, Some("managed".to_string()))
+    } else {
+        check_command_version("node", &["--version"]).await
+    };
+    let sys_npx = if managed_npx {
+        true
+    } else {
+        check_command_exists("npx").await
+    };
+    let (sys_python, python_version) = if managed_python {
+        (true, Some("managed".to_string()))
+    } else {
+        detect_python().await
+    };
+    let sys_uv = if managed_uv {
+        true
+    } else {
+        check_command_exists("uv").await
+    };
+    let sys_uvx = if managed_uvx {
+        true
+    } else {
+        check_command_exists("uvx").await
+    };
 
     RuntimeInfo {
-        has_node,
+        has_node: sys_node,
         node_version,
-        has_npx,
-        has_python,
+        has_npx: sys_npx,
+        has_python: sys_python,
         python_version,
-        has_uv,
-        has_uvx,
+        has_uv: sys_uv,
+        has_uvx: sys_uvx,
     }
 }
 
 /// Check if a command exists and get its version.
+/// Spawns process with suppressed stdio to avoid flashing terminal windows.
 async fn check_command_version(cmd: &str, args: &[&str]) -> (bool, Option<String>) {
-    match tokio::process::Command::new(cmd)
+    let mut command = tokio::process::Command::new(cmd);
+    command
         .args(args)
+        .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .output()
-        .await
+        .stderr(std::process::Stdio::piped());
+
+    // On Windows, suppress console window creation
+    #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    match command.output().await {
         Ok(output) if output.status.success() => {
             let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
             (true, Some(version))
@@ -142,20 +183,28 @@ async fn check_command_version(cmd: &str, args: &[&str]) -> (bool, Option<String
 }
 
 /// Check if a command exists via `which` (Unix) or `where` (Windows).
+/// Spawns process with suppressed stdio to avoid flashing terminal windows.
 async fn check_command_exists(cmd: &str) -> bool {
     #[cfg(target_os = "windows")]
     let check_cmd = "where";
     #[cfg(not(target_os = "windows"))]
     let check_cmd = "which";
 
-    tokio::process::Command::new(check_cmd)
+    let mut command = tokio::process::Command::new(check_cmd);
+    command
         .arg(cmd)
+        .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .await
-        .map(|s| s.success())
-        .unwrap_or(false)
+        .stderr(std::process::Stdio::null());
+
+    // On Windows, suppress console window creation
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    command.status().await.map(|s| s.success()).unwrap_or(false)
 }
 
 /// Detect Python 3, trying `python3` first then `python`.
@@ -1883,13 +1932,20 @@ pub async fn verify_server_package(entry: &CatalogEntry, timeout_secs: u64) -> P
     let resolved_args = resolve_args(&entry.args, &HashMap::new());
 
     let result = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), async {
-        let mut child = match tokio::process::Command::new(&entry.command)
-            .args(&resolved_args)
+        let mut cmd = tokio::process::Command::new(&entry.command);
+        cmd.args(&resolved_args)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
+            .stderr(std::process::Stdio::piped());
+
+        // Suppress console window on Windows
+        #[cfg(target_os = "windows")]
         {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+
+        let mut child = match cmd.spawn() {
             Ok(c) => c,
             Err(e) => {
                 return PackageVerification {
@@ -2073,13 +2129,20 @@ pub async fn precache_npm_packages() {
     );
 
     for pkg in &npm_packages {
-        match tokio::process::Command::new("npm")
-            .args(["cache", "add", pkg])
+        let mut cmd = tokio::process::Command::new("npm");
+        cmd.args(["cache", "add", pkg])
+            .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .await
+            .stderr(std::process::Stdio::null());
+
+        // Suppress console window on Windows
+        #[cfg(target_os = "windows")]
         {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+
+        match cmd.status().await {
             Ok(status) if status.success() => {
                 tracing::debug!("MCP precache: cached {}", pkg);
             }
@@ -2100,13 +2163,20 @@ pub async fn precache_npm_packages() {
         .collect();
 
     for pkg in &python_packages {
-        match tokio::process::Command::new("uv")
-            .args(["cache", "prune"])
+        let mut cmd = tokio::process::Command::new("uv");
+        cmd.args(["cache", "prune"])
+            .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .await
+            .stderr(std::process::Stdio::null());
+
+        // Suppress console window on Windows
+        #[cfg(target_os = "windows")]
         {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+
+        match cmd.status().await {
             Ok(_) => {
                 // uv doesn't have cache add, but installing and removing works
                 tracing::debug!("MCP precache: uv cache ready for {}", pkg);
