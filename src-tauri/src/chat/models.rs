@@ -30,6 +30,9 @@ pub struct ModelProfile {
     pub parameters: &'static str,
     /// Quality tier: 1=basic, 2=good, 3=better, 4=best.
     pub quality_tier: u8,
+    /// Number of transformer layers in the model architecture.
+    /// Used for smart GPU layer allocation (partial offload).
+    pub n_layers: u32,
 }
 
 /// All available models, ordered from smallest to largest.
@@ -45,6 +48,7 @@ pub const MODEL_REGISTRY: &[ModelProfile] = &[
         min_ram_mb: 1024,
         parameters: "0.5B",
         quality_tier: 1,
+        n_layers: 24,
     },
     ModelProfile {
         id: "qwen2.5-1.5b",
@@ -57,6 +61,7 @@ pub const MODEL_REGISTRY: &[ModelProfile] = &[
         min_ram_mb: 2048,
         parameters: "1.5B",
         quality_tier: 2,
+        n_layers: 28,
     },
     ModelProfile {
         id: "qwen2.5-3b",
@@ -69,6 +74,7 @@ pub const MODEL_REGISTRY: &[ModelProfile] = &[
         min_ram_mb: 4096,
         parameters: "3B",
         quality_tier: 3,
+        n_layers: 36,
     },
     ModelProfile {
         id: "qwen2.5-7b",
@@ -81,6 +87,7 @@ pub const MODEL_REGISTRY: &[ModelProfile] = &[
         min_ram_mb: 8192,
         parameters: "7B",
         quality_tier: 4,
+        n_layers: 28,
     },
 ];
 

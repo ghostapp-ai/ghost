@@ -4,6 +4,8 @@
 //! GPU acceleration is detected at runtime via llama.cpp (Vulkan/CUDA/Metal).
 //! Fallback chain: Native (llama.cpp) → Ollama → None.
 
+#[cfg(desktop)]
+pub mod inference;
 pub mod models;
 #[cfg(desktop)]
 pub mod native;

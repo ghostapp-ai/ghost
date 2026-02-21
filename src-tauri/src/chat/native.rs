@@ -6,13 +6,12 @@
 
 use std::sync::{Arc, OnceLock};
 
-use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
-use llama_cpp_2::model::params::LlamaModelParams;
 use llama_cpp_2::model::{AddBos, LlamaModel};
 use llama_cpp_2::sampling::LlamaSampler;
 
+use super::inference::InferenceProfile;
 use super::models::ModelProfile;
 use super::ChatMessage;
 use super::DownloadProgress;
@@ -41,8 +40,6 @@ pub fn get_or_init_backend() -> Result<Arc<LlamaBackend>> {
 const DEFAULT_TEMPERATURE: f32 = 0.7;
 const DEFAULT_TOP_P: f32 = 0.9;
 const DEFAULT_SEED: u32 = 42;
-const MAX_CONTEXT: u32 = 4096;
-const BATCH_SIZE: u32 = 512;
 
 /// Qwen2.5 ChatML template tokens.
 const IM_START: &str = "<|im_start|>";
@@ -63,6 +60,8 @@ pub struct NativeChatEngine {
     top_p: f32,
     gpu_backend_name: String,
     n_gpu_layers: u32,
+    /// Hardware-adaptive inference configuration (shared with context creation).
+    profile: InferenceProfile,
 }
 
 impl NativeChatEngine {
@@ -96,36 +95,32 @@ impl NativeChatEngine {
         // Get or initialize the global llama.cpp backend singleton
         let backend = get_or_init_backend()?;
 
-        // Detect GPU capabilities
-        let has_gpu = backend.supports_gpu_offload();
-        let n_gpu_layers: u32 = if has_gpu { 9999 } else { 0 };
+        // ── Hardware-adaptive inference configuration ─────────────────
+        // InferenceProfile detects GPU VRAM, CPU cores, RAM, and computes
+        // optimal parameters: n_gpu_layers, threads, batch size, context
+        // window, KV cache type, mlock, flash attention — all automatically.
+        let inf_profile = InferenceProfile::auto(profile.size_mb, profile.n_layers);
 
-        // Determine active GPU backend name
-        let gpu_backend_name = if has_gpu {
-            Self::detect_gpu_name()
-        } else {
-            "CPU".to_string()
-        };
+        // Determine GPU backend name for display
+        let gpu_backend_name = inf_profile
+            .gpu
+            .as_ref()
+            .map(|g| g.name.clone())
+            .unwrap_or_else(|| "CPU".to_string());
 
-        tracing::info!(
-            "llama.cpp backend: gpu_offload={}, n_gpu_layers={}, backend={}",
-            has_gpu,
-            n_gpu_layers,
-            gpu_backend_name
-        );
-
-        // Load model
-        let model_params = LlamaModelParams::default().with_n_gpu_layers(n_gpu_layers);
+        // Load model with hardware-optimized parameters
+        let model_params = inf_profile.model_params();
+        let n_gpu_layers = inf_profile.n_gpu_layers;
 
         let model_path_str = model_path.to_string_lossy().to_string();
         let model = LlamaModel::load_from_file(&backend, &model_path_str, &model_params)
             .map_err(|e| GhostError::Chat(format!("Failed to load GGUF model: {}", e)))?;
 
         tracing::info!(
-            "Native chat engine ready: {} (gpu={}, layers_offloaded={})",
+            "Native chat engine ready: {} (gpu={}, n_gpu_layers={})",
             profile.name,
             gpu_backend_name,
-            n_gpu_layers
+            n_gpu_layers,
         );
 
         Ok(Self {
@@ -137,22 +132,8 @@ impl NativeChatEngine {
             top_p: DEFAULT_TOP_P,
             gpu_backend_name,
             n_gpu_layers,
+            profile: inf_profile,
         })
-    }
-
-    /// Detect the active GPU backend name from llama.cpp devices.
-    fn detect_gpu_name() -> String {
-        let devices = llama_cpp_2::list_llama_ggml_backend_devices();
-        for dev in &devices {
-            if matches!(
-                dev.device_type,
-                llama_cpp_2::LlamaBackendDeviceType::Gpu
-                    | llama_cpp_2::LlamaBackendDeviceType::IntegratedGpu
-            ) {
-                return format!("{} ({})", dev.backend, dev.description);
-            }
-        }
-        "GPU".to_string()
     }
 
     /// Get the active model ID.
@@ -196,25 +177,17 @@ impl NativeChatEngine {
             max_tokens
         );
 
-        if prompt_len >= MAX_CONTEXT as usize {
+        if prompt_len >= self.profile.n_ctx as usize {
             return Err(GhostError::Chat(format!(
                 "Prompt too long: {} tokens (max {})",
-                prompt_len, MAX_CONTEXT
+                prompt_len, self.profile.n_ctx
             )));
         }
 
-        // Create context for this generation
-        let n_threads = (std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(4)
-            / 2)
-        .max(1) as i32;
-
-        let ctx_params = LlamaContextParams::default()
-            .with_n_ctx(Some(std::num::NonZeroU32::new(MAX_CONTEXT).unwrap()))
-            .with_n_batch(BATCH_SIZE)
-            .with_n_threads(n_threads)
-            .with_n_threads_batch(n_threads);
+        // Create context with hardware-adaptive parameters from InferenceProfile.
+        // All settings (threads, batch, flash attn, KV cache, offload) are
+        // pre-computed based on this system's CPU cores, RAM, and GPU VRAM.
+        let ctx_params = self.profile.context_params(None);
 
         let mut ctx = self
             .model
@@ -232,11 +205,12 @@ impl NativeChatEngine {
             ])
         };
 
-        // Prefill: submit prompt tokens in chunks of BATCH_SIZE
-        //   When the prompt exceeds BATCH_SIZE tokens, we process it in
+        // Prefill: submit prompt tokens in chunks of batch size
+        //   When the prompt exceeds batch size tokens, we process it in
         //   multiple batch-decode passes. Only the very last token in the
         //   full prompt needs logits=true (for sampling the first generated token).
-        let mut batch = LlamaBatch::new(BATCH_SIZE as usize, 1);
+        let batch_size = self.profile.n_batch;
+        let mut batch = LlamaBatch::new(batch_size as usize, 1);
         let last_idx = tokens.len() as i32 - 1;
         for (i, &token) in tokens.iter().enumerate() {
             let is_last = i as i32 == last_idx;
@@ -245,7 +219,7 @@ impl NativeChatEngine {
                 .map_err(|e| GhostError::Chat(format!("Batch add failed: {}", e)))?;
 
             // When the batch is full, or we've added the last token, decode it
-            if batch.n_tokens() as u32 >= BATCH_SIZE || is_last {
+            if batch.n_tokens() as u32 >= batch_size || is_last {
                 ctx.decode(&mut batch)
                     .map_err(|e| GhostError::Chat(format!("Prefill decode failed: {}", e)))?;
                 // Only clear between intermediate chunks — keep the last one so
