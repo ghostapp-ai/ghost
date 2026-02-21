@@ -1,3 +1,9 @@
+## [0.13.4](https://github.com/ghostapp-ai/ghost/compare/v0.13.3...v0.13.4) (2026-02-21)
+
+### 🐛 Bug Fixes
+
+* **ci:** shorten Windows build path to fix MAX_PATH C1041 error ([67ab4e0](https://github.com/ghostapp-ai/ghost/commit/67ab4e015ce70b0a7335c8ff2e279f94453a66b8))
+
 ## [0.13.3](https://github.com/ghostapp-ai/ghost/compare/v0.13.2...v0.13.3) (2026-02-21)
 
 ### 🐛 Bug Fixes
