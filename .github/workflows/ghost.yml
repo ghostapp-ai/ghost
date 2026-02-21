@@ -286,25 +286,39 @@ jobs:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # ANDROID BUILD — APK for aarch64 (covers 95%+ devices)
+  # ANDROID BUILD — signed release APK for aarch64 (covers 95%+ devices)
+  #
+  # Strategy: Gradle-integrated signing via keystore.properties.
+  #   build.gradle.kts is committed with conditional signing config.
+  #   When ANDROID_KEY_BASE64 secret exists → signed APK.
+  #   When no secret → unsigned APK (still uploaded as artifact).
+  #
+  # Required secrets (for signed builds):
+  #   ANDROID_KEY_BASE64      — base64-encoded .jks keystore file
+  #   ANDROID_KEY_PASSWORD    — keystore + key password
+  #   ANDROID_KEY_ALIAS       — key alias (e.g. "upload")
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   build-android:
     name: Android (aarch64)
     needs: release
     if: needs.release.outputs.released == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     permissions:
       contents: write
     env:
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: "sccache"
+      # gemm-f16 (candle dependency) requires ARM fp16 instructions
+      # Without this, compilation fails: "error: instruction requires: fullfp16"
+      # See: https://github.com/sarah-quinones/gemm/issues/31
+      CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS: "-Ctarget-feature=+fp16,+fhm"
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release.outputs.tag }}
 
-      # ── Java 17 (required by Android Gradle) ──
+      # ── Java 17 (required by Android Gradle Plugin) ──
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -318,12 +332,12 @@ jobs:
         run: |
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager --install \
-            "platforms;android-34" \
-            "ndk;27.0.12077973" \
-            "build-tools;34.0.0"
-          echo "NDK_HOME=$ANDROID_HOME/ndk/27.0.12077973" >> "$GITHUB_ENV"
+            "platforms;android-36" \
+            "ndk;27.1.12297006" \
+            "build-tools;36.0.0"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.1.12297006" >> "$GITHUB_ENV"
 
-      # ── Rust with Android target (only aarch64 needed for APK) ──
+      # ── Rust with Android target ──
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
@@ -350,48 +364,35 @@ jobs:
       - name: Install frontend deps
         run: bun install
 
-      # ── Initialize & build ──
-      - name: Initialize Android project
-        run: bun run tauri android init
-
-      - name: Build Android APK
-        run: bun run tauri android build --target aarch64 --apk
-
-      # ── Detect keystore availability ──
-      - name: Detect Android keystore
+      # ── Setup Android signing (Gradle-integrated) ──
+      # Creates keystore.properties read by build.gradle.kts signingConfigs.
+      # If secrets are not configured, build produces unsigned APK.
+      - name: Setup Android signing
         env:
-          KEYSTORE_RAW: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          if [ -n "$KEYSTORE_RAW" ]; then
-            echo "HAS_KEYSTORE=true" >> "$GITHUB_ENV"
+          if [ -n "$ANDROID_KEY_BASE64" ]; then
+            echo "Setting up Gradle-integrated Android signing..."
+            base64 -d <<< "$ANDROID_KEY_BASE64" > "$RUNNER_TEMP/upload-keystore.jks"
+            cd src-tauri/gen/android
+            echo "password=$ANDROID_KEY_PASSWORD" > keystore.properties
+            echo "keyAlias=$ANDROID_KEY_ALIAS" >> keystore.properties
+            echo "storeFile=$RUNNER_TEMP/upload-keystore.jks" >> keystore.properties
+            cd "$GITHUB_WORKSPACE"
+            echo "ANDROID_SIGNED=true" >> "$GITHUB_ENV"
+            echo "Android signing configured (Gradle will sign release APK)"
           else
-            echo "HAS_KEYSTORE=false" >> "$GITHUB_ENV"
+            echo "ANDROID_SIGNED=false" >> "$GITHUB_ENV"
+            echo "::notice::No ANDROID_KEY_BASE64 secret found — building unsigned APK"
           fi
 
-      # ── Sign APK (if keystore secrets configured) ──
-      - name: Sign APK
-        if: env.HAS_KEYSTORE == 'true'
-        env:
-          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          echo "$ANDROID_KEYSTORE" | base64 --decode > /tmp/ghost-release.keystore
-          APK=$(find src-tauri/gen/android -name "*.apk" -type f | head -1)
-          echo "Found APK: $APK"
-          if [ -z "$APK" ]; then
-            echo "::error::No APK found!"
-            exit 1
-          fi
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" sign \
-            --ks /tmp/ghost-release.keystore \
-            --ks-pass "env:KEYSTORE_PASSWORD" \
-            --ks-key-alias "$KEY_ALIAS" \
-            --key-pass "env:KEY_PASSWORD" \
-            "$APK"
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose "$APK"
-          rm -f /tmp/ghost-release.keystore
+      # ── Build Android APK ──
+      # gen/android/ is committed with build.gradle.kts signing config,
+      # so we skip `tauri android init` to avoid overwriting it.
+      - name: Build Android APK
+        run: bun run tauri android build --target aarch64
 
       # ── Upload to release ──
       - name: Upload APK to release
@@ -400,13 +401,19 @@ jobs:
         run: |
           VERSION="${{ needs.release.outputs.version }}"
           TAG="${{ needs.release.outputs.tag }}"
-          APK=$(find src-tauri/gen/android -name "*.apk" -type f | head -1)
+          # Find the release APK (signed or unsigned depending on secrets)
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" -path "*/release/*" -type f | head -1)
           if [ -z "$APK" ]; then
-            echo "::error::No APK found to upload!"
+            echo "::error::No release APK found!"
             exit 1
           fi
-          DEST="Ghost_${VERSION}_android-aarch64.apk"
+          SUFFIX=""
+          if [ "$ANDROID_SIGNED" != "true" ]; then
+            SUFFIX="-unsigned"
+          fi
+          DEST="Ghost_${VERSION}_android-aarch64${SUFFIX}.apk"
           cp "$APK" "$DEST"
+          echo "Uploading: $DEST ($(du -h "$DEST" | cut -f1))"
           gh release upload "$TAG" "$DEST" --clobber
 
       - name: Upload workflow artifact
@@ -417,6 +424,12 @@ jobs:
           path: Ghost_*.apk
           retention-days: 7
           if-no-files-found: ignore
+
+      - name: Cleanup signing artifacts
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/upload-keystore.jks"
+          rm -f src-tauri/gen/android/keystore.properties
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   # iOS BUILD — always produces an unsigned .xcarchive (no Apple

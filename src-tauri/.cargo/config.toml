@@ -21,6 +21,14 @@ opt-level = 0
 # Speed up incremental builds on macOS
 split-debuginfo = "unpacked"
 
+# --- Android cross-compilation ---
+# gemm-f16 (dependency of candle) uses ARM fullfp16 inline assembly
+# that requires +fp16 and +fhm target features to be explicitly enabled.
+# Without these flags, compilation fails with "error: instruction requires: fullfp16"
+# See: https://github.com/sarah-quinones/gemm/issues/31
+[target.aarch64-linux-android]
+rustflags = ["-Ctarget-feature=+fp16,+fhm"]
+
 [net]
 # Use git CLI for fetching (faster than libgit2 in CI)
 git-fetch-with-cli = true

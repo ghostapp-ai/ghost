@@ -36,7 +36,8 @@ pro/
 
 # Tauri build output & generated platform projects
 src-tauri/gen/schemas
-src-tauri/gen/android
+# src-tauri/gen/android — tracked! Contains build.gradle.kts signing config.
+# Its own .gitignore excludes build/, .gradle/, keystore.properties, etc.
 src-tauri/gen/apple
 
 # Binary tools (downloaded at runtime)
