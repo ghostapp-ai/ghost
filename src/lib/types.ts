@@ -247,6 +247,76 @@ export interface RegistryStatus {
   meta: RegistryCacheMeta | null;
 }
 
+/** Result of verifying an MCP server package via JSON-RPC handshake. */
+export interface PackageVerification {
+  id: string;
+  package: string;
+  available: boolean;
+  server_name: string | null;
+  server_version: string | null;
+  error: string | null;
+}
+
+// --- Runtime Bootstrap Types ---
+
+/** Kinds of runtimes Ghost can manage. */
+export type RuntimeKind = "node" | "uv" | "docker";
+
+/** Status of a single managed runtime. */
+export interface RuntimeStatus {
+  kind: RuntimeKind;
+  installed: boolean;
+  managed: boolean;
+  version: string | null;
+  path: string | null;
+  description: string;
+  can_auto_install: boolean;
+}
+
+/** Progress event during runtime installation. */
+export interface RuntimeInstallProgress {
+  runtime: string;
+  stage: "downloading" | "extracting" | "configuring" | "complete" | "error";
+  percent: number;
+  message: string;
+}
+
+/** Result of installing a runtime. */
+export interface RuntimeInstallResult {
+  success: boolean;
+  status: RuntimeStatus;
+  error: string | null;
+}
+
+/** Comprehensive status of all managed runtimes. */
+export interface BootstrapStatus {
+  runtimes: RuntimeStatus[];
+  ready_for_defaults: boolean;
+  missing_installable: RuntimeKind[];
+  runtimes_dir: string;
+}
+
+/** AI-powered tool recommendation. */
+export interface ToolRecommendation {
+  catalog_id: string | null;
+  name: string;
+  reason: string;
+  runtime: string;
+  installable: boolean;
+  missing_runtimes: string[];
+}
+
+/** Tool requirement check result. */
+export interface ToolRequirements {
+  id: string;
+  name: string;
+  runtime: string;
+  runtime_installed: boolean;
+  can_auto_install_runtime: boolean;
+  required_env: string[];
+  ready: boolean;
+}
+
 // --- AG-UI Protocol Types ---
 
 /** AG-UI event type discriminator. */

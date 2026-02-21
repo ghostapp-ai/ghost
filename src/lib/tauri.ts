@@ -267,7 +267,7 @@ export async function removeMcpServerEntry(name: string): Promise<void> {
 
 // --- MCP Catalog (App Store) ---
 
-import type { CatalogEntry, CatalogResponse, RuntimeInfo, RegistrySyncResult, RegistryStatus } from "./types";
+import type { CatalogEntry, CatalogResponse, RuntimeInfo, RegistrySyncResult, RegistryStatus, PackageVerification, BootstrapStatus, RuntimeKind, RuntimeInstallResult, ToolRecommendation } from "./types";
 
 /** Get the curated MCP tool catalog with categories. */
 export async function getMcpCatalog(): Promise<CatalogResponse> {
@@ -291,6 +291,29 @@ export async function installMcpFromCatalog(
 /** Uninstall an MCP server (disconnect + remove from settings). */
 export async function uninstallMcpServer(name: string): Promise<void> {
   return invoke<void>("uninstall_mcp_server", { name });
+}
+
+// --- MCP Zero-Config & Auto-Provisioning ---
+
+/** Get all catalog entries that require zero configuration (no env vars). */
+export async function getZeroConfigTools(): Promise<CatalogEntry[]> {
+  return invoke<CatalogEntry[]>("get_zero_config_tools");
+}
+
+/** Get the curated default MCP tools (filesystem, sequential-thinking, memory, fetch, everything). */
+export async function getDefaultTools(): Promise<CatalogEntry[]> {
+  return invoke<CatalogEntry[]>("get_default_tools");
+}
+
+/** Verify an MCP server package by spawning it and performing a JSON-RPC initialize handshake. */
+export async function verifyMcpPackage(catalogId: string): Promise<PackageVerification> {
+  return invoke<PackageVerification>("verify_mcp_package", { catalogId });
+}
+
+/** Auto-provision default MCP tools: detects runtimes, builds configs, saves to settings.
+ *  Returns the number of tools provisioned. Skips tools whose runtimes are unavailable. */
+export async function autoProvisionMcpDefaults(): Promise<number> {
+  return invoke<number>("auto_provision_mcp_defaults");
 }
 
 // --- MCP Registry ---
@@ -324,6 +347,46 @@ export async function searchMcpRegistry(
 /** Get the registry cache status (synced, fresh, metadata). */
 export async function getRegistryStatus(): Promise<RegistryStatus> {
   return invoke<RegistryStatus>("get_registry_status");
+}
+
+// --- Runtime Bootstrap ---
+
+/** Get the status of all managed runtimes (Node.js, uv/Python, Docker).
+ *  Reports whether each is installed, managed by Ghost, version, and path. */
+export async function getRuntimeBootstrapStatus(): Promise<BootstrapStatus> {
+  return invoke<BootstrapStatus>("get_runtime_bootstrap_status");
+}
+
+/** Install a specific runtime managed by Ghost.
+ *  Emits `runtime-install-progress` events during installation.
+ *  @param kind - "node", "uv", or "docker" */
+export async function installRuntime(kind: RuntimeKind): Promise<RuntimeInstallResult> {
+  return invoke<RuntimeInstallResult>("install_runtime", { kind });
+}
+
+/** Bootstrap all missing runtimes needed for default MCP tools.
+ *  Installs uv + Node.js if not present. Emits progress events. */
+export async function bootstrapAllRuntimes(): Promise<RuntimeInstallResult[]> {
+  return invoke<RuntimeInstallResult[]>("bootstrap_all_runtimes");
+}
+
+/** AI-powered tool recommendation: find MCP tools matching a natural language query. */
+export async function recommendMcpTools(query: string): Promise<ToolRecommendation[]> {
+  return invoke<ToolRecommendation[]>("recommend_mcp_tools", { query });
+}
+
+/** Check what a tool needs before it can be installed.
+ *  Returns runtime requirements and whether they're met. */
+export async function checkToolRequirements(catalogId: string): Promise<{
+  id: string;
+  name: string;
+  runtime: string;
+  runtime_installed: boolean;
+  can_auto_install_runtime: boolean;
+  required_env: string[];
+  ready: boolean;
+}> {
+  return invoke("check_tool_requirements", { catalogId });
 }
 
 // --- Platform Detection ---

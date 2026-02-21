@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
+import { listen } from "@tauri-apps/api/event";
 import {
   Search,
   Loader2,
@@ -18,6 +19,8 @@ import {
   Globe,
   RefreshCw,
   CloudDownload,
+  Zap,
+  Wand2,
 } from "lucide-react";
 import {
   getMcpCatalog,
@@ -31,6 +34,10 @@ import {
   syncMcpRegistry,
   searchMcpRegistry,
   getRegistryStatus,
+  getRuntimeBootstrapStatus,
+  installRuntime,
+  bootstrapAllRuntimes,
+  recommendMcpTools,
 } from "../lib/tauri";
 import type {
   CatalogEntry,
@@ -39,6 +46,9 @@ import type {
   ConnectedServer,
   EnvVarSpec,
   RegistryStatus,
+  BootstrapStatus,
+  RuntimeInstallProgress,
+  ToolRecommendation,
 } from "../lib/types";
 
 interface McpAppStoreProps {
@@ -72,19 +82,32 @@ export function McpAppStore({ onError }: McpAppStoreProps) {
     [registryResults]
   );
 
+  // Runtime Bootstrap state
+  const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus | null>(null);
+  const [bootstrapping, setBootstrapping] = useState(false);
+  const [installingRuntime, setInstallingRuntime] = useState<string | null>(null);
+  const [runtimeProgress, setRuntimeProgress] = useState<RuntimeInstallProgress | null>(null);
+
+  // AI-powered tool recommendations
+  const [aiQuery, setAiQuery] = useState("");
+  const [recommendations, setRecommendations] = useState<ToolRecommendation[]>([]);
+  const [searching, setSearching] = useState(false);
+
   const refresh = useCallback(async () => {
     try {
-      const [catalogData, runtimeData, servers, regStatus] = await Promise.all([
+      const [catalogData, runtimeData, servers, regStatus, bsStatus] = await Promise.all([
         getMcpCatalog(),
         detectRuntimes(),
         listMcpServers(),
         getRegistryStatus().catch(() => null),
+        getRuntimeBootstrapStatus().catch(() => null),
       ]);
       setCatalog(catalogData.entries);
       setCategories(catalogData.categories);
       setRuntimes(runtimeData);
       setInstalledServers(servers);
       if (regStatus) setRegistryStatus(regStatus);
+      if (bsStatus) setBootstrapStatus(bsStatus);
     } catch (e) {
       onError(String(e));
     }
@@ -93,6 +116,76 @@ export function McpAppStore({ onError }: McpAppStoreProps) {
   useEffect(() => {
     refresh().finally(() => setLoading(false));
   }, [refresh]);
+
+  // Listen for runtime install progress events
+  useEffect(() => {
+    const unlisten = listen<RuntimeInstallProgress>("runtime-install-progress", (event) => {
+      setRuntimeProgress(event.payload);
+      if (event.payload.stage === "complete" || event.payload.stage === "error") {
+        setTimeout(() => {
+          setRuntimeProgress(null);
+          setInstallingRuntime(null);
+          refresh();
+        }, 1500);
+      }
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, [refresh]);
+
+  // Handle bootstrapping all runtimes
+  const handleBootstrapAll = useCallback(async () => {
+    setBootstrapping(true);
+    try {
+      await bootstrapAllRuntimes();
+      await refresh();
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setBootstrapping(false);
+    }
+  }, [refresh, onError]);
+
+  // Handle installing a single runtime
+  const handleInstallRuntime = useCallback(async (kind: "node" | "uv") => {
+    setInstallingRuntime(kind);
+    try {
+      const result = await installRuntime(kind);
+      if (!result.success && result.error) {
+        onError(result.error);
+      }
+      await refresh();
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setInstallingRuntime(null);
+    }
+  }, [refresh, onError]);
+
+  // AI-powered tool discovery
+  const handleAiSearch = useCallback(async (query: string) => {
+    setAiQuery(query);
+    if (!query.trim()) {
+      setRecommendations([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const recs = await recommendMcpTools(query);
+      setRecommendations(recs);
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setSearching(false);
+    }
+  }, [onError]);
+
+  // Debounced AI search
+  useEffect(() => {
+    if (!aiQuery.trim()) { setRecommendations([]); return; }
+    const timer = setTimeout(() => handleAiSearch(aiQuery), 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiQuery]);
 
   // Get installed server names for quick lookup
   const installedNames = useMemo(
@@ -300,42 +393,158 @@ export function McpAppStore({ onError }: McpAppStoreProps) {
 
   return (
     <div className="space-y-4">
-      {/* Runtimes Status Banner */}
-      {runtimes && (!runtimes.has_npx || !runtimes.has_uvx) && (
-        <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-          <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <div className="text-xs text-amber-300/90">
-            {!runtimes.has_npx && (
-              <p>
-                <strong>Node.js</strong> not detected — install{" "}
-                <a
-                  href="https://nodejs.org"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline"
-                >
-                  Node.js
-                </a>{" "}
-                to enable most tools
-              </p>
-            )}
-            {!runtimes.has_uvx && runtimes.has_npx && (
-              <p>
-                <strong>uv</strong> not detected — install{" "}
-                <a
-                  href="https://docs.astral.sh/uv/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline"
-                >
-                  uv
-                </a>{" "}
-                for Python tools
-              </p>
-            )}
+      {/* ⚡ Runtime Bootstrap Panel */}
+      {bootstrapStatus && !bootstrapStatus.ready_for_defaults && (
+        <div className="px-3 py-3 bg-gradient-to-r from-ghost-accent/10 to-purple-500/10 border border-ghost-accent/20 rounded-xl space-y-3">
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-ghost-accent" />
+            <span className="text-sm font-medium text-ghost-text">
+              Runtime Setup
+            </span>
+            <span className="text-[10px] text-ghost-text-dim ml-auto">
+              Ghost can auto-install these for you
+            </span>
           </div>
+
+          {/* Runtime status pills */}
+          <div className="flex flex-wrap gap-2">
+            {bootstrapStatus.runtimes.map((rt) => (
+              <div
+                key={rt.kind}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition-all ${
+                  rt.installed
+                    ? "bg-green-500/10 border-green-500/20 text-green-400"
+                    : rt.can_auto_install
+                    ? "bg-ghost-surface border-ghost-border text-ghost-text-dim hover:border-ghost-accent/30"
+                    : "bg-ghost-surface border-ghost-border text-ghost-text-dim/50"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    rt.installed ? "bg-green-400" : "bg-ghost-text-dim/30"
+                  }`}
+                />
+                <span className="font-medium capitalize">{rt.kind}</span>
+                {rt.installed ? (
+                  <span className="text-[10px] opacity-70">
+                    {rt.version ? rt.version.split(" ")[0] : "✓"}
+                    {rt.managed && " (Ghost)"}
+                  </span>
+                ) : rt.can_auto_install ? (
+                  <button
+                    onClick={() => handleInstallRuntime(rt.kind as "node" | "uv")}
+                    disabled={!!installingRuntime}
+                    className="ml-1 px-1.5 py-0.5 bg-ghost-accent/20 text-ghost-accent rounded text-[10px] hover:bg-ghost-accent/30 transition-colors disabled:opacity-50"
+                  >
+                    {installingRuntime === rt.kind ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      "Install"
+                    )}
+                  </button>
+                ) : (
+                  <span className="text-[10px] opacity-50">manual</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Progress bar during installation */}
+          {runtimeProgress && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] text-ghost-text-dim">
+                <span>{runtimeProgress.message}</span>
+                <span>{runtimeProgress.percent >= 0 ? `${Math.round(runtimeProgress.percent)}%` : ""}</span>
+              </div>
+              <div className="h-1 bg-ghost-surface rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-ghost-accent rounded-full transition-all duration-300"
+                  style={{ width: `${Math.max(0, runtimeProgress.percent)}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Install All button */}
+          {bootstrapStatus.missing_installable.length > 0 && !installingRuntime && (
+            <button
+              onClick={handleBootstrapAll}
+              disabled={bootstrapping}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-ghost-accent/20 text-ghost-accent text-xs font-medium rounded-lg hover:bg-ghost-accent/30 transition-colors disabled:opacity-50"
+            >
+              {bootstrapping ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Installing runtimes...
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  Install All Missing Runtimes ({bootstrapStatus.missing_installable.length})
+                </>
+              )}
+            </button>
+          )}
         </div>
       )}
+
+      {/* 🔮 AI Tool Discovery */}
+      <div className="space-y-2">
+        <div className="relative">
+          <Wand2 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-purple-400" />
+          <input
+            type="text"
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            placeholder="Describe what you need... e.g. 'manage GitHub repos' or 'query databases'"
+            className="w-full pl-8 pr-3 py-2 bg-ghost-surface border border-ghost-border rounded-lg text-xs text-ghost-text placeholder-ghost-text-dim/50 focus:outline-none focus:border-purple-500/50"
+          />
+          {searching && (
+            <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-purple-400" />
+          )}
+        </div>
+        {recommendations.length > 0 && (
+          <div className="space-y-1">
+            <span className="text-[10px] text-purple-400/70 uppercase tracking-wider font-medium">
+              Recommended Tools
+            </span>
+            {recommendations.slice(0, 5).map((rec) => (
+              <div
+                key={rec.catalog_id ?? rec.name}
+                className="flex items-center gap-2 px-2.5 py-2 bg-ghost-surface border border-purple-500/10 rounded-lg"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-ghost-text font-medium block truncate">
+                    {rec.name}
+                  </span>
+                  <span className="text-[10px] text-ghost-text-dim truncate block">
+                    {rec.reason.length > 80 ? rec.reason.substring(0, 80) + "..." : rec.reason}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {rec.missing_runtimes.length > 0 && (
+                    <span className="text-[9px] text-amber-400 px-1.5 py-0.5 bg-amber-400/10 rounded">
+                      needs {rec.missing_runtimes.join(", ")}
+                    </span>
+                  )}
+                  {rec.installable && rec.catalog_id && (
+                    <button
+                      onClick={() => {
+                        const entry = catalog.find((e) => e.id === rec.catalog_id);
+                        if (entry) handleInstall(entry);
+                      }}
+                      className="px-2 py-1 bg-ghost-accent/20 text-ghost-accent text-[10px] rounded hover:bg-ghost-accent/30 transition-colors"
+                    >
+                      Install
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Installed Servers Section */}
       {installedServers.length > 0 && (

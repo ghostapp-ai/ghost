@@ -281,10 +281,11 @@ export default function App() {
       {platform.isDesktop && (
         <div
           className="flex items-center justify-between shrink-0 h-9 select-none"
-          data-tauri-drag-region
           onMouseDown={(e) => {
             const target = e.target as HTMLElement;
-            if (e.button === 0 && !target.closest('button')) {
+            // Only initiate drag on left-click, not on buttons/interactive elements
+            if (e.button === 0 && !target.closest('button') && !target.closest('a') && !target.closest('input')) {
+              e.preventDefault(); // Prevent focus toggle cycle that causes minimize on Windows
               startDragging().catch(() => {});
             }
           }}

@@ -135,14 +135,10 @@ export function Onboarding({ onComplete, isMobile = false }: OnboardingProps) {
       {/* Draggable title bar — desktop only */}
       {!isMobile && (
         <div
-          data-tauri-drag-region
           className="h-4 shrink-0 cursor-grab active:cursor-grabbing"
           onMouseDown={(e) => {
-            if (
-              e.button === 0 &&
-              (e.target as HTMLElement).closest("[data-tauri-drag-region]") ===
-                e.currentTarget
-            ) {
+            if (e.button === 0) {
+              e.preventDefault(); // Prevent focus toggle cycle that causes minimize
               startDragging().catch(() => {});
             }
           }}
