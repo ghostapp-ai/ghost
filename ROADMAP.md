@@ -338,6 +338,39 @@
     - Privacy-first: opt-in sync — only fetches when user explicitly browses the registry
     - Cache TTL: 24 hours, stale cache still usable, refresh button available
 
+#### Runtime Bootstrap (Zero-Config Prerequisites)
+- [x] **RuntimeBootstrapper system** (`protocols/runtime_bootstrap.rs`)
+  - Ghost-managed runtimes directory: `<app_data>/runtimes/` — no system PATH pollution
+  - Auto-detect Node.js, uv/Python, Docker (system AND Ghost-managed)
+  - Download Node.js LTS from nodejs.org prebuilt binaries (tar.xz/zip per platform)
+  - Download uv from GitHub releases (static binary, all platforms)
+  - uv auto-installs Python via `uv python install` after install
+  - Archive extraction (tar.gz, tar.xz, zip) with nested directory flattening
+  - PATH injection: `build_env_path()` prepends managed runtimes when spawning MCP servers
+  - Binary resolution: `resolve_binary()` checks managed then system
+  - 13 unit tests + 3 integration tests (network-dependent)
+- [x] **MCP server launch integration**
+  - `connect_stdio` in MCP client auto-injects managed runtimes into PATH
+  - Resolved command lookup via RuntimeBootstrapper before spawning child process
+  - Startup auto-provision logs missing runtimes with actionable message
+- [x] **Tauri commands** (5 new)
+  - `get_runtime_bootstrap_status` — all runtimes status
+  - `install_runtime` — install a specific runtime with progress events
+  - `bootstrap_all_runtimes` — install all missing runtimes
+  - `recommend_mcp_tools` — AI-powered tool discovery via fuzzy matching
+  - `check_tool_requirements` — prereqs check before install
+- [x] **Frontend integration** (McpAppStore.tsx)
+  - Interactive Runtime Bootstrap panel with per-runtime install buttons
+  - "Install All Missing" one-click button
+  - Progress bar with stage + percentage from `runtime-install-progress` events
+  - AI Tool Discovery search bar with fuzzy matching recommendations
+  - Runtime status pills: installed (green) / installable / manual-only
+- [ ] **Future enhancements**
+  - Agent-powered tool discovery: LLM recommends tools from natural language
+  - Automatic runtime bootstrap on first launch (opt-in)
+  - Runtime version management (node 20 vs 22, Python 3.11 vs 3.12)
+  - Cross-platform CI testing for all download URLs
+
 #### AG-UI Runtime (Agent ↔ User Interaction Protocol)
 - [x] **AG-UI event system in Rust backend**
   - Implement ~16 AG-UI event types (TEXT_MESSAGE_CONTENT, TOOL_CALL_START, STATE_DELTA, etc.)

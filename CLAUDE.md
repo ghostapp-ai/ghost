@@ -89,6 +89,7 @@ src-tauri/src/
 │   ├── mcp_server.rs   # Ghost as MCP server (rmcp ServerHandler)
 │   ├── mcp_client.rs   # Ghost connects to external MCP servers (rmcp ClientHandler)
 │   ├── mcp_catalog.rs  # Curated MCP catalog (30+ servers) + one-click install + runtime detection
+│   ├── runtime_bootstrap.rs # Zero-config runtime installer (Node.js, uv/Python, Docker detection)
 │   ├── agui.rs         # AG-UI event system (~16 event types, bidirectional streaming)
 │   ├── a2ui.rs         # A2UI v0.9 generative UI (Google spec, JSON → React components)
 │   ├── a2a.rs          # (Phase 2) A2A Agent Card + task delegation
@@ -614,3 +615,9 @@ ollama pull qwen2.5:7b          # Reasoning + tool calling (Phase 3)
 | 2026-02-21 | Official MCP Registry integration (registry.modelcontextprotocol.io) | 6,000+ servers available without hardcoding. Paginated background sync → local JSON cache → client-side search. `server.json` auto-converted to `CatalogEntry` (npm→npx, pypi→uvx, oci→docker, remotes→http). Opt-in sync respects privacy — only fetches when user explicitly browses. 24h cache TTL with manual refresh. Deduplicates against curated catalog |
 | 2026-02-21 | Local cache + client-side search over server-side search | Official MCP Registry API has no search endpoint — only paginated listing. Cache all 6,000+ servers locally (~3MB JSON), search instantly against name/title/description. `updated_since` parameter available for future incremental sync |
 | 2026-02-21 | `install_mcp_entry` command over modifying existing install flow | Curated catalog uses ID-based lookup (`install_mcp_from_catalog`). Registry entries need full `CatalogEntry` passed directly since they're dynamic. Separate command avoids breaking existing flow while supporting both sources |
+| 2026-02-21 | Ghost-managed runtimes over system-wide installation | Runtimes in `<app_data>/runtimes/` — no sudo, no PATH pollution, no system modification. Ghost injects managed runtimes into PATH when spawning MCP servers via `build_env_path()`. Portable, reversible, privacy-first |
+| 2026-02-21 | uv as keystone Python runtime over system Python/pip | Single static binary → installs self + manages Python versions via `uv python install` + provides `uvx` for running tools. No system Python dependency. GitHub releases provide cross-platform binaries |
+| 2026-02-21 | Direct Node.js binary download over nvm/nvm-windows | Node.js provides prebuilt binaries for all platforms at `nodejs.org/dist/`. Ghost downloads and extracts to `runtimes/node/` — no nvm dependency, no shell profile modification, works in sandboxed environments |
+| 2026-02-21 | RuntimeBootstrapper struct over global functions | Encapsulates `runtimes_dir` path, provides `detect_all()`, `install_runtime()`, `build_env_path()`, `resolve_binary()`. Testable, mockable, no global state. Used by both lib.rs commands and mcp_client.rs |
+| 2026-02-21 | Fuzzy text matching for tool discovery over LLM-powered search | Zero-latency fuzzy matching (name/description/tags/category + popularity boost) for instant recommendations. LLM-powered discovery deferred to Phase 2 when agent is more capable |
+| 2026-02-21 | Runtime install progress via Tauri events over polling | `runtime-install-progress` events emitted during download/extract/configure. Frontend listens via `@tauri-apps/api/event`. Real-time progress bar with stage + percentage |
