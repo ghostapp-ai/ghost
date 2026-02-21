@@ -1,3 +1,25 @@
+## [0.12.0](https://github.com/ghostapp-ai/ghost/compare/v0.11.2...v0.12.0) (2026-02-21)
+
+### 🚀 Features
+
+* **mcp:** add curated MCP tool catalog with one-click install ([8d54189](https://github.com/ghostapp-ai/ghost/commit/8d54189889f40c19510677cd7c8dd26d2a243011))
+
+### 🐛 Bug Fixes
+
+* **agent:** make test_agent_run_emits_events robust for both CI and local ([f955c25](https://github.com/ghostapp-ai/ghost/commit/f955c25a5718c4f4b3c07a8a7d2ab858f2233e65))
+* **deps:** update ghost package version to 0.11.2 ([32df794](https://github.com/ghostapp-ai/ghost/commit/32df794dea9e27ca34dd217fc080e7e5552c9c9f))
+* **inference:** chunked batch prefill for prompts exceeding BATCH_SIZE ([397743b](https://github.com/ghostapp-ai/ghost/commit/397743b8dbce4bd6fe84a8607621d324b964cf0a))
+
+### ♻️ Code Refactoring
+
+* **mcp:** integrate McpAppStore into Settings MCP tab ([a10c58e](https://github.com/ghostapp-ai/ghost/commit/a10c58ebe78f6c584dc3c3d86216efbb54469c0d))
+
+### 📚 Documentation
+
+* **seo:** position Ghost as complete 2026 agent protocol stack ([6a06697](https://github.com/ghostapp-ai/ghost/commit/6a06697bccca470e43745229f9231c4772e7da9f))
+* update core documents for MCP catalog and chunked prefill fix ([195d29f](https://github.com/ghostapp-ai/ghost/commit/195d29f6063fe97ac07a73af7655f3fc5d6bcc60))
+* **website:** auto-sync content from source files [skip ci] ([800e850](https://github.com/ghostapp-ai/ghost/commit/800e850df91f3bd9626c5a1b237d7352dd3f9ae6))
+
 ## [0.11.2](https://github.com/ghostapp-ai/ghost/compare/v0.11.1...v0.11.2) (2026-02-20)
 
 ### 🐛 Bug Fixes
