@@ -1,3 +1,34 @@
+## [0.13.0](https://github.com/ghostapp-ai/ghost/compare/v0.12.0...v0.13.0) (2026-02-21)
+
+### 🚀 Features
+
+* **chat:** add hardware-adaptive inference configuration ([b67338e](https://github.com/ghostapp-ai/ghost/commit/b67338e143ccbe560e83e736dd634ccec8516c46))
+* **chat:** add Qwen3 model family with thinking mode support ([fdb2dfa](https://github.com/ghostapp-ai/ghost/commit/fdb2dfae540e95f9623fb79ec8d2d79b978f52c5))
+* **db:** add sqlite-vec partition keys and filtered vector search ([d7e0230](https://github.com/ghostapp-ai/ghost/commit/d7e02300776c588f77d09372a9a50f424dd72c10))
+* **frontend:** runtime bootstrap UI, AI tool discovery, and drag fix ([db58a10](https://github.com/ghostapp-ai/ghost/commit/db58a10639379019bc92076098fcd6b343c1044c))
+* **frontend:** sync types with Qwen3 backend, expand AG-UI + A2UI rendering ([cd15e29](https://github.com/ghostapp-ai/ghost/commit/cd15e29d4ad331f0428c2e53d7c9bd3555f463d7))
+* **mcp:** integrate Official MCP Registry (6,000+ servers) ([336ffb1](https://github.com/ghostapp-ai/ghost/commit/336ffb1e73cd1486571fc2ada80892bd901ec980))
+* **protocols:** add zero-config runtime bootstrap system ([af027f3](https://github.com/ghostapp-ai/ghost/commit/af027f3975ce297953ba2e2c89186ddc27caf3fb))
+* **protocols:** expand AG-UI to 30+ events and add A2A agent card ([493a4da](https://github.com/ghostapp-ai/ghost/commit/493a4dabd43aec37bdbff9ae4a292be3dfaca2cd))
+
+### 🐛 Bug Fixes
+
+* **ci:** resolve 3 clippy errors in runtime_bootstrap tests ([ca20399](https://github.com/ghostapp-ai/ghost/commit/ca20399d14b5265348ed645970359805340258b5))
+* resolve clippy dead_code warnings and doc indentation ([2187d09](https://github.com/ghostapp-ai/ghost/commit/2187d09b5b0fdb4652375a12e129a4006d28386f))
+
+### ⚡ Performance
+
+* add dist build profile and reduce re-index interval to 60min ([c66cc0d](https://github.com/ghostapp-ai/ghost/commit/c66cc0d8d94fea1f77e92b2ab2c32556438dda90))
+* **embeddings:** real tensor batching + GPU device selection ([ce6cca6](https://github.com/ghostapp-ai/ghost/commit/ce6cca6ce86c7d9b10de7f8851bb73fd849fda45))
+
+### 📚 Documentation
+
+* update CLAUDE and ROADMAP files for clarity and accuracy; bump ghost version to 0.12.0 ([2b7827a](https://github.com/ghostapp-ai/ghost/commit/2b7827a9ef44ec724ecc51789d8cd78d3d8c3d71))
+* update core documents for Qwen3, sqlite-vec, and A2A additions ([5c0b7b1](https://github.com/ghostapp-ai/ghost/commit/5c0b7b157ed0717c155942e8a4ff8bcd41308f20))
+* update README, ROADMAP, and CLAUDE.md for runtime bootstrap ([03e2cd2](https://github.com/ghostapp-ai/ghost/commit/03e2cd2b18340c5e2d340892e41a4ce0f19d34eb))
+* **website:** auto-sync content from source files [skip ci] ([ad7284d](https://github.com/ghostapp-ai/ghost/commit/ad7284d8cc8c61279bac52f2c3dc761dc8dbcf6d))
+* **website:** auto-sync content from source files [skip ci] ([103b362](https://github.com/ghostapp-ai/ghost/commit/103b362de6fb3615939be61903de30adbf6b9d22))
+
 ## [0.12.0](https://github.com/ghostapp-ai/ghost/compare/v0.11.2...v0.12.0) (2026-02-21)
 
 ### 🚀 Features
