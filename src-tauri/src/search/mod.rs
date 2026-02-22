@@ -118,6 +118,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_hybrid_search() {
+        crate::ensure_tls_provider();
         let db = Database::open_in_memory().unwrap();
         let embedding_engine = EmbeddingEngine::initialize().await;
 
