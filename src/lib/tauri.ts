@@ -159,6 +159,15 @@ export async function clearLogs(): Promise<void> {
   return invoke<void>("clear_logs");
 }
 
+/** Push a log entry from the frontend into the backend log buffer.
+ * This makes frontend errors visible in the DebugPanel alongside backend logs.
+ * Fire-and-forget: errors in logging must not crash the app. */
+export function logFromFrontend(level: "error" | "warn" | "info" | "debug", message: string): void {
+  invoke<void>("log_from_frontend", { level, message }).catch(() => {
+    // If backend logging fails (e.g. during startup), silently swallow the error
+  });
+}
+
 // --- Settings ---
 
 /** Load persisted settings. */

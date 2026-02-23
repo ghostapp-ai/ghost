@@ -576,6 +576,18 @@ async fn clear_logs() -> Result<(), String> {
     Ok(())
 }
 
+/// Accept a log entry pushed from the frontend (e.g. React ErrorBoundary).
+/// This allows frontend errors to appear in the DebugPanel alongside backend logs.
+#[tauri::command]
+async fn log_from_frontend(level: String, message: String) {
+    // Validate level to one of the known values
+    let level = match level.to_lowercase().as_str() {
+        "error" | "warn" | "info" | "debug" => level.to_lowercase(),
+        _ => "info".to_string(),
+    };
+    push_log(&level, message);
+}
+
 // --- Edition Commands ---
 
 /// Check if this build includes Ghost Pro features.
@@ -1784,6 +1796,7 @@ pub fn run() {
             // Debug
             get_logs,
             clear_logs,
+            log_from_frontend,
             // Settings
             get_settings,
             save_settings,

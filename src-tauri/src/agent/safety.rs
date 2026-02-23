@@ -162,7 +162,7 @@ fn is_destructive_command(cmd: &str) -> bool {
         "init 0",
         "systemctl stop",
         "systemctl disable",
-        // Environment manipulation — only at start of command
+        // Cron / scheduled task manipulation
         "crontab -r",
         "crontab -e",
         // Network operations

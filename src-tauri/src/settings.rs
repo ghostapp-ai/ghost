@@ -95,13 +95,15 @@ impl Settings {
             std::fs::create_dir_all(parent)?;
         }
         let json = serde_json::to_string_pretty(self)?;
-        // Write to temp file first, then atomically rename to prevent corruption
+        // Write to temp file first, then atomically rename to prevent corruption.
+        // If rename fails (e.g. cross-device on some platforms), fall back to direct write.
         let tmp = path.with_extension("json.tmp");
         std::fs::write(&tmp, &json)?;
-        std::fs::rename(&tmp, path).inspect_err(|_| {
-            // If rename fails, try direct write as fallback
-            let _ = std::fs::write(path, &json);
-        })?;
+        if std::fs::rename(&tmp, path).is_err() {
+            // Rename failed — fall back to direct overwrite and clean up temp file
+            std::fs::write(path, &json)?;
+            let _ = std::fs::remove_file(&tmp);
+        }
         tracing::info!("Settings saved to {}", path.display());
         Ok(())
     }

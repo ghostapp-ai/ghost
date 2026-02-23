@@ -167,15 +167,15 @@ export function ChatMessages({
   indexedDocs = 0,
 }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const lastScrollRef = useRef(0);
+  const lastScrollTimestampRef = useRef(0);
 
   useEffect(() => {
     // During streaming, throttle scroll to avoid jank (max every 200ms)
     // On new messages (non-streaming), scroll immediately with smooth behavior
     if (streamingContent !== undefined) {
       const now = Date.now();
-      if (now - lastScrollRef.current > 200) {
-        lastScrollRef.current = now;
+      if (now - lastScrollTimestampRef.current > 200) {
+        lastScrollTimestampRef.current = now;
         messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
       }
     } else {
