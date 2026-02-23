@@ -20,18 +20,17 @@ pre-commit:
 
 # ── Pre-push: heavier checks that mirror CI ──
 # Prevents clippy/test failures from reaching GitHub.
-# Skip in CI environments (LEFTHOOK_CI=1 or CI=true) where system libs may be absent.
+# Skipped automatically when CI=true (GitHub Actions / Copilot sandbox)
+# where system GTK/glib libraries required by Tauri may be absent.
 pre-push:
-  skip:
-    - ci
   parallel: true
   jobs:
     - name: cargo-clippy
       glob: "*.rs"
       root: "src-tauri/"
-      run: cargo clippy --tests -- -D warnings
+      run: "[ \"${CI:-false}\" = \"true\" ] || cargo clippy --tests -- -D warnings"
 
     - name: cargo-test
       glob: "*.rs"
       root: "src-tauri/"
-      run: cargo test
+      run: "[ \"${CI:-false}\" = \"true\" ] || cargo test"
