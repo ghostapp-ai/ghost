@@ -20,7 +20,10 @@ pre-commit:
 
 # ── Pre-push: heavier checks that mirror CI ──
 # Prevents clippy/test failures from reaching GitHub.
+# Skip in CI environments (LEFTHOOK_CI=1 or CI=true) where system libs may be absent.
 pre-push:
+  skip:
+    - ci
   parallel: true
   jobs:
     - name: cargo-clippy
