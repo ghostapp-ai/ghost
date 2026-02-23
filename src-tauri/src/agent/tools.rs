@@ -278,9 +278,14 @@ pub async fn execute_builtin_tool(
                 .map_err(|e| format!("Failed to read file: {}", e))?;
 
             if content.len() > 102400 {
+                // Safe UTF-8 truncation: find a char boundary at or before 100KB
+                let safe_end = (0..=102400)
+                    .rev()
+                    .find(|&i| content.is_char_boundary(i))
+                    .unwrap_or(0);
                 Ok(format!(
-                    "{}...\n\n[Truncated: file is {} bytes, showing first 100KB]",
-                    &content[..102400],
+                    "{}...\n\n[Truncated: file is {} bytes, showing first ~100KB]",
+                    &content[..safe_end],
                     content.len()
                 ))
             } else {
@@ -395,6 +400,10 @@ pub async fn execute_builtin_tool(
             }
 
             // Execute with timeout (30 seconds default)
+            // Use platform-appropriate shell
+            #[cfg(target_os = "windows")]
+            let child = tokio::process::Command::new("cmd").arg("/C").arg(command);
+            #[cfg(not(target_os = "windows"))]
             let child = tokio::process::Command::new("sh")
                 .arg("-c")
                 .arg(command)
@@ -422,11 +431,15 @@ pub async fn execute_builtin_tool(
 
             let mut result = String::new();
             if !stdout.is_empty() {
-                // Limit output to prevent context overflow
+                // Limit output to prevent context overflow (safe UTF-8 truncation)
                 let truncated = if stdout.len() > 10000 {
+                    let safe_end = (0..=10000)
+                        .rev()
+                        .find(|&i| stdout.is_char_boundary(i))
+                        .unwrap_or(0);
                     format!(
                         "{}...\n[Truncated: {} bytes total]",
-                        &stdout[..10000],
+                        &stdout[..safe_end],
                         stdout.len()
                     )
                 } else {
@@ -436,7 +449,11 @@ pub async fn execute_builtin_tool(
             }
             if !stderr.is_empty() {
                 let truncated = if stderr.len() > 5000 {
-                    format!("{}...\n[Truncated]", &stderr[..5000])
+                    let safe_end = (0..=5000)
+                        .rev()
+                        .find(|&i| stderr.is_char_boundary(i))
+                        .unwrap_or(0);
+                    format!("{}...\n[Truncated]", &stderr[..safe_end])
                 } else {
                     stderr.to_string()
                 };

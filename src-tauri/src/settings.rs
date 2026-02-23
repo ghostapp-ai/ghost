@@ -89,12 +89,19 @@ impl Settings {
     }
 
     /// Save settings to a JSON file.
+    /// Uses atomic write (temp file + rename) to prevent data loss on crash.
     pub fn save(&self, path: &Path) -> crate::error::Result<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         let json = serde_json::to_string_pretty(self)?;
-        std::fs::write(path, json)?;
+        // Write to temp file first, then atomically rename to prevent corruption
+        let tmp = path.with_extension("json.tmp");
+        std::fs::write(&tmp, &json)?;
+        std::fs::rename(&tmp, path).inspect_err(|_| {
+            // If rename fails, try direct write as fallback
+            let _ = std::fs::write(path, &json);
+        })?;
         tracing::info!("Settings saved to {}", path.display());
         Ok(())
     }

@@ -7,6 +7,29 @@ use rusqlite::Connection;
 
 use crate::error::{GhostError, Result};
 
+/// Sanitize a user query for FTS5 MATCH syntax.
+///
+/// FTS5 has its own query grammar where characters like `"`, `*`, `-`, `(`, `)`,
+/// and keywords like AND, OR, NOT, NEAR are operators. An unbalanced quote or
+/// stray operator causes a SQLite error. This function wraps each word in double
+/// quotes so they are treated as literal search terms.
+fn sanitize_fts5_query(query: &str) -> String {
+    query
+        .split_whitespace()
+        .filter(|word| !word.is_empty())
+        .map(|word| {
+            // Remove existing quotes to prevent injection, then wrap in quotes
+            let clean = word.replace('"', "");
+            if clean.is_empty() {
+                return String::new();
+            }
+            format!("\"{}\"", clean)
+        })
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// Thread-safe database wrapper.
 pub struct Database {
     conn: Mutex<Connection>,
@@ -216,12 +239,20 @@ impl Database {
     }
 
     /// FTS5 keyword search. Returns (chunk_id, rank) pairs.
+    /// Sanitizes the query to prevent FTS5 syntax errors from special characters.
     pub fn fts_search(&self, query: &str, limit: usize) -> Result<Vec<(i64, f64)>> {
+        // Sanitize: wrap each word in double quotes to escape FTS5 operators
+        // Characters like ", *, -, (, ), AND, OR, NOT, NEAR are FTS5 syntax
+        let sanitized = sanitize_fts5_query(query);
+        if sanitized.is_empty() {
+            return Ok(vec![]);
+        }
+
         self.with_conn(|conn| {
             let mut stmt = conn.prepare(
                 "SELECT rowid, rank FROM chunks_fts WHERE chunks_fts MATCH ?1 ORDER BY rank LIMIT ?2",
             )?;
-            let rows = stmt.query_map(rusqlite::params![query, limit as i64], |row| {
+            let rows = stmt.query_map(rusqlite::params![sanitized, limit as i64], |row| {
                 Ok((row.get::<_, i64>(0)?, row.get::<_, f64>(1)?))
             })?;
             let mut results = Vec::new();
@@ -241,34 +272,40 @@ impl Database {
                  JOIN documents d ON c.document_id = d.id
                  WHERE c.id = ?1",
             )?;
-            let result = stmt
-                .query_row(rusqlite::params![chunk_id], |row| {
-                    Ok(ChunkWithDocument {
-                        chunk_id: row.get(0)?,
-                        content: row.get(1)?,
-                        chunk_index: row.get(2)?,
-                        document_id: row.get(3)?,
-                        path: row.get(4)?,
-                        filename: row.get(5)?,
-                        extension: row.get(6)?,
-                    })
+            let result = stmt.query_row(rusqlite::params![chunk_id], |row| {
+                Ok(ChunkWithDocument {
+                    chunk_id: row.get(0)?,
+                    content: row.get(1)?,
+                    chunk_index: row.get(2)?,
+                    document_id: row.get(3)?,
+                    path: row.get(4)?,
+                    filename: row.get(5)?,
+                    extension: row.get(6)?,
                 })
-                .ok();
-            Ok(result)
+            });
+            // Distinguish "no rows" from real errors
+            match result {
+                Ok(v) => Ok(Some(v)),
+                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(e.into()),
+            }
         })
     }
 
     /// Get document by path, returns (id, hash) if found.
     pub fn get_document_by_path(&self, path: &str) -> Result<Option<(i64, String)>> {
         self.with_conn(|conn| {
-            let result = conn
-                .query_row(
-                    "SELECT id, hash FROM documents WHERE path = ?1",
-                    rusqlite::params![path],
-                    |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
-                )
-                .ok();
-            Ok(result)
+            let result = conn.query_row(
+                "SELECT id, hash FROM documents WHERE path = ?1",
+                rusqlite::params![path],
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+            );
+            // Distinguish "no rows" from real errors
+            match result {
+                Ok(v) => Ok(Some(v)),
+                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(e) => Err(e.into()),
+            }
         })
     }
 

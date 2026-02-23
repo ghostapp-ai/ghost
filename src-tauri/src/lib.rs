@@ -2075,8 +2075,13 @@ pub fn run() {
             let state_for_autoindex = app_state.clone();
             tauri::async_runtime::spawn(async move {
                 let needs_auto_setup = {
-                    let settings = state_for_autoindex.settings.lock().unwrap();
-                    settings.watched_directories.is_empty()
+                    match state_for_autoindex.settings.lock() {
+                        Ok(settings) => settings.watched_directories.is_empty(),
+                        Err(e) => {
+                            tracing::error!("Failed to lock settings for auto-setup check: {}", e);
+                            false
+                        }
+                    }
                 };
 
                 if needs_auto_setup {
@@ -2131,9 +2136,19 @@ pub fn run() {
 
                         // Save to settings so this only happens once
                         {
-                            let mut settings = state_for_autoindex.settings.lock().unwrap();
-                            settings.watched_directories = auto_dirs.clone();
-                            let _ = settings.save(&get_app_data_dir().join("settings.json"));
+                            match state_for_autoindex.settings.lock() {
+                                Ok(mut settings) => {
+                                    settings.watched_directories = auto_dirs.clone();
+                                    let _ =
+                                        settings.save(&get_app_data_dir().join("settings.json"));
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to lock settings for auto-indexing: {}",
+                                        e
+                                    );
+                                }
+                            }
                         }
 
                         // Start indexing each directory
