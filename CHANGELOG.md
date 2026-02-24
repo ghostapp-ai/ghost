@@ -1,3 +1,9 @@
+## [0.14.1](https://github.com/ghostapp-ai/ghost/compare/v0.14.0...v0.14.1) (2026-02-24)
+
+### 🐛 Bug Fixes
+
+* route frontend errors to backend log buffer and add DebugPanel copy-to-clipboard ([#14](https://github.com/ghostapp-ai/ghost/issues/14)) ([f42f891](https://github.com/ghostapp-ai/ghost/commit/f42f891d0c5b71c5890d8d04d907500f9f5977be))
+
 ## [0.14.0](https://github.com/ghostapp-ai/ghost/compare/v0.13.5...v0.14.0) (2026-02-22)
 
 ### 🚀 Features
