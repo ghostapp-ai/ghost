@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, memo } from "react";
+import { useState, useCallback, useEffect, useRef, memo } from "react";
 import { GhostInput } from "./components/GhostInput";
 import { ResultsList as _ResultsList } from "./components/ResultsList";
 import { ChatMessages as _ChatMessages } from "./components/ChatMessages";
@@ -144,6 +144,9 @@ export default function App() {
 
   // --- Auto-start watcher ---
   useEffect(() => {
+    let pollId: ReturnType<typeof setInterval> | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     getSettings()
       .then((s) => {
         // Check if onboarding is needed
@@ -156,23 +159,32 @@ export default function App() {
         } else {
           // Auto-indexing is happening in the background (Rust setup)
           // Poll settings to detect when auto-discovery finishes
-          const poll = setInterval(() => {
+          pollId = setInterval(() => {
             getSettings().then((updated) => {
               if (updated.watched_directories.length > 0) {
                 setHasDirectories(true);
                 startWatcher(updated.watched_directories).catch(() => {});
-                clearInterval(poll);
+                if (pollId) clearInterval(pollId);
+                pollId = null;
               }
             }).catch(() => {});
           }, 2000);
           // Clean up after 60 seconds max
-          setTimeout(() => clearInterval(poll), 60000);
+          timeoutId = setTimeout(() => {
+            if (pollId) clearInterval(pollId);
+            pollId = null;
+          }, 60000);
         }
       })
       .catch(() => {
         setSetupComplete(true); // Default to showing app on error
         setHasDirectories(false);
       });
+
+    return () => {
+      if (pollId) clearInterval(pollId);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, []);
 
   // --- Window behavior ---
@@ -181,15 +193,19 @@ export default function App() {
   // The global shortcut (Ctrl+Space) toggles visibility from anywhere.
 
   // --- Input handling ---
+  // Use a ref for messages.length to avoid recreating the callback on every message
+  const hasActiveChatRef = useRef(false);
+  hasActiveChatRef.current = messages.length > 0;
+
   const handleQueryChange = useCallback(
     (q: string) => {
       setQuery(q);
       setSelectedIndex(0);
-      const detected = detectMode(q, messages.length > 0);
+      const detected = detectMode(q, hasActiveChatRef.current);
       setMode(detected);
       setModeOverride(null);
     },
-    [setQuery, messages.length]
+    [setQuery]
   );
 
   // --- Mode toggle ---

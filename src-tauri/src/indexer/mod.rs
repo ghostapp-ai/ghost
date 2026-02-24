@@ -130,14 +130,21 @@ pub async fn index_file(
                                 .iter()
                                 .flat_map(|f| f.to_le_bytes())
                                 .collect::<Vec<u8>>();
-                            let _ = conn.execute(
+                            // Only mark has_embedding=1 if vec insert actually succeeds
+                            match conn.execute(
                                 "INSERT OR REPLACE INTO chunks_vec(chunk_id, document_id, extension, embedding) VALUES (?1, ?2, ?3, ?4)",
                                 rusqlite::params![chunk_id, doc_id, extension, blob],
-                            );
-                            conn.execute(
-                                "UPDATE chunks SET has_embedding = 1 WHERE id = ?1",
-                                rusqlite::params![chunk_id],
-                            )?;
+                            ) {
+                                Ok(_) => {
+                                    conn.execute(
+                                        "UPDATE chunks SET has_embedding = 1 WHERE id = ?1",
+                                        rusqlite::params![chunk_id],
+                                    )?;
+                                }
+                                Err(e) => {
+                                    tracing::warn!("Failed to insert embedding for chunk {}: {}", chunk_id, e);
+                                }
+                            }
                         }
                         Ok(())
                     })?;

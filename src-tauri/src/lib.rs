@@ -576,6 +576,18 @@ async fn clear_logs() -> Result<(), String> {
     Ok(())
 }
 
+/// Accept a log entry pushed from the frontend (e.g. React ErrorBoundary).
+/// This allows frontend errors to appear in the DebugPanel alongside backend logs.
+#[tauri::command]
+async fn log_from_frontend(level: String, message: String) {
+    // Validate level to one of the known values
+    let level = match level.to_lowercase().as_str() {
+        "error" | "warn" | "info" | "debug" => level.to_lowercase(),
+        _ => "info".to_string(),
+    };
+    push_log(&level, message);
+}
+
 // --- Edition Commands ---
 
 /// Check if this build includes Ghost Pro features.
@@ -1784,6 +1796,7 @@ pub fn run() {
             // Debug
             get_logs,
             clear_logs,
+            log_from_frontend,
             // Settings
             get_settings,
             save_settings,
@@ -2075,8 +2088,13 @@ pub fn run() {
             let state_for_autoindex = app_state.clone();
             tauri::async_runtime::spawn(async move {
                 let needs_auto_setup = {
-                    let settings = state_for_autoindex.settings.lock().unwrap();
-                    settings.watched_directories.is_empty()
+                    match state_for_autoindex.settings.lock() {
+                        Ok(settings) => settings.watched_directories.is_empty(),
+                        Err(e) => {
+                            tracing::error!("Failed to lock settings for auto-setup check: {}", e);
+                            false
+                        }
+                    }
                 };
 
                 if needs_auto_setup {
@@ -2131,9 +2149,19 @@ pub fn run() {
 
                         // Save to settings so this only happens once
                         {
-                            let mut settings = state_for_autoindex.settings.lock().unwrap();
-                            settings.watched_directories = auto_dirs.clone();
-                            let _ = settings.save(&get_app_data_dir().join("settings.json"));
+                            match state_for_autoindex.settings.lock() {
+                                Ok(mut settings) => {
+                                    settings.watched_directories = auto_dirs.clone();
+                                    let _ =
+                                        settings.save(&get_app_data_dir().join("settings.json"));
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to lock settings for auto-indexing: {}",
+                                        e
+                                    );
+                                }
+                            }
                         }
 
                         // Start indexing each directory

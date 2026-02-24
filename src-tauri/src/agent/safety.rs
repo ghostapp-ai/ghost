@@ -162,10 +162,7 @@ fn is_destructive_command(cmd: &str) -> bool {
         "init 0",
         "systemctl stop",
         "systemctl disable",
-        // Environment manipulation
-        "export ",
-        "unset ",
-        // Cron/scheduled tasks
+        // Cron / scheduled task manipulation
         "crontab -r",
         "crontab -e",
         // Network operations
@@ -219,23 +216,26 @@ fn is_destructive_command(cmd: &str) -> bool {
 }
 
 /// Classify an external tool (MCP) by name heuristics.
+/// Check dangerous patterns FIRST to avoid false-safe classification
+/// (e.g. "get_and_delete_resource" should not be classified as Safe).
 fn classify_external_tool(name: &str, _arguments: &serde_json::Value) -> RiskLevel {
     let lower = name.to_lowercase();
 
-    // Read-like operations
-    if lower.contains("read")
-        || lower.contains("get")
-        || lower.contains("list")
-        || lower.contains("search")
-        || lower.contains("find")
-        || lower.contains("query")
-        || lower.contains("show")
-        || lower.contains("describe")
-        || lower.contains("status")
-        || lower.contains("info")
-        || lower.contains("count")
+    // Delete/destructive operations — check FIRST to avoid false Safe
+    if lower.contains("delete")
+        || lower.contains("remove")
+        || lower.contains("drop")
+        || lower.contains("truncate")
+        || lower.contains("destroy")
+        || lower.contains("execute")
+        || lower.contains("run")
+        || lower.contains("exec")
+        || lower.contains("deploy")
+        || lower.contains("push")
+        || lower.contains("send")
+        || lower.contains("post")
     {
-        return RiskLevel::Safe;
+        return RiskLevel::Dangerous;
     }
 
     // Write-like operations
@@ -252,21 +252,20 @@ fn classify_external_tool(name: &str, _arguments: &serde_json::Value) -> RiskLev
         return RiskLevel::Moderate;
     }
 
-    // Delete/destructive operations
-    if lower.contains("delete")
-        || lower.contains("remove")
-        || lower.contains("drop")
-        || lower.contains("truncate")
-        || lower.contains("destroy")
-        || lower.contains("execute")
-        || lower.contains("run")
-        || lower.contains("exec")
-        || lower.contains("deploy")
-        || lower.contains("push")
-        || lower.contains("send")
-        || lower.contains("post")
+    // Read-like operations
+    if lower.contains("read")
+        || lower.contains("get")
+        || lower.contains("list")
+        || lower.contains("search")
+        || lower.contains("find")
+        || lower.contains("query")
+        || lower.contains("show")
+        || lower.contains("describe")
+        || lower.contains("status")
+        || lower.contains("info")
+        || lower.contains("count")
     {
-        return RiskLevel::Dangerous;
+        return RiskLevel::Safe;
     }
 
     // Default: moderate for unknown tools

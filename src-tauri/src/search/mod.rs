@@ -88,12 +88,21 @@ pub async fn hybrid_search_filtered(
 }
 
 /// Truncate text to a maximum character length, ending at a word boundary.
+/// Uses char_indices to avoid panicking on multi-byte UTF-8 boundaries.
 fn truncate_snippet(text: &str, max_chars: usize) -> String {
-    if text.len() <= max_chars {
+    // Fast path: if total chars fit, return as-is
+    if text.chars().count() <= max_chars {
         return text.to_string();
     }
 
-    let truncated = &text[..max_chars];
+    // Find the byte offset of the max_chars-th character (safe for UTF-8)
+    let byte_end = text
+        .char_indices()
+        .nth(max_chars)
+        .map(|(i, _)| i)
+        .unwrap_or(text.len());
+    let truncated = &text[..byte_end];
+
     if let Some(last_space) = truncated.rfind(' ') {
         format!("{}...", &text[..last_space])
     } else {

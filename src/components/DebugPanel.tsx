@@ -6,6 +6,7 @@ import {
   ChevronUp,
   Pause,
   Play,
+  Copy,
 } from "lucide-react";
 import { getLogs, clearLogs } from "../lib/tauri";
 import type { LogEntry } from "../lib/types";
@@ -18,6 +19,7 @@ interface DebugPanelProps {
 export function DebugPanel({ isOpen, onToggle }: DebugPanelProps) {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
+  const [copied, setCopied] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -51,6 +53,16 @@ export function DebugPanel({ isOpen, onToggle }: DebugPanelProps) {
     setLogs([]);
   }, []);
 
+  const handleCopy = useCallback(async () => {
+    if (logs.length === 0) return;
+    const text = logs
+      .map((l) => `[${l.timestamp}] ${l.level.toUpperCase().padEnd(5)} ${l.message}`)
+      .join("\n");
+    await navigator.clipboard.writeText(text).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [logs]);
+
   if (!isOpen) {
     return (
       <button
@@ -79,6 +91,17 @@ export function DebugPanel({ isOpen, onToggle }: DebugPanelProps) {
           <ChevronDown className="w-3 h-3" />
         </button>
         <div className="flex items-center gap-1">
+          <button
+            onClick={handleCopy}
+            className="p-1 rounded text-ghost-text-dim/40 hover:text-ghost-text-dim transition-colors"
+            title="Copy all logs to clipboard"
+          >
+            {copied ? (
+              <span className="text-[9px] text-ghost-accent">✓</span>
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
+          </button>
           <button
             onClick={() => setPaused(!paused)}
             className="p-1 rounded text-ghost-text-dim/40 hover:text-ghost-text-dim transition-colors"
