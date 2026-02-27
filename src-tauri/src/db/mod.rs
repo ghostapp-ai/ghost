@@ -115,6 +115,17 @@ impl Database {
         self.vec_enabled
     }
 
+    /// Perform a WAL checkpoint for clean shutdown.
+    /// Ensures all committed transactions are flushed from the WAL file to the main database.
+    /// Safe to call at any time; no-op if there's nothing to checkpoint.
+    pub fn checkpoint(&self) -> Result<()> {
+        self.with_conn(|conn| {
+            conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)")?;
+            tracing::info!("WAL checkpoint completed");
+            Ok(())
+        })
+    }
+
     /// Execute a closure with access to the database connection.
     pub fn with_conn<F, T>(&self, f: F) -> Result<T>
     where
@@ -156,6 +167,10 @@ impl Database {
     }
 
     /// Insert or update a document in the database. Returns the document ID.
+    ///
+    /// Uses INSERT + ON CONFLICT, then queries the actual row ID.
+    /// `last_insert_rowid()` returns 0 on UPDATE (not INSERT), so we must
+    /// always fetch the ID by path to avoid linking chunks to doc_id=0.
     pub fn upsert_document(
         &self,
         path: &str,
@@ -178,7 +193,13 @@ impl Database {
                     indexed_at = datetime('now')",
                 rusqlite::params![path, filename, extension, size_bytes, hash, modified_at],
             )?;
-            Ok(conn.last_insert_rowid())
+            // Always fetch the actual ID — last_insert_rowid() returns 0 on UPDATE
+            let doc_id: i64 = conn.query_row(
+                "SELECT id FROM documents WHERE path = ?1",
+                rusqlite::params![path],
+                |row| row.get(0),
+            )?;
+            Ok(doc_id)
         })
     }
 
@@ -205,6 +226,26 @@ impl Database {
         self.with_conn(|conn| {
             conn.execute(
                 "DELETE FROM chunks WHERE document_id = ?1",
+                rusqlite::params![document_id],
+            )?;
+            Ok(())
+        })
+    }
+
+    /// Delete a document and all its associated data (chunks cascade via FK).
+    /// Also cleans up embeddings in the vec table.
+    pub fn delete_document(&self, document_id: i64) -> Result<()> {
+        self.with_conn(|conn| {
+            // Delete embeddings first (vec table doesn't support FK CASCADE)
+            if self.vec_enabled {
+                conn.execute(
+                    "DELETE FROM chunks_vec WHERE chunk_id IN (SELECT id FROM chunks WHERE document_id = ?1)",
+                    rusqlite::params![document_id],
+                )?;
+            }
+            // CASCADE will delete chunks + trigger FTS5 cleanup
+            conn.execute(
+                "DELETE FROM documents WHERE id = ?1",
                 rusqlite::params![document_id],
             )?;
             Ok(())

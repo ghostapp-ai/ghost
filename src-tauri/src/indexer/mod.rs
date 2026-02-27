@@ -204,26 +204,48 @@ pub async fn index_directory(
     Ok(stats)
 }
 
-/// Walk a directory recursively and collect all supported files.
+/// Walk a directory iteratively and collect all supported files.
+/// Uses an explicit stack instead of recursion to avoid stack overflow on deep trees.
 fn walk_directory(dir: &Path) -> Result<Vec<std::path::PathBuf>> {
     let mut files = Vec::new();
+    let mut stack = vec![dir.to_path_buf()];
 
-    for entry in std::fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        // Skip hidden directories
-        if let Some(name) = path.file_name().and_then(|f| f.to_str()) {
-            if name.starts_with('.') {
+    while let Some(current_dir) = stack.pop() {
+        let entries = match std::fs::read_dir(&current_dir) {
+            Ok(e) => e,
+            Err(e) => {
+                tracing::warn!("Cannot read directory {}: {}", current_dir.display(), e);
                 continue;
             }
-        }
+        };
 
-        if path.is_dir() {
-            files.extend(walk_directory(&path)?);
-        } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-            if extractor::is_supported_extension(ext) {
-                files.push(path);
+        for entry in entries {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(e) => {
+                    tracing::warn!(
+                        "Skipping unreadable entry in {}: {}",
+                        current_dir.display(),
+                        e
+                    );
+                    continue;
+                }
+            };
+            let path = entry.path();
+
+            // Skip hidden files/directories
+            if let Some(name) = path.file_name().and_then(|f| f.to_str()) {
+                if name.starts_with('.') {
+                    continue;
+                }
+            }
+
+            if path.is_dir() {
+                stack.push(path);
+            } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                if extractor::is_supported_extension(ext) {
+                    files.push(path);
+                }
             }
         }
     }
@@ -231,51 +253,12 @@ fn walk_directory(dir: &Path) -> Result<Vec<std::path::PathBuf>> {
     Ok(files)
 }
 
+/// Format a UNIX timestamp (seconds since epoch) to ISO 8601 UTC string.
+/// Uses the `chrono` crate (already a dependency) instead of manual date arithmetic.
 fn chrono_format_timestamp(secs: u64) -> String {
-    // Simple ISO 8601 formatting without chrono dependency
-    let days = secs / 86400;
-    let remaining = secs % 86400;
-    let hours = remaining / 3600;
-    let minutes = (remaining % 3600) / 60;
-    let seconds = remaining % 60;
-
-    // Approximate date calculation (good enough for file timestamps)
-    let mut year = 1970i64;
-    let mut remaining_days = days as i64;
-
-    loop {
-        let days_in_year = if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
-            366
-        } else {
-            365
-        };
-        if remaining_days < days_in_year {
-            break;
-        }
-        remaining_days -= days_in_year;
-        year += 1;
-    }
-
-    let days_in_months = if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
-        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    } else {
-        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    };
-
-    let mut month = 1;
-    for &dim in &days_in_months {
-        if remaining_days < dim {
-            break;
-        }
-        remaining_days -= dim;
-        month += 1;
-    }
-    let day = remaining_days + 1;
-
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        year, month, day, hours, minutes, seconds
-    )
+    chrono::DateTime::from_timestamp(secs as i64, 0)
+        .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+        .unwrap_or_else(|| "1970-01-01T00:00:00Z".to_string())
 }
 
 /// Detect if a file is a cloud placeholder (OneDrive Files On-Demand, iCloud, etc.)

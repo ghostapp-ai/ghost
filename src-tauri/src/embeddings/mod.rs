@@ -105,7 +105,10 @@ impl EmbeddingEngine {
     pub async fn load(&self) {
         // Guard: already loaded?
         {
-            let backend = self.active_backend.lock().unwrap();
+            let backend = self
+                .active_backend
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
             if *backend != AiBackend::None {
                 tracing::debug!("Embedding engine already loaded ({})", backend);
                 return;
@@ -114,14 +117,14 @@ impl EmbeddingEngine {
 
         // Guard: already loading?
         {
-            let mut loading = self.loading.lock().unwrap();
+            let mut loading = self.loading.lock().unwrap_or_else(|e| e.into_inner());
             if *loading {
                 tracing::warn!("Embedding engine loading already in progress");
                 return;
             }
             *loading = true;
         }
-        *self.error.lock().unwrap() = None;
+        *self.error.lock().unwrap_or_else(|e| e.into_inner()) = None;
 
         // Ensure TLS provider is installed (needed for Ollama health check & HF Hub downloads).
         crate::ensure_tls_provider();
@@ -130,9 +133,12 @@ impl EmbeddingEngine {
         match native::NativeEngine::load(&self.hardware).await {
             Ok(engine) => {
                 tracing::info!("Native embedding engine loaded (Candle, 384D)");
-                *self.native.lock().unwrap() = Some(engine);
-                *self.active_backend.lock().unwrap() = AiBackend::Native;
-                *self.loading.lock().unwrap() = false;
+                *self.native.lock().unwrap_or_else(|e| e.into_inner()) = Some(engine);
+                *self
+                    .active_backend
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner()) = AiBackend::Native;
+                *self.loading.lock().unwrap_or_else(|e| e.into_inner()) = false;
                 return;
             }
             Err(e) => {
@@ -145,13 +151,17 @@ impl EmbeddingEngine {
 
         if ollama_ok {
             tracing::info!("Ollama engine connected (768D)");
-            *self.active_backend.lock().unwrap() = AiBackend::Ollama;
+            *self
+                .active_backend
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()) = AiBackend::Ollama;
         } else {
             tracing::warn!("No embedding engine available — FTS5 keyword search only");
-            *self.error.lock().unwrap() = Some("No embedding engine available".to_string());
+            *self.error.lock().unwrap_or_else(|e| e.into_inner()) =
+                Some("No embedding engine available".to_string());
         }
 
-        *self.loading.lock().unwrap() = false;
+        *self.loading.lock().unwrap_or_else(|e| e.into_inner()) = false;
     }
 
     /// Initialize the engine synchronously (for tests and backward compat).
@@ -165,17 +175,23 @@ impl EmbeddingEngine {
 
     /// Get the currently active backend.
     pub fn backend(&self) -> AiBackend {
-        self.active_backend.lock().unwrap().clone()
+        self.active_backend
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     /// Get the embedding dimensions for the active backend.
     pub fn dimensions(&self) -> usize {
-        let backend = self.active_backend.lock().unwrap();
+        let backend = self
+            .active_backend
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         match *backend {
             AiBackend::Native => self
                 .native
                 .lock()
-                .unwrap()
+                .unwrap_or_else(|e| e.into_inner())
                 .as_ref()
                 .map(|n| n.dimensions())
                 .unwrap_or(384),
@@ -186,13 +202,17 @@ impl EmbeddingEngine {
 
     /// Check if the engine is currently loading.
     pub fn is_loading(&self) -> bool {
-        *self.loading.lock().unwrap()
+        *self.loading.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     /// Get the AI status for the frontend.
     pub fn status(&self) -> AiStatus {
-        let backend = self.active_backend.lock().unwrap().clone();
-        let loading = *self.loading.lock().unwrap();
+        let backend = self
+            .active_backend
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let loading = *self.loading.lock().unwrap_or_else(|e| e.into_inner());
         AiStatus {
             backend: backend.clone(),
             model_name: match &backend {
@@ -208,9 +228,17 @@ impl EmbeddingEngine {
 
     /// Check if any embedding engine is available.
     pub async fn health_check(&self) -> Result<bool> {
-        let backend = self.active_backend.lock().unwrap().clone();
+        let backend = self
+            .active_backend
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
         match backend {
-            AiBackend::Native => Ok(self.native.lock().unwrap().is_some()),
+            AiBackend::Native => Ok(self
+                .native
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .is_some()),
             AiBackend::Ollama => self.ollama.health_check().await,
             AiBackend::None => Ok(false),
         }
@@ -221,7 +249,7 @@ impl EmbeddingEngine {
     pub async fn embed(&self, text: &str) -> Result<Vec<f32>> {
         // Try native first
         {
-            let native_guard = self.native.lock().unwrap();
+            let native_guard = self.native.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(ref native) = *native_guard {
                 match native.embed(text) {
                     Ok(embedding) => return Ok(embedding),
@@ -246,7 +274,7 @@ impl EmbeddingEngine {
     pub async fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
         // Try native first (synchronous, no HTTP overhead)
         {
-            let native_guard = self.native.lock().unwrap();
+            let native_guard = self.native.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(ref native) = *native_guard {
                 match native.embed_batch(texts) {
                     Ok(embeddings) => return Ok(embeddings),

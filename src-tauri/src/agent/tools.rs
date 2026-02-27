@@ -402,13 +402,21 @@ pub async fn execute_builtin_tool(
             // Execute with timeout (30 seconds default)
             // Use platform-appropriate shell
             #[cfg(target_os = "windows")]
-            let child = tokio::process::Command::new("cmd").arg("/C").arg(command);
+            let child = tokio::process::Command::new("cmd")
+                .arg("/C")
+                .arg(command)
+                .current_dir(&cwd)
+                .env_remove("GITHUB_TOKEN")
+                .env_remove("GH_TOKEN")
+                .env_remove("AWS_SECRET_ACCESS_KEY")
+                .env_remove("OPENAI_API_KEY")
+                .env_remove("ANTHROPIC_API_KEY")
+                .output();
             #[cfg(not(target_os = "windows"))]
             let child = tokio::process::Command::new("sh")
                 .arg("-c")
                 .arg(command)
                 .current_dir(&cwd)
-                // Prevent commands from inheriting sensitive env vars
                 .env_remove("GITHUB_TOKEN")
                 .env_remove("GH_TOKEN")
                 .env_remove("AWS_SECRET_ACCESS_KEY")

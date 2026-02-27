@@ -64,20 +64,23 @@ pub struct LogEntry {
 }
 
 /// Thread-safe log collector for the frontend debug panel.
-static LOG_BUFFER: std::sync::LazyLock<std::sync::Mutex<Vec<LogEntry>>> =
-    std::sync::LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
+/// Uses VecDeque for O(1) eviction of oldest entries (vs Vec::drain which is O(n)).
+static LOG_BUFFER: std::sync::LazyLock<std::sync::Mutex<std::collections::VecDeque<LogEntry>>> =
+    std::sync::LazyLock::new(|| {
+        std::sync::Mutex::new(std::collections::VecDeque::with_capacity(512))
+    });
 
 /// Push a log entry into the global buffer.
 fn push_log(level: &str, message: String) {
     if let Ok(mut logs) = LOG_BUFFER.lock() {
-        logs.push(LogEntry {
+        logs.push_back(LogEntry {
             timestamp: chrono::Local::now().format("%H:%M:%S%.3f").to_string(),
             level: level.to_string(),
             message,
         });
-        // Keep buffer bounded
-        if logs.len() > 500 {
-            logs.drain(0..100);
+        // Keep buffer bounded — O(1) pop from front
+        while logs.len() > 500 {
+            logs.pop_front();
         }
     }
 }
@@ -323,8 +326,9 @@ async fn start_watcher(
                         let path_str = path.to_string_lossy().to_string();
                         if let Ok(Some((doc_id, _))) = app_state.db.get_document_by_path(&path_str)
                         {
-                            let _ = app_state.db.delete_embeddings_for_document(doc_id);
-                            let _ = app_state.db.delete_chunks_for_document(doc_id);
+                            if let Err(e) = app_state.db.delete_document(doc_id) {
+                                tracing::warn!("Failed to delete document {}: {}", path_str, e);
+                            }
                         }
                     }
                 }
@@ -1861,6 +1865,7 @@ pub fn run() {
 
                 let tray_handle = app.handle().clone();
                 let tray_icon = app.default_window_icon().cloned();
+                let quit_state = app_state.clone();
                 let mut tray_builder = TrayIconBuilder::new()
                     .menu(&menu)
                     .tooltip("Ghost — AI Assistant");
@@ -1873,7 +1878,13 @@ pub fn run() {
                             toggle_window(&tray_handle);
                         }
                         "quit" => {
-                            std::process::exit(0);
+                            // Graceful shutdown: checkpoint WAL before exiting
+                            tracing::info!("Quit requested — performing graceful shutdown...");
+                            if let Err(e) = quit_state.db.checkpoint() {
+                                tracing::warn!("WAL checkpoint failed during shutdown: {}", e);
+                            }
+                            // Use Tauri's exit API for proper cleanup (event handlers, plugins)
+                            _app.exit(0);
                         }
                         _ => {}
                     })
@@ -2240,14 +2251,9 @@ pub fn run() {
                                                             .db
                                                             .get_document_by_path(&path_str)
                                                         {
-                                                            let _ = watcher_state
-                                                                .db
-                                                                .delete_embeddings_for_document(
-                                                                    doc_id,
-                                                                );
-                                                            let _ = watcher_state
-                                                                .db
-                                                                .delete_chunks_for_document(doc_id);
+                                                            if let Err(e) = watcher_state.db.delete_document(doc_id) {
+                                                                tracing::warn!("Failed to delete document {}: {}", path_str, e);
+                                                            }
                                                         }
                                                     }
                                                 }

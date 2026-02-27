@@ -102,28 +102,36 @@ impl ChatEngine {
     /// Desktop-only model loading implementation.
     #[cfg(desktop)]
     async fn _load_model_desktop(&self) {
-        let model_id = { self.active_model_id.lock().unwrap().clone() };
+        let model_id = {
+            self.active_model_id
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone()
+        };
 
         let profile = match models::find_model(&model_id) {
             Some(p) => p,
             None => {
                 let msg = format!("Unknown model: {}", model_id);
                 tracing::error!("{}", msg);
-                *self.error.lock().unwrap() = Some(msg);
+                *self.error.lock().unwrap_or_else(|e| e.into_inner()) = Some(msg);
                 return;
             }
         };
 
         {
-            let mut loading = self.loading.lock().unwrap();
+            let mut loading = self.loading.lock().unwrap_or_else(|e| e.into_inner());
             if *loading {
                 tracing::warn!("Model loading already in progress");
                 return;
             }
             *loading = true;
         }
-        *self.error.lock().unwrap() = None;
-        *self.download_progress.lock().unwrap() = Some(DownloadProgress {
+        *self.error.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        *self
+            .download_progress
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(DownloadProgress {
             downloaded_bytes: 0,
             total_bytes: profile.size_mb * 1_048_576,
             phase: "checking_cache".into(),
@@ -145,17 +153,20 @@ impl ChatEngine {
                     engine.gpu_backend(),
                     engine.is_gpu_active()
                 );
-                *self.native.lock().unwrap() = Some(engine);
-                *self.error.lock().unwrap() = None;
+                *self.native.lock().unwrap_or_else(|e| e.into_inner()) = Some(engine);
+                *self.error.lock().unwrap_or_else(|e| e.into_inner()) = None;
             }
             Err(e) => {
                 tracing::error!("Failed to load {}: {}", profile.name, e);
-                *self.error.lock().unwrap() = Some(e.to_string());
+                *self.error.lock().unwrap_or_else(|e| e.into_inner()) = Some(e.to_string());
             }
         }
 
-        *self.loading.lock().unwrap() = false;
-        *self.download_progress.lock().unwrap() = None;
+        *self.loading.lock().unwrap_or_else(|e| e.into_inner()) = false;
+        *self
+            .download_progress
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
     }
 
     /// Switch to a different model.
@@ -173,13 +184,21 @@ impl ChatEngine {
         // Unload current model (desktop only)
         #[cfg(desktop)]
         {
-            *self.native.lock().unwrap() = None;
+            *self.native.lock().unwrap_or_else(|e| e.into_inner()) = None;
         }
-        *self.active_model_id.lock().unwrap() = model_id.to_string();
+        *self
+            .active_model_id
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = model_id.to_string();
 
         self.load_model().await;
 
-        if self.error.lock().unwrap().is_some() {
+        if self
+            .error
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+        {
             Err(GhostError::Chat("Failed to load model".into()))
         } else {
             Ok(())
@@ -189,11 +208,19 @@ impl ChatEngine {
     /// Get chat engine status for the frontend.
     pub fn status(&self) -> ChatStatus {
         #[cfg(desktop)]
-        let native = self.native.lock().unwrap();
-        let loading = *self.loading.lock().unwrap();
-        let error = self.error.lock().unwrap().clone();
-        let model_id = self.active_model_id.lock().unwrap().clone();
-        let progress = self.download_progress.lock().unwrap().clone();
+        let native = self.native.lock().unwrap_or_else(|e| e.into_inner());
+        let loading = *self.loading.lock().unwrap_or_else(|e| e.into_inner());
+        let error = self.error.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        let model_id = self
+            .active_model_id
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let progress = self
+            .download_progress
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
 
         #[cfg(desktop)]
         if let Some(ref engine) = *native {
@@ -258,8 +285,12 @@ impl ChatEngine {
         // Try native engine first (desktop only)
         #[cfg(desktop)]
         {
-            let model_id = self.active_model_id.lock().unwrap().clone();
-            let native = self.native.lock().unwrap();
+            let model_id = self
+                .active_model_id
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone();
+            let native = self.native.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(ref engine) = *native {
                 let content = engine.generate(messages, max_tokens)?;
                 let duration = start.elapsed();
@@ -288,7 +319,11 @@ impl ChatEngine {
 
     /// Get list of available models with runtime status.
     pub fn available_models(&self) -> Vec<models::ModelInfo> {
-        let active = self.active_model_id.lock().unwrap().clone();
+        let active = self
+            .active_model_id
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
         models::list_models(&self.hardware, &active)
     }
 

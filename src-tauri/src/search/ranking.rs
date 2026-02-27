@@ -49,9 +49,13 @@ pub fn reciprocal_rank_fusion(
         entry.rrf_score += 1.0 / (RRF_K + (rank + 1) as f64);
     }
 
-    // Sort by RRF score descending
+    // Sort by RRF score descending (NaN-safe — treat NaN as lowest)
     let mut results: Vec<RankedResult> = scores.into_values().collect();
-    results.sort_by(|a, b| b.rrf_score.partial_cmp(&a.rrf_score).unwrap());
+    results.sort_by(|a, b| {
+        b.rrf_score
+            .partial_cmp(&a.rrf_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     results
 }
