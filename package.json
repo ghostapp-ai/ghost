@@ -1,7 +1,7 @@
 {
   "name": "ghost",
   "private": false,
-  "version": "0.14.1",
+  "version": "0.14.2",
   "description": "The Private Agent OS — local-first AI that indexes files, runs agents, and connects to 10,000+ tools via MCP without sending data to the cloud",
   "author": {
     "name": "ghostapp-ai",

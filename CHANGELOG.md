@@ -1,3 +1,9 @@
+## [0.14.2](https://github.com/ghostapp-ai/ghost/compare/v0.14.1...v0.14.2) (2026-02-27)
+
+### 🐛 Bug Fixes
+
+* update version to 0.14.1 and improve error handling in various modules ([ae4c99c](https://github.com/ghostapp-ai/ghost/commit/ae4c99c499d8a5eaac812a621abf2055511ea1d7))
+
 ## [0.14.1](https://github.com/ghostapp-ai/ghost/compare/v0.14.0...v0.14.1) (2026-02-24)
 
 ### 🐛 Bug Fixes
