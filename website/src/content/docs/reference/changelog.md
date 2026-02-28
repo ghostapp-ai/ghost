@@ -3,6 +3,32 @@ title: "Changelog"
 description: "Release notes and version history for Ghost Agent OS."
 ---
 
+## [0.14.2](https://github.com/ghostapp-ai/ghost/compare/v0.14.1...v0.14.2) (2026-02-27)
+
+### 🐛 Bug Fixes
+
+* update version to 0.14.1 and improve error handling in various modules ([ae4c99c](https://github.com/ghostapp-ai/ghost/commit/ae4c99c499d8a5eaac812a621abf2055511ea1d7))
+
+## [0.14.1](https://github.com/ghostapp-ai/ghost/compare/v0.14.0...v0.14.1) (2026-02-24)
+
+### 🐛 Bug Fixes
+
+* route frontend errors to backend log buffer and add DebugPanel copy-to-clipboard ([#14](https://github.com/ghostapp-ai/ghost/issues/14)) ([f42f891](https://github.com/ghostapp-ai/ghost/commit/f42f891d0c5b71c5890d8d04d907500f9f5977be))
+
+## [0.14.0](https://github.com/ghostapp-ai/ghost/compare/v0.13.5...v0.14.0) (2026-02-22)
+
+### 🚀 Features
+
+* **embeddings:** implement deferred loading for AI embedding engine ([3ffb11e](https://github.com/ghostapp-ai/ghost/commit/3ffb11e0ebce8995263d312d0a56446cf3065f87))
+
+### 🐛 Bug Fixes
+
+* **search:** install TLS crypto provider in test_hybrid_search ([0da91bb](https://github.com/ghostapp-ai/ghost/commit/0da91bbfcd4ca409532689b0888ae65d51623ab3))
+
+### 📚 Documentation
+
+* **website:** auto-sync content from source files [skip ci] ([38230af](https://github.com/ghostapp-ai/ghost/commit/38230af6337f51865b2dad2b5bec243c84681fb6))
+
 ## [0.13.5](https://github.com/ghostapp-ai/ghost/compare/v0.13.4...v0.13.5) (2026-02-21)
 
 ### 🐛 Bug Fixes
