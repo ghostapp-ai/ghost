@@ -443,7 +443,7 @@ jobs:
           gh release upload "$TAG" "$DEST" --clobber
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ghost-android-aarch64
@@ -652,7 +652,7 @@ jobs:
 
       # ── Upload xcarchive as workflow artifact too ──
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ghost-ios-aarch64-xcarchive
