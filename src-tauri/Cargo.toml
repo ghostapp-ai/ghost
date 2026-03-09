@@ -80,7 +80,7 @@ tokenizers = "0.22"
 encoding_rs = "0.8"
 
 # MCP Protocol (Phase 1.5 — Protocol Bridge)
-rmcp = { version = "0.16", features = ["server", "client", "transport-io", "transport-child-process", "transport-streamable-http-server", "transport-streamable-http-client-reqwest"] }
+rmcp = { version = "1.1", features = ["server", "client", "transport-io", "transport-child-process", "transport-streamable-http-server", "transport-streamable-http-client-reqwest"] }
 schemars = "1"
 axum = "0.8"
 tower = "0.5"
