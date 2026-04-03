@@ -1,6 +1,13 @@
 # Ghost — Roadmap
 
-## M0: Monetization Foundation (Month 0–1)
+> Última actualización: 7 de Abril 2026
+> Stack: Tauri v2 (Rust) + React 19 + SQLite + FTS5 + Candle ML
+> Pago: **Stripe** (primario, internacional) — desktop app global
+> Dominio: ghost-app.dev / ghost.quirozai.com
+
+---
+
+## M0: Monetization Foundation (Abr 7 → May 18, 2026)
 
 **Goal:** First paying customer.
 
@@ -36,7 +43,7 @@
 
 ---
 
-## M1: Distribution & Growth (Month 2–3)
+## M1: Distribution & Growth (May 19 → Jul 13, 2026)
 
 **Goal:** Reach 500 downloads, 50 Pro users.
 
@@ -65,7 +72,7 @@
 
 ---
 
-## M2: Teams & Enterprise (Month 4–6)
+## M2: Teams & Enterprise (Jul 14 → Oct 2026)
 
 **Goal:** Land first team customer, reach $2K MRR.
 
