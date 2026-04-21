@@ -13,8 +13,8 @@
     "build:full": "node ../scripts/sync-website-content.mjs && astro build"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.35.0",
-    "astro": "^5.10.0",
+    "@astrojs/starlight": "^0.38.3",
+    "astro": "^6.1.8",
     "sharp": "^0.34.0"
   }
 }
