@@ -101,7 +101,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - uses: Mozilla-Actions/sccache-action@v0.0.9
+      - uses: Mozilla-Actions/sccache-action@v0.0.10
       - uses: taiki-e/install-action@cargo-nextest
 
       # ── Cache Cargo registry for test job ──
@@ -225,7 +225,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - uses: Mozilla-Actions/sccache-action@v0.0.9
+      - uses: Mozilla-Actions/sccache-action@v0.0.10
 
       # ── Cache Cargo registry (avoids re-downloading crate metadata) ──
       - name: Cache Cargo registry
@@ -352,7 +352,7 @@ jobs:
 
       # ── Android SDK + NDK ──
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages
         run: |
@@ -368,7 +368,7 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      - uses: Mozilla-Actions/sccache-action@v0.0.9
+      - uses: Mozilla-Actions/sccache-action@v0.0.10
 
       # ── Gradle + Cargo registry cache ──
       - name: Cache Gradle & Cargo registry
@@ -443,7 +443,7 @@ jobs:
           gh release upload "$TAG" "$DEST" --clobber
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ghost-android-aarch64
@@ -498,7 +498,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-ios
-      - uses: Mozilla-Actions/sccache-action@v0.0.9
+      - uses: Mozilla-Actions/sccache-action@v0.0.10
 
       # ── Bun + frontend ──
       - uses: oven-sh/setup-bun@v2
@@ -652,7 +652,7 @@ jobs:
 
       # ── Upload xcarchive as workflow artifact too ──
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ghost-ios-aarch64-xcarchive
