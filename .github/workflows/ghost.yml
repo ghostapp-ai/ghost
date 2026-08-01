@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: taiki-e/install-action@cargo-audit
       - name: Security audit
         working-directory: src-tauri
@@ -90,7 +90,7 @@ jobs:
       RUSTC_WRAPPER: "sccache"
       RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install system dependencies
         run: |
           sudo apt-get update -qq
@@ -101,12 +101,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - uses: Mozilla-Actions/sccache-action@v0.0.9
+      - uses: Mozilla-Actions/sccache-action@v0.0.11
       - uses: taiki-e/install-action@cargo-nextest
 
       # ── Cache Cargo registry for test job ──
       - name: Cache Cargo registry
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry/index
@@ -138,7 +138,7 @@ jobs:
       version: ${{ steps.semantic.outputs.new_release_version }}
       tag: ${{ steps.semantic.outputs.new_release_git_tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: true
@@ -193,7 +193,7 @@ jobs:
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: "sccache"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.tag }}
       - name: Install Linux dependencies
@@ -225,11 +225,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-      - uses: Mozilla-Actions/sccache-action@v0.0.9
+      - uses: Mozilla-Actions/sccache-action@v0.0.11
 
       # ── Cache Cargo registry (avoids re-downloading crate metadata) ──
       - name: Cache Cargo registry
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry/index
@@ -298,7 +298,7 @@ jobs:
           fi
 
       - name: Build & upload artifacts
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -340,19 +340,19 @@ jobs:
       # See: https://github.com/sarah-quinones/gemm/issues/31
       CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS: "-Ctarget-feature=+fp16,+fhm"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.tag }}
 
       # ── Java 17 (required by Android Gradle Plugin) ──
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v5.6.0
         with:
           distribution: temurin
           java-version: "21"
 
       # ── Android SDK + NDK ──
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages
         run: |
@@ -368,11 +368,11 @@ jobs:
         with:
           targets: aarch64-linux-android
 
-      - uses: Mozilla-Actions/sccache-action@v0.0.9
+      - uses: Mozilla-Actions/sccache-action@v0.0.11
 
       # ── Gradle + Cargo registry cache ──
       - name: Cache Gradle & Cargo registry
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -443,7 +443,7 @@ jobs:
           gh release upload "$TAG" "$DEST" --clobber
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ghost-android-aarch64
@@ -490,7 +490,7 @@ jobs:
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: "sccache"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release.outputs.tag }}
 
@@ -498,7 +498,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-ios
-      - uses: Mozilla-Actions/sccache-action@v0.0.9
+      - uses: Mozilla-Actions/sccache-action@v0.0.11
 
       # ── Bun + frontend ──
       - uses: oven-sh/setup-bun@v2
@@ -652,7 +652,7 @@ jobs:
 
       # ── Upload xcarchive as workflow artifact too ──
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ghost-ios-aarch64-xcarchive
