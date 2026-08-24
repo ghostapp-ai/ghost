@@ -376,7 +376,7 @@ dependencies = [
  "quote",
  "regex",
  "rustc-hash",
- "shlex",
+ "shlex 1.3.0",
  "syn 2.0.117",
 ]
 
@@ -750,14 +750,14 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.56"
+version = "1.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aebf35691d1bfb0ac386a69bac2fde4dd276fb618cf8bf4f5318fe285e821bb2"
+checksum = "0ad534f4357a5264cce5019c989cf66a4f0dc4e0d1b1d15f8aacec0ff7360273"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
  "libc",
- "shlex",
+ "shlex 2.0.1",
 ]
 
 [[package]]
@@ -1689,9 +1689,9 @@ dependencies = [
 
 [[package]]
 name = "find-msvc-tools"
-version = "0.1.9"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
+checksum = "d45db016d36b838f563236e9193d0ee6ce38f3f68b6c94e914b4929c96bbb890"
 
 [[package]]
 name = "find_cuda_helper"
@@ -3365,9 +3365,9 @@ checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "llama-cpp-2"
-version = "0.1.136"
+version = "0.1.154"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a6347a802381f3953cd871d42572463a11b888ca2878065390d12f3339025e88"
+checksum = "4397360a0bd81be29929a55ad2f49eba27a744a6578f3271894d6f41d86bd15b"
 dependencies = [
  "encoding_rs",
  "enumflags2",
@@ -3379,9 +3379,9 @@ dependencies = [
 
 [[package]]
 name = "llama-cpp-sys-2"
-version = "0.1.136"
+version = "0.1.154"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8536707545e27a8a889cb089fd5064a3a22fe0b7b9a71b23bf91e84b1a7a90d"
+checksum = "13a9ea2ce0cdc20bcb1870534022e340b391663f8fe09133951e2fe37fbc29cf"
 dependencies = [
  "bindgen",
  "cc",
@@ -5740,6 +5740,12 @@ name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+
+[[package]]
+name = "shlex"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "signal-hook-registry"
